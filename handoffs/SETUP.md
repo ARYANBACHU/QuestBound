@@ -57,10 +57,10 @@ prompt with the round number.
 ## 6. Run on your phone (anyone, local laptop)
 ```bash
 git checkout main && git pull && npm install
-npm run mock     # no backend, fixtures only (EXPO_PUBLIC_USE_MOCKS=1)
-npm run dev      # real Supabase (set EXPO_PUBLIC_USE_MOCKS=0 in .env)
+npm run mock     # no backend, fixtures only (EXPO_PUBLIC_USE_MOCKS=1) — expo start --tunnel ngrok
+npm run dev      # real Supabase (set EXPO_PUBLIC_USE_MOCKS=0 in .env) — expo start --tunnel ngrok
 ```
-Install **Expo Go** from the App Store / Play Store, scan the QR. `--tunnel` works across hackathon Wi-Fi.
+Install **Expo Go** from the App Store / Play Store, scan the QR. Both scripts use `--tunnel ngrok` (via the `@expo/ngrok` devDependency), which works across hackathon Wi-Fi with no Expo login. Plain `--tunnel` now requires `npx expo login`.
 To test your own branch: `git checkout feat/<yours> && git pull`.
 
 ## 7. Team roles
