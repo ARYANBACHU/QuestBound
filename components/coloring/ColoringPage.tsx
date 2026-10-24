@@ -1,7 +1,8 @@
 // Owner: AD. THE coloring page: every region is a mission; completing it fills the region with crayon color.
+'use no memo'; // mock store mutates rows in place; opt out of React Compiler auto-memo so updates always render
 // <ColoringPage templateId missions members onRegionPress highlightRegionId? interactive? locked? width? />
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, Line, Path, Pattern, Rect } from 'react-native-svg';
 import Animated, { Easing, useAnimatedProps, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -18,7 +19,8 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 export const FILL_MS = 900;
 const SPARKLE_MS = 500;
 const STRIPE = 12; // teammate stripe width in viewBox units (~4 px on a phone)
-const GLYPH = 60; // type glyph size in viewBox units
+const GLYPH = 60;
+const NATIVE = Platform.OS !== 'web'; // type glyph size in viewBox units
 
 export interface ColoringPageProps {
   templateId: TemplateId;
@@ -137,10 +139,9 @@ function ColoringPageImpl({
                 stroke={ink.ink}
                 strokeWidth={INK_STROKE}
                 strokeLinejoin="round"
-                accessible={tappable}
-                accessibilityLabel={label}
-                onPressIn={tappable ? () => setPressed(r) : undefined}
-                onPressOut={tappable ? () => setPressed(null) : undefined}
+                {...(NATIVE && tappable
+                  ? { accessible: true, accessibilityLabel: label, onPressIn: () => setPressed(r), onPressOut: () => setPressed(null) }
+                  : { 'aria-label': label })}
                 onPress={tappable ? () => onRegionPress!(m!.id, r) : undefined}
               />
             </G>
