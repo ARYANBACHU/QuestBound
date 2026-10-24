@@ -25,8 +25,13 @@
 - Task 4: Missions dashboard (header, 6-segment page progress in completers' crayons, points leaderboard,
   filters, Whole fellowship / Pairs / Solo sections, collapsed locked chapters), `MissionCard`, `StatusPill`.
 
+- Task 5: mission detail (`app/mission/[id].tsx`): place card + Open in Maps, riddle, proof UI per proof_type,
+  participant picker (gathering allows required−1 when fellowship ≥ 4, mirroring EV's rule), gift give/seal,
+  photo upload cached across retries, Magic Mirror while verifying, "The Mirror sees: …" Lens titles, wax seal +
+  typewriter story_line, Chapter complete banner → auto-navigates to coloring after ~3 s.
+
 ## In progress / next
-- Task 5 mission detail + proof.
+- Task 6 settings.
 
 ## Known bugs
 - none yet
