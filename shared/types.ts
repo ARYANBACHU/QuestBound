@@ -177,11 +177,23 @@ export interface BookRecap {
   highlights: string[]; // 3-5 best moments
   per_member: { user_id: UUID; title: string; contribution: string }[]; // "Aria the Bold"
   next_book_hint: string; // teaser for the sequel
+  serp?: SerpStats;
 }
 
 // ---------- edge function API ----------
-export interface GenerateStorylineRequest { fellowship_id: UUID; mode: 'first' | 'sequel' }
-export interface GenerateStorylineResponse { storyline_id: UUID }
+export interface GenerateStorylineRequest {
+  fellowship_id: UUID;
+  mode: 'first' | 'sequel';
+  demo?: boolean; // instant handcrafted book (no LLM) for the judging table
+  prewarm?: boolean; // only fill the SerpApi cache; writes nothing, returns { prewarmed, places_count, serp }
+}
+export interface SerpStats { live: number; cached: number; stale: number; failed: number }
+export interface GenerateStorylineResponse {
+  storyline_id: UUID;
+  reused?: boolean; // a book was already active (mode 'first') or being written — same id returned
+  serp?: SerpStats;
+  adaptation?: { note: string; loved_types: string[]; skipped_types: string[]; callbacks: string[] } | null;
+}
 
 export interface SubmitProofRequest {
   mission_id: UUID;
@@ -209,3 +221,13 @@ export interface WizardChatRequest {
   messages: { role: 'user' | 'assistant'; content: string }[];
 }
 export interface WizardChatResponse { reply: string; actions: WizardAction[] }
+
+// ---------- reactions (0002_round1.sql) ----------
+export interface MessageReaction {
+  id: UUID;
+  message_id: UUID;
+  fellowship_id: UUID; // filled from the message by a trigger; used for realtime filters
+  user_id: UUID;
+  emoji: string;
+  created_at: string;
+}
