@@ -36,7 +36,7 @@ Format:
 - Why: Friends tab / member list updates live when a friend changes their crest, color or name (onboarding
   happens right after joining, so B shows up as "Wanderer 🦉" on A's phone until a refresh otherwise).
   `lib/fellowship.ts` already subscribes; it's a no-op until this lands.
-- Status: ✅ applied in round 1 as `supabase/migrations/0002_round1.sql` (deployed to the project).
+- Status: ✅ applied in round 1 as `supabase/migrations/0002_round1.sql` (applied to project jhqkjfhtekermlbnqtxe in round 1).
 
 ## [MP] `message_reactions` table (reactions on proclamations + messages)
 - What: new migration `supabase/migrations/0003_mp_reactions.sql`:
@@ -90,7 +90,7 @@ Format:
   Also: missions for p-2/p-3 so later chapters have regions to tap after the page turn.
 - Why: Storybook tale entries + montage. AD already lends stock photos in mock mode when MEMORIES is empty
   (`components/storybook/bookData.ts#withDemoMemories`), so this is polish, not a blocker.
-- Status: ➡️ EV-owned (`fixtures/**`, `lib/mockStore.ts`) — EV to pick up; not a merge-agent change.
+- Status: ✅ done by EV on feat/engine (3 photo memories, chapters 2–3 missions, recap) — on main since round 1. Verified: Chapter II shows its regions in mock mode.
 
 ## [AD] lib/game.ts: `usePages(storylineId)` (+ missions) for older books
 - What: `export function usePages(storylineId: string | null): { pages: Page[]; loading: boolean }` (ordered by chapter_number).
