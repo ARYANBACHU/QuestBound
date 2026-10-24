@@ -1,53 +1,59 @@
 // Owner: EV (wizardChat request shape agreed with AB). Write-side calls -> Supabase Edge Functions.
-// CONTRACT: keep these export names/signatures. Mock versions simulate success so UI can be built now.
+// CONTRACT: keep these export names/signatures. Mock versions behave like the real engine so UI can be built now.
+//
+// Behaviour both modes share (build UI against this):
+// - A failed verification is NOT a thrown error: submitProof resolves with verdict.pass=false + Muse's flavor_text.
+//   Thrown errors mean auth/network/server trouble; their message is readable ("Muse dropped the quill…").
+// - Gift missions are a handshake: the giver's submit (confirm_for = recipient) resolves with verdict.pass=true,
+//   verdict.reason='gift_pending', mission.status='pending'. The region colors when the recipient submits with
+//   confirm_for = giver. (Mock mode auto-confirms as the recipient after ~3 s so you can watch it happen.)
+// - Mock only: proof_text 'dev' passes any mission (for dev buttons).
+// - Photo verdicts may carry verdict.lens_titles (SerpApi Google Lens) → show as "The Mirror sees: …".
 import { USE_MOCKS } from './env';
 import { supabase } from './supabase';
-import { mock, emitMock } from './mockStore';
+import { addBook, addMemory, addMessage, advanceIfPageDone, emitMock, mock, patchMission } from './mockStore';
 import { ME } from '@/fixtures/demo';
 import type {
-  GenerateStorylineRequest, GenerateStorylineResponse, SubmitProofRequest, SubmitProofResponse,
-  WizardChatRequest, WizardChatResponse,
+  GenerateStorylineRequest, GenerateStorylineResponse, Mission, Page, Storyline, SubmitProofRequest, SubmitProofResponse,
+  Verdict, WizardChatRequest, WizardChatResponse,
 } from '@/shared/types';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Calls an edge function with the user's JWT. Throws Error(<server's `error` text>) on failure. */
 async function invoke<T>(fn: string, body: object): Promise<T> {
   const { data, error } = await supabase.functions.invoke(fn, { body: body as Record<string, unknown> });
-  if (error) throw new Error(`${fn}: ${error.message}`);
+  if (error) {
+    let message = error.message;
+    // FunctionsHttpError carries the Response: surface the server's friendly { error } text.
+    const ctx = (error as { context?: unknown }).context;
+    if (ctx && typeof (ctx as Response).json === 'function') {
+      try {
+        const j = await (ctx as Response).clone().json();
+        if (j?.error) message = String(j.error);
+      } catch {
+        /* not JSON */
+      }
+    } else if (/Failed to send|fetch/i.test(message)) {
+      message = "Can't reach Muse right now. Check your connection and try again.";
+    }
+    throw new Error(message);
+  }
   return data as T;
 }
 
-export async function generateStoryline(req: GenerateStorylineRequest): Promise<GenerateStorylineResponse> {
-  if (USE_MOCKS) { await wait(2500); return { storyline_id: mock.storyline.id }; }
+/** Summon a book. `demo: true` = instant handcrafted book (no LLM) for the judging table. */
+export async function generateStoryline(req: GenerateStorylineRequest & { demo?: boolean }): Promise<GenerateStorylineResponse> {
+  if (USE_MOCKS) {
+    await wait(req.demo ? 600 : 2500);
+    if (req.mode === 'sequel') return { storyline_id: mockSequel() };
+    return { storyline_id: mock.storyline.id };
+  }
   return invoke('generate-storyline', req);
 }
 
 export async function submitProof(req: SubmitProofRequest): Promise<SubmitProofResponse> {
-  if (USE_MOCKS) {
-    await wait(1800);
-    const mission = mock.missions.find((m) => m.id === req.mission_id)!;
-    const me = mock.profiles.find((p) => p.id === ME)!;
-    Object.assign(mission, {
-      status: 'complete', completed_by: req.participant_ids, completed_at: new Date().toISOString(),
-      story_line: `${me.display_name} the ${me.crest} completed "${mission.title}", and the page drank in the color.`,
-    });
-    mock.messages.push({ id: `msg-${Date.now()}`, fellowship_id: mission.fellowship_id, user_id: null, kind: 'proclamation',
-      body: `Hear ye! ${me.display_name} completed "${mission.title}"!`,
-      payload: { event: 'mission_complete', mission_id: mission.id, region_id: mission.region_id, color: me.color, user_id: ME },
-      created_at: new Date().toISOString() });
-    const page = mock.pages.find((p) => p.id === mission.page_id)!;
-    const pageDone = mock.missions.filter((m) => m.page_id === page.id).every((m) => m.status === 'complete');
-    if (pageDone) {
-      page.status = 'complete';
-      const next = mock.pages.find((p) => p.chapter_number === page.chapter_number + 1);
-      if (next) next.status = 'active';
-    }
-    emitMock();
-    return {
-      verdict: { pass: true, confidence: 0.92, reason: 'mock', flavor_text: 'The Magic Mirror nods. Your proof is true!' },
-      mission, completion: null, page_completed: pageDone, book_completed: false,
-    };
-  }
+  if (USE_MOCKS) return mockSubmit(req);
   return invoke('submit-proof', req);
 }
 
@@ -59,9 +65,153 @@ export async function wizardChat(req: WizardChatRequest): Promise<WizardChatResp
   return invoke('wizard-chat', req);
 }
 
-/** Upload a local photo (file:// uri from expo-image-picker) to bucket 'proofs'; returns PUBLIC url (needed by SerpApi Lens). */
+/** Round 2: Muse swaps one OPEN mission for a fresh one on the same region. Throws a readable Error if it can't. */
+export interface RerollMissionResponse { mission: Mission; source: 'llm' | 'fallback' }
+export async function rerollMission(missionId: string, reason?: string): Promise<RerollMissionResponse> {
+  if (USE_MOCKS) {
+    await wait(1200);
+    const m = mock.missions.find((x) => x.id === missionId);
+    if (!m) throw new Error('That mission has vanished from the book. Pull to refresh.');
+    if (m.status !== 'open') throw new Error(m.status === 'complete' ? 'That region is already colored!' : 'That chapter is still sealed.');
+    const alt = MOCK_REROLLS[m.type] ?? MOCK_REROLLS.relic;
+    const next = patchMission(m.id, { ...alt, title: m.title === alt.title ? `${alt.title} II` : alt.title, place: null, trial_question: null })!;
+    addMessage({ fellowship_id: m.fellowship_id, user_id: null, kind: 'wizard', body: `Muse rewrote a quest. "${m.title}" became "${next.title}".`, payload: null });
+    emitMock();
+    return { mission: next, source: 'fallback' };
+  }
+  return invoke('reroll-mission', { mission_id: missionId, ...(reason ? { reason } : {}) });
+}
+
+const MOCK_REROLLS: Record<string, Pick<Mission, 'title' | 'description' | 'story_hook' | 'type' | 'proof_type' | 'verification_hint'>> = {
+  gathering: { title: 'The Round Table', description: 'Everyone meets and plays one game together, any game. Take a group photo mid-game.', story_hook: 'Even kings settle things over a good game.', type: 'gathering', proof_type: 'group_photo', verification_hint: 'Group photo of people playing a game.' },
+  duet: { title: 'Mirror Match', description: 'Two of you strike the exact same pose somewhere fun and take one photo of it.', story_hook: 'Twin knights confuse any dragon.', type: 'duet', proof_type: 'photo', verification_hint: 'Two people in matching poses.' },
+  gift: { title: 'A Note in the Satchel', description: 'Write a short kind note for another member and give it to them in person. They confirm when they read it.', story_hook: 'Some magic is just ink and honesty.', type: 'gift', proof_type: 'confirm', verification_hint: 'The recipient confirms.' },
+  trial: { title: 'The Sky Today', description: 'Photograph the sky right now, wherever you are.', story_hook: 'The sky keeps a diary of every quest.', type: 'relic', proof_type: 'photo', verification_hint: 'Photo of the sky.' },
+  relic: { title: 'The Colored Relic', description: 'Photograph something in the wild that matches your crayon color exactly.', story_hook: 'Your color is hiding everywhere.', type: 'relic', proof_type: 'photo', verification_hint: 'An object in the player\'s color.' },
+  bard: { title: 'Tavern Review', description: 'Write a three-sentence fairy-tale review of the last place you ate.', story_hook: 'Every inn deserves a ballad.', type: 'bard', proof_type: 'text', verification_hint: 'A short playful review.' },
+};
+
+/**
+ * Upload a local photo (file:// uri from expo-image-picker) to bucket 'proofs'; returns PUBLIC url (needed by SerpApi Lens).
+ * Tip: pick with `quality: 0.6` so uploads stay small on hackathon Wi-Fi.
+ */
 export async function uploadProof(localUri: string, fellowshipId: string): Promise<string> {
   if (USE_MOCKS) { await wait(600); return localUri; }
-  // TODO(EV): real upload — see handoffs/EV.md §5
-  throw new Error('uploadProof not implemented');
+  const ext = (localUri.split('?')[0].match(/\.(\w{3,4})$/)?.[1] ?? 'jpg').toLowerCase();
+  const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'heic' ? 'image/heic' : 'image/jpeg';
+  const res = await fetch(localUri);
+  const buf = await res.arrayBuffer();
+  const path = `${fellowshipId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext === 'jpeg' ? 'jpg' : ext}`;
+  const { error } = await supabase.storage.from('proofs').upload(path, buf, { contentType, upsert: false });
+  if (error) throw new Error(`The Magic Mirror couldn't receive your photo (${error.message}). Try again.`);
+  return supabase.storage.from('proofs').getPublicUrl(path).data.publicUrl;
+}
+
+// ---------------------------------------------------------------- mock engine
+
+const MOCK_LENS = ['Full moon over the Austin skyline', 'Lamar pedestrian bridge at dusk', 'Friends raising coffee cups'];
+
+function respond(verdict: Verdict, mission: Mission, extra: Partial<SubmitProofResponse> = {}): SubmitProofResponse {
+  return { verdict, mission, completion: null, page_completed: false, book_completed: false, ...extra };
+}
+
+async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse> {
+  await wait(1800);
+  const mission = mock.missions.find((m) => m.id === req.mission_id);
+  if (!mission) throw new Error('That mission has vanished from the book. Pull to refresh.');
+  const nope = (flavor_text: string, reason: string) => respond({ pass: false, confidence: 1, reason, flavor_text }, mission);
+  if (mission.status === 'complete') return nope('This region is already colored! Pick another glowing spot on the page.', 'already_complete');
+  if (mission.status === 'locked') return nope('This chapter is still sealed. Finish the current page to turn to it.', 'locked');
+
+  const me = mock.profiles.find((p) => p.id === ME)!;
+  const name = (id: string) => mock.profiles.find((p) => p.id === id)?.display_name ?? 'a friend';
+  const participants = [...new Set([ME, ...req.participant_ids])];
+
+  // gift handshake
+  if (mission.proof_type === 'confirm') {
+    if (mission.status === 'pending') return nope('This gift is waiting on its recipient’s seal.', 'pending');
+    const recipient = req.confirm_for ?? participants.find((p) => p !== ME);
+    if (!recipient || recipient === ME) return nope('A gift needs a recipient! Choose which friend you surprised.', 'no_recipient');
+    const pending = patchMission(mission.id, { status: 'pending' })!;
+    addMessage({ fellowship_id: mission.fellowship_id, user_id: null, kind: 'system', body: `${me.display_name} sent a gift to ${name(recipient)}! Awaiting their seal.`, payload: null });
+    emitMock();
+    setTimeout(() => { // the recipient "confirms" on their phone
+      complete(mission, [ME, recipient], `${me.display_name} the ${me.crest} surprised ${name(recipient)} with a gift, and the banner glowed with it.`);
+      emitMock();
+    }, 3000);
+    return respond({ pass: true, confidence: 1, reason: 'gift_pending', flavor_text: `Your gift is on its way! The region colors the moment ${name(recipient)} adds their seal.` }, pending);
+  }
+
+  // headcount (same rule as the server: capped at fellowship size, gatherings forgive one absentee in groups of 4+)
+  const size = mock.members.length;
+  let need = Math.min(mission.required_members, size);
+  if (mission.type === 'gathering' && size >= 4) need -= 1;
+  if (participants.length < Math.max(1, need)) {
+    return nope(`This one needs ${need} heroes. Tap the crests of the friends who did it with you (${participants.length}/${need}).`, 'not_enough_members');
+  }
+
+  let verdict: Verdict;
+  if (req.proof_text === 'dev') {
+    // Mock-only escape hatch for dev buttons: always passes, whatever the proof type.
+    verdict = { pass: true, confidence: 1, reason: 'dev', flavor_text: 'The Magic Mirror nods. Your proof is true!', lens_titles: mission.proof_type.includes('photo') ? MOCK_LENS : undefined };
+  } else if (mission.proof_type === 'answer') {
+    const given = (req.proof_text ?? '').trim();
+    if (!given) return nope('The riddle waits for an answer. Type your best guess!', 'empty');
+    // Fixture riddle (m-5) is the UT Tower; other mock riddles accept anything 3+ letters.
+    const ok = mission.id === 'm-5' ? /tower/i.test(given) : given.length >= 3;
+    if (!ok) return nope(`"${given.slice(0, 40)}"? The lock doesn't budge. Hint: it glows orange after victories.`, 'mismatch');
+    verdict = { pass: true, confidence: 1, reason: 'exact', flavor_text: 'Correct! The lock clicks open.' };
+  } else if (mission.proof_type === 'photo' || mission.proof_type === 'group_photo') {
+    if (!req.proof_url) return nope('The Magic Mirror needs a photo! Snap one and try again.', 'no_photo');
+    verdict = { pass: true, confidence: 0.92, reason: 'mock', flavor_text: 'The Magic Mirror nods. Your proof is true!', lens_titles: MOCK_LENS };
+  } else {
+    if (!req.proof_text?.trim()) return nope('The page is blank! Write a few words and try again.', 'no_text');
+    verdict = { pass: true, confidence: 0.8, reason: 'mock', flavor_text: 'The ink accepts your words. Beautifully put!' };
+  }
+
+  const heroes = participants.map((id) => mock.profiles.find((p) => p.id === id)).filter(Boolean).map((p) => `${p!.display_name} the ${p!.crest}`);
+  const who = heroes.length > 1 ? `${heroes.slice(0, -1).join(', ')} and ${heroes[heroes.length - 1]}` : heroes[0];
+  const line = `${who} completed "${mission.title}"${mission.place ? ` at ${mission.place.title}` : ''}, and the page drank in the color.`;
+  if (req.proof_url) {
+    addMemory({ fellowship_id: mission.fellowship_id, storyline_id: mission.storyline_id, page_id: mission.page_id, mission_id: mission.id, user_id: ME, image_url: req.proof_url, caption: line, kind: 'photo' });
+  }
+  const { done, pageCompleted, bookCompleted } = complete(mission, participants, line);
+  emitMock();
+  return respond(verdict, done, {
+    page_completed: pageCompleted, book_completed: bookCompleted,
+    completion: { id: `c-${Date.now()}`, mission_id: mission.id, user_id: ME, participant_ids: participants, proof_url: req.proof_url ?? null, proof_text: req.proof_text ?? null, verdict, story_line: line, created_at: new Date().toISOString() },
+  });
+}
+
+function complete(mission: Mission, credited: string[], line: string) {
+  const painter = mock.profiles.find((p) => p.id === credited[0]) ?? mock.profiles[0];
+  const done = patchMission(mission.id, { status: 'complete', completed_by: credited, completed_at: new Date().toISOString(), story_line: line })!;
+  addMessage({ fellowship_id: mission.fellowship_id, user_id: null, kind: 'proclamation', body: `Hear ye! ${line}`,
+    payload: { event: 'mission_complete', mission_id: mission.id, region_id: mission.region_id, color: painter.color, user_id: painter.id } });
+  const { pageCompleted, bookCompleted } = advanceIfPageDone(mission.page_id);
+  return { done, pageCompleted, bookCompleted };
+}
+
+/** Mock sequel: a fresh copy of the current book's pages/missions, all reset, as Book N+1. */
+function mockSequel(): string {
+  const prev = mock.storyline;
+  const n = prev.book_number + 1;
+  const sid = `s-${n}`;
+  const book: Storyline = { ...prev, id: sid, book_number: n, status: 'active', recap: null, created_at: new Date().toISOString(),
+    title: 'The Clockwork Owl of Austin',
+    synopsis: 'A clockwork owl is stealing the songs of Austin, one by one. The fellowship that once lit the lanterns must win the music back.' };
+  const prevPages = mock.pages.filter((p) => p.storyline_id === prev.id).sort((a, b) => a.chapter_number - b.chapter_number);
+  const pages: Page[] = prevPages.map((p, i) => ({ ...p, id: `${sid}-p${i + 1}`, storyline_id: sid, status: i === 0 ? 'active' : 'locked', illustration_url: null, completed_at: null }));
+  const pageId = new Map(prevPages.map((p, i) => [p.id, pages[i].id]));
+  const missions: Mission[] = mock.missions.filter((m) => m.storyline_id === prev.id).map((m) => {
+    const pid = pageId.get(m.page_id)!;
+    return { ...m, id: `${sid}-${m.id}`, page_id: pid, storyline_id: sid, status: pid === pages[0].id ? 'open' : 'locked', completed_by: [], completed_at: null, story_line: null };
+  });
+  if (prev.status !== 'complete') mock.books = mock.books.map((b) => (b.id === prev.id ? { ...b, status: 'complete' } : b));
+  addBook(book, pages, missions);
+  addMessage({ fellowship_id: mock.fellowship.id, user_id: null, kind: 'proclamation',
+    body: `Hear ye! Muse has written a new tale: "${book.title}". Chapter I: ${pages[0]?.title ?? ''} awaits. Muse noticed you love Duets and Riddles, so this book has more of them.`,
+    payload: { event: 'storyline_ready', storyline_id: sid } });
+  emitMock();
+  return sid;
 }
