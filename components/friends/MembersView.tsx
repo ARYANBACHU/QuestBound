@@ -2,8 +2,7 @@
 import { useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CRESTS, INTERESTS, fonts, ink, radius, space, type, type CrestId } from '@/shared/theme';
-import type { FellowshipMember } from '@/shared/types';
-import { useMissions, useStoryline } from '@/lib/game';
+import type { FellowshipMember, Mission } from '@/shared/types';
 import Crest from './Crest';
 import { crayonHex } from './color';
 
@@ -14,16 +13,16 @@ function cap(s: string) {
 }
 
 export interface MembersViewProps {
-  fellowshipId: string | null;
   members: FellowshipMember[];
+  /** Missions of the current book (for "N missions colored"). */
+  missions: Mission[];
   online: Set<string>;
   myId: string | null;
   onInvite: () => void;
+  onOpenMember: (userId: string) => void;
 }
 
-export default function MembersView({ fellowshipId, members, online, myId, onInvite }: MembersViewProps) {
-  const { storyline } = useStoryline(fellowshipId);
-  const { missions } = useMissions(storyline?.id ?? null);
+export default function MembersView({ members, missions, online, myId, onInvite, onOpenMember }: MembersViewProps) {
   const stats = useMemo(() => {
     const out: Record<string, { count: number; points: number }> = {};
     missions
@@ -63,7 +62,12 @@ export default function MembersView({ fellowshipId, members, online, myId, onInv
         const s = stats[item.user_id];
         const isMe = item.user_id === myId;
         return (
-          <View style={styles.card}>
+          <Pressable
+            onPress={() => onOpenMember(item.user_id)}
+            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${p?.display_name ?? 'member'}`}
+          >
             <Crest crest={p?.crest} color={p?.color} size={64} online={online.has(item.user_id)} />
             <View style={styles.info}>
               <View style={styles.nameRow}>
@@ -103,7 +107,7 @@ export default function MembersView({ fellowshipId, members, online, myId, onInv
                 </View>
               ) : null}
             </View>
-          </View>
+          </Pressable>
         );
       }}
       ListFooterComponent={
@@ -127,6 +131,7 @@ const styles = StyleSheet.create({
     borderColor: ink.ink,
     borderRadius: radius.lg,
   },
+  cardPressed: { transform: [{ scale: 0.985 }], backgroundColor: ink.lavenderMist },
   info: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   name: { fontFamily: fonts.display, fontSize: type.heading, color: ink.ink, flexShrink: 1 },

@@ -73,9 +73,11 @@ export interface ChatViewProps {
   members: FellowshipMember[];
   myId: string | null;
   onShowFellowship?: () => void;
+  /** Tap a friend's crest → their profile sheet. */
+  onOpenMember?: (userId: string) => void;
 }
 
-export default function ChatView({ chat, members, myId, onShowFellowship }: ChatViewProps) {
+export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember }: ChatViewProps) {
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
   // Proclamations that arrive after the chat opened get the seal-stamp animation.
   const openedAt = useRef(new Date().toISOString()).current;
@@ -140,7 +142,7 @@ export default function ChatView({ chat, members, myId, onShowFellowship }: Chat
         return m.user_id && m.user_id === myId ? (
           <MyBubble m={m} chat={chat} members={members} last={last} onLongPress={() => openPicker(m.id)} />
         ) : (
-          <TheirBubble m={m} members={members} first={first} last={last} onLongPress={() => openPicker(m.id)} />
+          <TheirBubble m={m} members={members} first={first} last={last} onLongPress={() => openPicker(m.id)} onOpenMember={onOpenMember} />
         );
     }
   };
@@ -257,11 +259,31 @@ function MyBubble({ m, chat, members, last, onLongPress }: { m: ChatMessage; cha
 
 const AVATAR = 32;
 
-function TheirBubble({ m, members, first, last, onLongPress }: { m: ChatMessage; members: FellowshipMember[]; first: boolean; last: boolean; onLongPress: () => void }) {
+function TheirBubble({
+  m,
+  members,
+  first,
+  last,
+  onLongPress,
+  onOpenMember,
+}: {
+  m: ChatMessage;
+  members: FellowshipMember[];
+  first: boolean;
+  last: boolean;
+  onLongPress: () => void;
+  onOpenMember?: (userId: string) => void;
+}) {
   const p = profileOf(members, m.user_id);
   return (
     <View style={[styles.rowTheirs, last && styles.runEnd]}>
-      <View style={styles.avatarCol}>{first ? <Crest crest={p?.crest} color={p?.color} size={AVATAR} /> : null}</View>
+      <View style={styles.avatarCol}>
+        {first ? (
+          <Pressable onPress={() => m.user_id && onOpenMember?.(m.user_id)} hitSlop={6} accessibilityLabel={`Open ${p?.display_name ?? 'member'}`}>
+            <Crest crest={p?.crest} color={p?.color} size={AVATAR} />
+          </Pressable>
+        ) : null}
+      </View>
       <View style={styles.theirsCol}>
         {first ? <Text style={styles.name}>{p ? heroName(p) : 'A wanderer'}</Text> : null}
         <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.bubble, styles.theirs]}>

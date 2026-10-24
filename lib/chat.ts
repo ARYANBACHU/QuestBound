@@ -36,6 +36,8 @@ export interface ChatState {
   reactions: Reactions;
   /** Add my reaction, or remove it if I already left that emoji. */
   toggleReaction: (messageId: string, emoji: ReactionEmoji) => Promise<void>;
+  /** Post a small centered system line as me (joins, nudges). */
+  sendSystem: (body: string) => Promise<void>;
 }
 
 export const REACTIONS = ['👑', '🔥', '😂', '❤️', '🎉'] as const;
@@ -374,6 +376,17 @@ async function sendReal(fellowshipId: string, raw: string) {
   await insertText(room, tempId, body);
 }
 
+async function sendSystemReal(fellowshipId: string, body: string) {
+  const uid = await sessionStore.ensureSignedIn();
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({ fellowship_id: fellowshipId, user_id: uid, kind: 'system', body, payload: null })
+    .select('*')
+    .single();
+  if (error) throw new Error(`Muse's raven got lost: ${error.message}. Try again.`);
+  merge(getRoom(fellowshipId), [data as Message]);
+}
+
 async function retryReal(fellowshipId: string, tempId: string) {
   const room = getRoom(fellowshipId);
   const m = room.snap.messages.find((x) => x.id === tempId);
@@ -414,6 +427,13 @@ function useMockChat(fellowshipId: string | null): ChatState {
   );
   const noop = useCallback(() => {}, []);
   const retry = useCallback(async () => {}, []);
+  const sendSystem = useCallback(
+    async (body: string) => {
+      mock.messages.push({ id: `msg-${Date.now()}`, fellowship_id: fellowshipId ?? '', user_id: ME, kind: 'system', body, payload: null, created_at: new Date().toISOString() });
+      emitMock();
+    },
+    [fellowshipId],
+  );
   const toggleReaction = useCallback(async (messageId: string, emoji: ReactionEmoji) => {
     const had = (mockReactions[messageId]?.[emoji] ?? []).includes(ME);
     mockReactions = applyReaction(mockReactions, messageId, emoji, ME, !had);
@@ -431,6 +451,7 @@ function useMockChat(fellowshipId: string | null): ChatState {
     error: null,
     reactions: mockReactions,
     toggleReaction,
+    sendSystem,
   };
 }
 let mockReactions: Reactions = { 'msg-4': { '👑': ['u-cleo'], '🔥': ['u-dax', 'u-bram'] }, 'msg-5': { '😂': ['u-bram'] } };
@@ -448,7 +469,8 @@ function useRealChat(fellowshipId: string | null): ChatState {
     (messageId: string, emoji: ReactionEmoji) => (fellowshipId ? toggleReactionReal(fellowshipId, messageId, emoji) : Promise.resolve()),
     [fellowshipId],
   );
-  return { ...s, send, retry, toggleReaction, discard: discard as (id: string) => void, notifyTyping: notifyTyping as () => void };
+  const sendSystem = useCallback((body: string) => (fellowshipId ? sendSystemReal(fellowshipId, body) : Promise.resolve()), [fellowshipId]);
+  return { ...s, send, retry, toggleReaction, sendSystem, discard: discard as (id: string) => void, notifyTyping: notifyTyping as () => void };
 }
 
 // USE_MOCKS is a build-time constant, so the hook order never changes between renders.

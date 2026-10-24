@@ -7,9 +7,11 @@ import { fonts, ink, radius, space, type } from '@/shared/theme';
 import { useSession } from '@/lib/session';
 import { useFellowship } from '@/lib/fellowship';
 import { useChat } from '@/lib/chat';
+import { useMissions, useStoryline } from '@/lib/game';
 import ChatView from '@/components/friends/ChatView';
 import FellowshipHeader from '@/components/friends/FellowshipHeader';
 import InviteSheet from '@/components/friends/InviteSheet';
+import MemberSheet from '@/components/friends/MemberSheet';
 import MembersView from '@/components/friends/MembersView';
 import SegmentControl from '@/components/friends/SegmentControl';
 
@@ -26,6 +28,9 @@ export default function FriendsScreen() {
   const chat = useChat(fellowship?.id ?? null);
   const [segment, setSegment] = useState<Segment>('chat');
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [openMemberId, setOpenMemberId] = useState<string | null>(null);
+  const { storyline, pages } = useStoryline(fellowship?.id ?? null);
+  const { missions } = useMissions(storyline?.id ?? null);
 
   if (loading && !fellowship) {
     return (
@@ -64,12 +69,37 @@ export default function FriendsScreen() {
       <SegmentControl options={SEGMENTS} value={segment} onChange={setSegment} />
       <View style={styles.body}>
         {segment === 'chat' ? (
-          <ChatView chat={chat} members={members} myId={userId} onShowFellowship={() => setSegment('fellowship')} />
+          <ChatView
+            chat={chat}
+            members={members}
+            myId={userId}
+            onShowFellowship={() => setSegment('fellowship')}
+            onOpenMember={setOpenMemberId}
+          />
         ) : (
-          <MembersView fellowshipId={fellowship.id} members={members} online={chat.online} myId={userId} onInvite={() => setInviteOpen(true)} />
+          <MembersView
+            members={members}
+            missions={missions}
+            online={chat.online}
+            myId={userId}
+            onInvite={() => setInviteOpen(true)}
+            onOpenMember={setOpenMemberId}
+          />
         )}
       </View>
       <InviteSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} fellowship={fellowship} />
+      {openMemberId ? (
+        <MemberSheet
+          member={members.find((m) => m.user_id === openMemberId) ?? null}
+          members={members}
+          myId={userId}
+          online={chat.online}
+          chat={chat}
+          missions={missions}
+          pages={pages}
+          onClose={() => setOpenMemberId(null)}
+        />
+      ) : null}
     </View>
   );
 }
