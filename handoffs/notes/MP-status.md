@@ -24,8 +24,17 @@
 ## Next
 - Task 4 friends tab, Task 5 invites/join
 
-## Components for AB/AD (props)
-_(filled in as they land)_
+## Components for AB/AD (props) — all in `components/friends/`, default exports
+- `Crest` — `<Crest crest={p.crest} color={p.color} size={40} ring? (default true) online? filled? style? />`.
+  Also `crestEmoji(crestId)`.
+- `CrestRow` — `<CrestRow userIds={ids} members={members} size={24} max={5} online?={Set} style? />` (+N chip).
+- `InviteSheet` — `<InviteSheet visible onClose fellowship?={f} title?="Summon your friends" />` (modal; defaults to
+  active fellowship). Named export `InviteCard` `{ fellowship?, qrSize?=200, style? }` = same content inline, for
+  the onboarding "Summon your friends" step. `inviteLink(code)` → `questbound://join/CODE`.
+- `QrScanner` — `<QrScanner onCode={(code) => …} onCancel?={…} onTypeCode?={…} hint?={errorText} />`, full-screen.
+  Fires `onCode` once per mount — after a failed `joinByCode`, re-mount with a new `key` and pass the error as
+  `hint`. Named export `parseInviteCode(data)`.
+- `color.ts` — `crayonHex(color)`, `textOn(color)` (white vs ink text on a crayon), `withAlpha(hex, a)`.
 
 ## Known bugs / notes
 - Supabase dashboard: enable Anonymous sign-ins (Authentication → Providers).
