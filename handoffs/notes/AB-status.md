@@ -22,8 +22,11 @@
 - Local fallbacks for teammates' components live in **`components/shell/teammates.tsx`** (Crest, CrestRow,
   InviteSheet, QrScanner, MissionTypeIcon). Swap to re-exports once MP/AD land on main.
 
+- Task 4: Missions dashboard (header, 6-segment page progress in completers' crayons, points leaderboard,
+  filters, Whole fellowship / Pairs / Solo sections, collapsed locked chapters), `MissionCard`, `StatusPill`.
+
 ## In progress / next
-- Task 4 missions dashboard.
+- Task 5 mission detail + proof.
 
 ## Known bugs
 - none yet
