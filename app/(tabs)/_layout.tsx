@@ -2,6 +2,7 @@
 import { Tabs, usePathname } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ProclamationToast from '@/components/friends/ProclamationToast';
 import { DemoTools } from '@/components/shell/DemoTools';
 import { TAB_BAR_HEIGHT, TabBar } from '@/components/shell/TabBar';
 import { CoachMark } from '@/components/wizard/CoachMark';
@@ -31,6 +32,8 @@ export default function TabsLayout() {
           <Tabs.Screen name="storybook" options={{ title: 'Storybook' }} />
           <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
         </Tabs>
+        {/* MP: friends' progress banner on every tab (hides itself on Friends); keeps chat Presence alive app-wide. */}
+        <ProclamationToast />
         <CoachMark screen={screen} bottom={fabBottom} />
         <WizardFab bottom={fabBottom} />
         <WizardSheet />
