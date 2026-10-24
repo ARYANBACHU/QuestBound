@@ -16,3 +16,12 @@
   A 24-mission single JSON blob would blow the 30 s budget. Each chapter falls back independently.
 - **required_members enforcement is capped at the fellowship size** in submit-proof so a 1–2 person test group can
   still finish pages (stored value still follows the size rule, min 2 for gatherings).
+- **Gift response:** the giver's first submit returns `pass:true, reason:'gift_pending'` (not a failure) with the mission
+  `pending`; the region paints in the giver's crayon when the recipient seals it.
+- **Mock `proof_text: 'dev'`** passes any mission (AD's dev button relies on it). Real server has no such bypass.
+- **Recap** is generated synchronously (≤ remaining budget, fallback otherwise) so `book_completed` responses already have
+  it; illustrations and montage frames are painted in the background (`EdgeRuntime.waitUntil`).
+- **`mode:'first'` is idempotent**: if a book is already active it returns that id (`reused:true`). `demo:true` always
+  writes a fresh instant book and retires the active one. Sequels pick 2 of the first 3 templates (rotating) + royal_feast.
+- **Voice Bard deferred** (WAV-only ASR, see status).
+- **Prewarm** is a flag on generate-storyline instead of a new function: fewer deploys.
