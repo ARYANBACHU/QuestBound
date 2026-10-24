@@ -11,8 +11,13 @@
 - `components/shell/Button.tsx` — `<Button label variant="primary|secondary|ghost|danger" small icon loading />`.
 - `components/shell/ParchmentLoading.tsx` — full-screen loader.
 
+- Task 2: custom `TabBar` (inked SVG icons, crayon squiggle, Friends unread badge), Muse FAB (tap = sheet,
+  long-press = Demo Tools), coach marks once per tab, `WizardSheet` chat client (Task 7 client side).
+  `TAB_CONTENT_BOTTOM_PAD` (from `components/shell/TabBar.tsx`) — pad your tab's scroll content so the FAB
+  doesn't cover it. `useWizard().open('question')` from any tab opens Muse and asks it.
+
 ## In progress / next
-- Task 2 tabs + FAB.
+- Task 3 onboarding.
 
 ## Known bugs
 - none yet
