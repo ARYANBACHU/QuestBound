@@ -1,7 +1,7 @@
 // Owner: AD. Book title → chapter title → narrative (tap to expand) → crayon-stub progress.
 'use no memo'; // mock store mutates rows in place; opt out of React Compiler auto-memo so updates always render
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { TEMPLATES } from '@/shared/templates';
 import { ink, space } from '@/shared/theme';
@@ -26,6 +26,8 @@ export function ChapterHeader({ bookTitle, page, missions, members }: { bookTitl
 
 /** A row of crayon stubs, one per region; filled with the completer's color. */
 export function CrayonProgress({ page, missions, members, compact }: { page: Page; missions: Mission[]; members: FellowshipMember[]; compact?: boolean }) {
+  const { width } = useWindowDimensions();
+  const small = compact || width < 380;
   const regions = TEMPLATES[page.template_id].regions;
   const byRegion = Object.fromEntries(missions.map((m) => [m.region_id, m]));
   const done = regions.filter((r) => byRegion[r.id]?.status === 'complete').length;
@@ -35,10 +37,10 @@ export function CrayonProgress({ page, missions, members, compact }: { page: Pag
         {regions.map((r) => {
           const m = byRegion[r.id];
           const color = m?.status === 'complete' ? crayonHex(missionColors(m, members)[0]) : null;
-          return <CrayonStub key={r.id} color={color} size={compact ? 14 : 18} />;
+          return <CrayonStub key={r.id} color={color} size={small ? 13 : 18} />;
         })}
       </View>
-      <Txt v="smallBold">{done} of {regions.length} colored</Txt>
+      <Txt v="smallBold" numberOfLines={1}>{done} of {regions.length} colored</Txt>
     </View>
   );
 }
