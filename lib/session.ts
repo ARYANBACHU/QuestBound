@@ -35,6 +35,7 @@ let snap: Snapshot = { userId: null, profile: null, loading: true };
 const listeners = new Set<() => void>();
 let started = false;
 let signingIn: Promise<string> | null = null;
+const profileSavedHooks = new Set<(p: Profile) => void>();
 
 function setSnap(patch: Partial<Snapshot>) {
   snap = { ...snap, ...patch };
@@ -133,6 +134,8 @@ async function updateProfileReal(patch: ProfilePatch) {
   }
   if (data && snap.userId === uid) setSnap({ profile: data as Profile });
   else await refreshProfile();
+  const saved = snap.profile;
+  if (saved) profileSavedHooks.forEach((fn) => fn(saved));
 }
 
 /** Non-hook access for other lib modules (fellowship, chat). */
@@ -146,6 +149,11 @@ export const sessionStore = {
   },
   ensureSignedIn: (): Promise<string> => (USE_MOCKS ? Promise.resolve(ME) : ensureSignedInReal()),
   refresh: (): Promise<void> => (USE_MOCKS ? Promise.resolve() : refreshProfile()),
+  /** Called after every successful real `updateProfile` (fellowship uses it to announce a deferred join). */
+  onProfileSaved(fn: (p: Profile) => void): () => void {
+    profileSavedHooks.add(fn);
+    return () => profileSavedHooks.delete(fn);
+  },
 };
 
 // ---------------------------------------------------------------------------------------------------------
