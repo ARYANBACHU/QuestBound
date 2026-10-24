@@ -18,8 +18,15 @@
   Extra return fields on `useChat(id)`: `online: Set<string>`, `typingUserIds`, `notifyTyping()`, `retry(id)`,
   `discard(id)`, `error`. Use `useChat(fellowship.id).online` anywhere you want online dots (shared channel).
 
+- Task 4: Friends tab — header (name, area, CrestRow w/ online dots, Invite), Chat | Fellowship segments,
+  inverted chat with my crayon bubbles, their crest + name on run start, proclamation scroll cards (gold seal,
+  crayon stripe, Fraunces italic, tap → mission/coloring/storybook, seal stamps in when it arrives live),
+  system lines, Muse bubbles, day separators, typing line, failed-send retry. Fellowship view: member cards
+  with crest, crayon, interests, missions colored + points (via `useStoryline`/`useMissions`), founder badge.
+  No-fellowship state routes to `/onboarding?step=fellowship`.
+
 ## In progress
-- Task 4 Friends tab + Crest/CrestRow
+- Task 5 `app/join/[code].tsx`
 
 ## Next
 - Task 4 friends tab, Task 5 invites/join
