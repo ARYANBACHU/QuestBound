@@ -3,7 +3,7 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BudgetPicker, AvailabilityPicker } from '@/components/shell/BudgetTimePicker';
 import { Button } from '@/components/shell/Button';
@@ -12,7 +12,7 @@ import { CrestPicker } from '@/components/shell/CrestPicker';
 import { INTEREST_MAX, INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
 import { QuillDots } from '@/components/shell/QuillDots';
 import { T } from '@/components/shell/T';
-import { InviteSheet, QrScanner, parseInviteCode } from '@/components/shell/teammates';
+import { InviteCard, QrScanner, parseInviteCode } from '@/components/shell/teammates';
 import { MuseBubble } from '@/components/wizard/MuseBubble';
 import { interestQuip } from '@/components/wizard/quips';
 import { SummonRitual } from '@/components/wizard/SummonRitual';
@@ -50,6 +50,7 @@ export default function Onboarding() {
   const [fName, setFName] = useState('');
   const [code, setCode] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [scanKey, setScanKey] = useState(0); // QrScanner fires once per mount; re-key after a failed join
 
   // summon step
   const [summoning, setSummoning] = useState(false);
@@ -114,6 +115,7 @@ export default function Onboarding() {
     const c = parseInviteCode(raw);
     if (!c) { setError('Invite codes are 6 letters or numbers, like LNTRN7.'); return; }
     setScanning(false);
+    setScanKey((k) => k + 1);
     setSaving(true);
     setError(null);
     try {
@@ -256,7 +258,7 @@ export default function Onboarding() {
         body = (
           <View style={{ gap: space.md }}>
             <T variant="heading" center>Summon your friends</T>
-            <InviteSheet code={fs.fellowship.invite_code} name={fs.fellowship.name} />
+            <InviteCard fellowship={fs.fellowship} />
             <T variant="small" center>You can always invite more from the Friends tab.</T>
           </View>
         );
@@ -283,11 +285,7 @@ export default function Onboarding() {
         bubble = 'Show me the invite. Scan your friend’s QR, or type their 6-letter code.';
         body = (
           <View style={{ gap: space.lg }}>
-            {scanning ? (
-              <QrScanner onCode={join} onCancel={() => setScanning(false)} />
-            ) : (
-              <Button label="Scan QR code" icon="📷" variant="secondary" onPress={() => setScanning(true)} />
-            )}
+            <Button label="Scan QR code" icon="📷" variant="secondary" onPress={() => setScanning(true)} />
             <View style={{ gap: space.sm }}>
               <T variant="bodyBold">Or type the code</T>
               <TextInput
@@ -354,6 +352,14 @@ export default function Onboarding() {
           {body}
           {error ? <T variant="small" color={ink.danger} style={{ marginTop: space.lg }}>{error}</T> : null}
         </ScrollView>
+        <Modal visible={scanning} animationType="slide" onRequestClose={() => setScanning(false)}>
+          <QrScanner
+            key={scanKey}
+            onCode={join}
+            onCancel={() => setScanning(false)}
+            onTypeCode={() => setScanning(false)}
+          />
+        </Modal>
         <View style={styles.bottom}>
           {primary ? <Button label={primary.label} onPress={primary.onPress} disabled={primary.disabled} loading={saving} /> : null}
           {secondary ? <Button label={secondary.label} variant="ghost" onPress={secondary.onPress} /> : null}

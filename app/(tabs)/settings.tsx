@@ -173,15 +173,7 @@ export default function SettingsScreen() {
         save={updateProfile}
       />
 
-      <Modal visible={inviteOpen} transparent animationType="slide" onRequestClose={() => setInviteOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setInviteOpen(false)} />
-        <View style={styles.sheet}>
-          <T variant="title" center>Summon your friends</T>
-          <T variant="small" center style={{ marginBottom: space.md }}>They scan this, or type the code during onboarding.</T>
-          {fs.fellowship ? <InviteSheet code={fs.fellowship.invite_code} name={fs.fellowship.name} /> : null}
-          <Button label="Done" variant="ghost" onPress={() => setInviteOpen(false)} style={{ marginTop: space.md }} />
-        </View>
-      </Modal>
+      <InviteSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} fellowship={fs.fellowship} />
     </SafeAreaView>
   );
 }
