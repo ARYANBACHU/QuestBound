@@ -5,7 +5,7 @@
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
-import * as Haptics from 'expo-haptics';
+import { haptic } from './haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, ink, radius, space, type } from '@/shared/theme';
 
@@ -42,7 +42,7 @@ export default function QrScanner({ onCode, onCancel, onTypeCode, hint }: QrScan
       return;
     }
     done.current = true;
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    haptic.success();
     onCode(code);
   };
 

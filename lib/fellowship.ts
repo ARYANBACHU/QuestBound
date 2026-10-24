@@ -341,6 +341,7 @@ export const fellowshipStore = {
 // Hooks
 // ---------------------------------------------------------------------------------------------------------
 function useMockFellowship(): FellowshipState {
+  'use no memo'; // mock store mutates in place; the React Compiler must not cache reads of it
   const [, force] = useState(0);
   useEffect(() => subscribeMock(() => force((n) => n + 1)), []);
   const createFellowship = useCallback(async (name: string) => {
@@ -354,7 +355,9 @@ function useMockFellowship(): FellowshipState {
   }, []);
   const leave = useCallback(async () => {}, []);
   const refresh = useCallback(async () => {}, []);
-  return { fellowship: mock.fellowship, members: mock.members, loading: false, createFellowship, joinByCode, leave, refresh };
+  // Fresh objects each render so memoized consumers see in-place mock mutations.
+  const members = mock.members.map((m) => ({ ...m, profile: mock.profiles.find((p) => p.id === m.user_id) ?? m.profile }));
+  return { fellowship: { ...mock.fellowship }, members, loading: false, createFellowship, joinByCode, leave, refresh };
 }
 
 function useRealFellowship(): FellowshipState {

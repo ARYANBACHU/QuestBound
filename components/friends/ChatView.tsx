@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { haptic } from './haptics';
 import { fonts, ink, radius, space, type } from '@/shared/theme';
 import type { FellowshipMember } from '@/shared/types';
 import type { ChatMessage, ChatState } from '@/lib/chat';
@@ -152,8 +152,8 @@ function Composer({ chat }: { chat: ChatState }) {
     if (!canSend) return;
     const body = text;
     setText('');
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     void chat.send(body);
+    haptic.tap();
   };
   return (
     <View style={styles.composer}>
@@ -191,7 +191,7 @@ function MyBubble({ m, chat, members, last }: { m: ChatMessage; chat: ChatState;
   const failed = m.status === 'failed';
   const onPress = failed
     ? () => {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        haptic.warning();
         Alert.alert('Message not sent', 'Muse could not deliver it. Try again?', [
           { text: 'Delete', style: 'destructive', onPress: () => chat.discard(m.id) },
           { text: 'Retry', onPress: () => void chat.retry(m.id) },

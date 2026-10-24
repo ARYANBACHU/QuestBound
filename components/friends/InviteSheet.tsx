@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, Share, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
+import { haptic } from './haptics';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, ink, radius, space, type } from '@/shared/theme';
@@ -40,7 +40,7 @@ export function InviteCard({ fellowship: given, qrSize = 200, style }: InviteCar
 
   const copy = async () => {
     await Clipboard.setStringAsync(code);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    haptic.success();
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };

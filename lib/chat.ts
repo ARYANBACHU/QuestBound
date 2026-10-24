@@ -301,6 +301,7 @@ function notifyTypingReal(fellowshipId: string) {
 // Hooks
 // ---------------------------------------------------------------------------------------------------------
 function useMockChat(fellowshipId: string | null): ChatState {
+  'use no memo'; // mock store mutates in place; the React Compiler must not cache reads of it
   const [, force] = useState(0);
   useEffect(() => subscribeMock(() => force((n) => n + 1)), []);
   const send = useCallback(

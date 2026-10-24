@@ -160,6 +160,7 @@ export const sessionStore = {
 // Hooks
 // ---------------------------------------------------------------------------------------------------------
 function useMockSession(): SessionState {
+  'use no memo'; // mock store mutates in place; the React Compiler must not cache reads of it
   const [, force] = useState(0);
   useEffect(() => subscribeMock(() => force((n) => n + 1)), []);
 
@@ -173,7 +174,8 @@ function useMockSession(): SessionState {
     emitMock();
   }, []);
   const refresh = useCallback(async () => {}, []);
-  return { userId: ME, profile: mock.profiles.find((p) => p.id === ME) ?? null, loading: false, ensureSignedIn, updateProfile, refresh };
+  const profile = mock.profiles.find((p) => p.id === ME);
+  return { userId: ME, profile: profile ? { ...profile } : null, loading: false, ensureSignedIn, updateProfile, refresh };
 }
 
 function useRealSession(): SessionState {

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { haptic } from '@/components/friends/haptics';
 import { fonts, ink, radius, space, type } from '@/shared/theme';
 import { sessionStore } from '@/lib/session';
 import { normalizeInviteCode, useFellowship } from '@/lib/fellowship';
@@ -36,13 +36,13 @@ export default function JoinScreen() {
         await sessionStore.ensureSignedIn();
         peekName(c).then(setName).catch(() => {});
         await joinByCode(c);
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        haptic.success();
         // The profile may still be loading right after a fresh anonymous sign-in.
         if (!sessionStore.get().profile) await sessionStore.refresh();
         const onboarded = sessionStore.get().profile?.onboarded ?? false;
         router.replace(onboarded ? '/(tabs)/friends' : '/onboarding');
       } catch (e) {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        haptic.warning();
         setError(e instanceof Error ? e.message : 'Muse could not open the gate. Try again.');
         setPhase('error');
       }

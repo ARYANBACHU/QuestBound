@@ -1,5 +1,5 @@
 // Owner: MP. Two-or-more option pill switch (ink outline, ink fill for the selected one).
-import * as Haptics from 'expo-haptics';
+import { haptic } from './haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fonts, ink, radius, space, type } from '@/shared/theme';
 
@@ -21,7 +21,7 @@ export default function SegmentControl<T extends string>({ options, value, onCha
             accessibilityState={{ selected: on }}
             onPress={() => {
               if (on) return;
-              void Haptics.selectionAsync();
+              haptic.select();
               onChange(o.value);
             }}
             style={[styles.seg, on && styles.on]}

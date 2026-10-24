@@ -2,7 +2,7 @@
 // a stripe in the crayon that painted the region, and Muse's line in Fraunces italic. Tap → where it happened.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
+import { haptic } from './haptics';
 import { router } from 'expo-router';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 import { fonts, ink, radius, space, type } from '@/shared/theme';
@@ -74,8 +74,8 @@ export default function ProclamationCard({ message, members, fresh, onShowFellow
       <Pressable
         disabled={!tappable}
         onPress={() => {
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           openProclamation(message, onShowFellowship);
+          haptic.tap();
         }}
         style={({ pressed }) => [styles.card, pressed && styles.pressed]}
         accessibilityRole={tappable ? 'button' : undefined}
