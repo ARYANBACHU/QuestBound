@@ -32,6 +32,36 @@ export interface ChatState {
   /** Drop a failed optimistic message. */
   discard: (tempId: string) => void;
   error: string | null;
+  /** messageId → emoji → user ids who reacted. */
+  reactions: Reactions;
+  /** Add my reaction, or remove it if I already left that emoji. */
+  toggleReaction: (messageId: string, emoji: ReactionEmoji) => Promise<void>;
+}
+
+export const REACTIONS = ['👑', '🔥', '😂', '❤️', '🎉'] as const;
+export type ReactionEmoji = (typeof REACTIONS)[number];
+export type Reactions = Record<string, Partial<Record<ReactionEmoji, string[]>>>;
+
+/** Row in `message_reactions` (proposed in REQUESTS.md; not in shared/types yet). */
+interface ReactionRow {
+  message_id: string;
+  fellowship_id: string;
+  user_id: string;
+  emoji: ReactionEmoji;
+}
+
+function applyReaction(r: Reactions, messageId: string, emoji: ReactionEmoji, uid: string, on: boolean): Reactions {
+  const forMsg = { ...(r[messageId] ?? {}) };
+  const users = new Set(forMsg[emoji] ?? []);
+  if (on) users.add(uid);
+  else users.delete(uid);
+  if (users.size) forMsg[emoji] = [...users];
+  else delete forMsg[emoji];
+  return { ...r, [messageId]: forMsg };
+}
+
+function reactionsFromRows(rows: ReactionRow[]): Reactions {
+  return rows.reduce<Reactions>((acc, row) => applyReaction(acc, row.message_id, row.emoji, row.user_id, true), {});
 }
 
 const PAGE = 100;
@@ -47,6 +77,7 @@ interface Snapshot {
   online: Set<string>;
   typingUserIds: string[];
   error: string | null;
+  reactions: Reactions;
 }
 
 interface Room {
@@ -58,6 +89,9 @@ interface Room {
   presence: RealtimeChannel | null;
   presenceUid: string | null;
   typing: Map<string, number>;
+  reactionsCh: RealtimeChannel | null;
+  /** false once we learn the message_reactions table doesn't exist yet → reactions stay local. */
+  reactionsRemote: boolean;
   typingTimer: ReturnType<typeof setInterval> | null;
   lastTypingSent: number;
   stopSession: (() => void) | null;
@@ -65,7 +99,7 @@ interface Room {
 }
 
 const rooms = new Map<string, Room>();
-const EMPTY_SNAP: Snapshot = { messages: [], loading: false, online: EMPTY_SET, typingUserIds: [], error: null };
+const EMPTY_SNAP: Snapshot = { messages: [], loading: false, online: EMPTY_SET, typingUserIds: [], error: null, reactions: {} };
 
 function setRoom(room: Room, patch: Partial<Snapshot>) {
   room.snap = { ...room.snap, ...patch };
@@ -163,6 +197,62 @@ function stopPresence(room: Room) {
   room.typing.clear();
 }
 
+const MISSING_TABLE = new Set(['42P01', 'PGRST205', 'PGRST200']);
+let warnedReactions = false;
+function reactionsUnavailable(room: Room, err: { code?: string; message?: string }) {
+  if (!MISSING_TABLE.has(err.code ?? '') && !/message_reactions/.test(err.message ?? '')) return false;
+  room.reactionsRemote = false;
+  if (!warnedReactions) console.warn('[chat] message_reactions table missing — reactions are local only (see REQUESTS.md)');
+  warnedReactions = true;
+  return true;
+}
+
+async function loadReactions(room: Room) {
+  if (!room.reactionsRemote) return;
+  const { data, error } = await supabase
+    .from('message_reactions')
+    .select('message_id, fellowship_id, user_id, emoji')
+    .eq('fellowship_id', room.id)
+    .order('created_at', { ascending: false })
+    .limit(1000);
+  if (error) {
+    if (!reactionsUnavailable(room, error)) console.warn('[chat] reactions load failed', error);
+    return;
+  }
+  setRoom(room, { reactions: reactionsFromRows((data ?? []) as ReactionRow[]) });
+}
+
+function subscribeReactions(room: Room) {
+  // Own channel: if the table isn't published yet, the chat channel must keep working.
+  room.reactionsCh = supabase
+    .channel(`reactions:${room.id}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reactions', filter: `fellowship_id=eq.${room.id}` }, (p) => {
+      const r = p.new as ReactionRow;
+      setRoom(room, { reactions: applyReaction(room.snap.reactions, r.message_id, r.emoji, r.user_id, true) });
+    })
+    // DELETEs can't be filtered; with replica identity full the old row has every column.
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'message_reactions' }, (p) => {
+      const r = p.old as Partial<ReactionRow>;
+      if (r.fellowship_id !== room.id || !r.message_id || !r.emoji || !r.user_id) return;
+      setRoom(room, { reactions: applyReaction(room.snap.reactions, r.message_id, r.emoji, r.user_id, false) });
+    })
+    .subscribe();
+}
+
+async function toggleReactionReal(fellowshipId: string, messageId: string, emoji: ReactionEmoji) {
+  const room = getRoom(fellowshipId);
+  const uid = await sessionStore.ensureSignedIn();
+  const had = (room.snap.reactions[messageId]?.[emoji] ?? []).includes(uid);
+  setRoom(room, { reactions: applyReaction(room.snap.reactions, messageId, emoji, uid, !had) });
+  if (!room.reactionsRemote || messageId.startsWith('temp-')) return;
+  const { error } = had
+    ? await supabase.from('message_reactions').delete().match({ message_id: messageId, user_id: uid, emoji })
+    : await supabase.from('message_reactions').insert({ message_id: messageId, fellowship_id: fellowshipId, user_id: uid, emoji });
+  if (error && error.code !== '23505' && !reactionsUnavailable(room, error)) {
+    setRoom(room, { reactions: applyReaction(room.snap.reactions, messageId, emoji, uid, had) });
+  }
+}
+
 function open(room: Room) {
   setRoom(room, { loading: room.snap.messages.length === 0 });
   room.db = supabase
@@ -172,9 +262,14 @@ function open(room: Room) {
     )
     .subscribe((status) => {
       // (Re)connected → backfill anything missed while offline / backgrounded.
-      if (status === 'SUBSCRIBED') void loadLatest(room);
+      if (status === 'SUBSCRIBED') {
+        void loadLatest(room);
+        void loadReactions(room);
+      }
     });
   void loadLatest(room);
+  void loadReactions(room);
+  subscribeReactions(room);
   const syncPresence = () => {
     const uid = sessionStore.get().userId;
     if (uid) startPresence(room, uid);
@@ -187,6 +282,8 @@ function open(room: Room) {
 function close(room: Room) {
   if (room.db) void supabase.removeChannel(room.db);
   room.db = null;
+  if (room.reactionsCh) void supabase.removeChannel(room.reactionsCh);
+  room.reactionsCh = null;
   stopPresence(room);
   room.stopSession?.();
   room.stopSession = null;
@@ -198,13 +295,15 @@ function getRoom(id: string): Room {
   if (!room) {
     room = {
       id,
-      snap: { messages: [], loading: true, online: EMPTY_SET, typingUserIds: [], error: null },
+      snap: { messages: [], loading: true, online: EMPTY_SET, typingUserIds: [], error: null, reactions: {} },
       listeners: new Set(),
       refs: 0,
       db: null,
       presence: null,
       presenceUid: null,
       typing: new Map(),
+      reactionsCh: null,
+      reactionsRemote: true,
       typingTimer: null,
       lastTypingSent: 0,
       stopSession: null,
@@ -315,6 +414,11 @@ function useMockChat(fellowshipId: string | null): ChatState {
   );
   const noop = useCallback(() => {}, []);
   const retry = useCallback(async () => {}, []);
+  const toggleReaction = useCallback(async (messageId: string, emoji: ReactionEmoji) => {
+    const had = (mockReactions[messageId]?.[emoji] ?? []).includes(ME);
+    mockReactions = applyReaction(mockReactions, messageId, emoji, ME, !had);
+    emitMock();
+  }, []);
   return {
     messages: [...mock.messages],
     loading: false,
@@ -325,8 +429,11 @@ function useMockChat(fellowshipId: string | null): ChatState {
     retry,
     discard: noop,
     error: null,
+    reactions: mockReactions,
+    toggleReaction,
   };
 }
+let mockReactions: Reactions = { 'msg-4': { '👑': ['u-cleo'], '🔥': ['u-dax', 'u-bram'] }, 'msg-5': { '😂': ['u-bram'] } };
 const MOCK_ONLINE = new Set([ME, 'u-bram']);
 
 function useRealChat(fellowshipId: string | null): ChatState {
@@ -337,7 +444,11 @@ function useRealChat(fellowshipId: string | null): ChatState {
   const retry = useCallback((id: string) => (fellowshipId ? retryReal(fellowshipId, id) : Promise.resolve()), [fellowshipId]);
   const discard = useCallback((id: string) => fellowshipId && discardReal(fellowshipId, id), [fellowshipId]);
   const notifyTyping = useCallback(() => fellowshipId && notifyTypingReal(fellowshipId), [fellowshipId]);
-  return { ...s, send, retry, discard: discard as (id: string) => void, notifyTyping: notifyTyping as () => void };
+  const toggleReaction = useCallback(
+    (messageId: string, emoji: ReactionEmoji) => (fellowshipId ? toggleReactionReal(fellowshipId, messageId, emoji) : Promise.resolve()),
+    [fellowshipId],
+  );
+  return { ...s, send, retry, toggleReaction, discard: discard as (id: string) => void, notifyTyping: notifyTyping as () => void };
 }
 
 // USE_MOCKS is a build-time constant, so the hook order never changes between renders.

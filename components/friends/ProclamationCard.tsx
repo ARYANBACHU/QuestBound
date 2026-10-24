@@ -39,6 +39,8 @@ export interface ProclamationCardProps {
   fresh?: boolean;
   /** Called for member_joined (the Friends tab switches to the Fellowship view). */
   onShowFellowship?: () => void;
+  /** Long-press (e.g. open the reaction picker). */
+  onLongPress?: () => void;
 }
 
 export function openProclamation(message: Message, onShowFellowship?: () => void) {
@@ -61,7 +63,7 @@ export function openProclamation(message: Message, onShowFellowship?: () => void
   }
 }
 
-export default function ProclamationCard({ message, members, fresh, onShowFellowship }: ProclamationCardProps) {
+export default function ProclamationCard({ message, members, fresh, onShowFellowship, onLongPress }: ProclamationCardProps) {
   const p = message.payload;
   const event = p?.event ?? '';
   const actor = profileOf(members, p?.user_id ?? message.user_id);
@@ -72,8 +74,11 @@ export default function ProclamationCard({ message, members, fresh, onShowFellow
   return (
     <View style={styles.wrap}>
       <Pressable
-        disabled={!tappable}
+        disabled={!tappable && !onLongPress}
+        onLongPress={onLongPress}
+        delayLongPress={300}
         onPress={() => {
+          if (!tappable) return;
           openProclamation(message, onShowFellowship);
           haptic.tap();
         }}

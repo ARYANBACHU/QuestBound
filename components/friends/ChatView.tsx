@@ -20,6 +20,7 @@ import { heroName, profileOf } from '@/lib/fellowship';
 import Crest from './Crest';
 import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
+import { ReactionChips, ReactionPicker } from './Reactions';
 
 type Row =
   | { key: string; type: 'day'; label: string }
@@ -78,8 +79,38 @@ export default function ChatView({ chat, members, myId, onShowFellowship }: Chat
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
   // Proclamations that arrive after the chat opened get the seal-stamp animation.
   const openedAt = useRef(new Date().toISOString()).current;
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const extraData = useMemo(() => ({ pickerFor, reactions: chat.reactions }), [pickerFor, chat.reactions]);
+  const openPicker = (id: string) => {
+    if (id.startsWith('temp-')) return;
+    haptic.select();
+    setPickerFor((cur) => (cur === id ? null : id));
+  };
 
   const renderItem = ({ item }: { item: Row }) => {
+    if (item.type === 'day') return renderRow(item);
+    const align = item.m.kind === 'proclamation' ? 'center' : item.m.user_id && item.m.user_id === myId ? 'right' : 'left';
+    const reactable = item.m.kind === 'proclamation' || item.m.kind === 'text' || item.m.kind === 'wizard';
+    return (
+      <View>
+        {renderRow(item)}
+        {reactable ? (
+          <ReactionChips messageId={item.m.id} reactions={chat.reactions} myId={myId} align={align} onToggle={(e) => void chat.toggleReaction(item.m.id, e)} />
+        ) : null}
+        {pickerFor === item.m.id ? (
+          <ReactionPicker
+            align={align}
+            onPick={(e) => {
+              setPickerFor(null);
+              void chat.toggleReaction(item.m.id, e);
+            }}
+          />
+        ) : null}
+      </View>
+    );
+  };
+
+  const renderRow = (item: Row) => {
     if (item.type === 'day') {
       return (
         <View style={styles.dayWrap}>
@@ -92,16 +123,24 @@ export default function ChatView({ chat, members, myId, onShowFellowship }: Chat
     const { m, first, last } = item;
     switch (m.kind) {
       case 'proclamation':
-        return <ProclamationCard message={m} members={members} fresh={m.created_at > openedAt} onShowFellowship={onShowFellowship} />;
+        return (
+          <ProclamationCard
+            message={m}
+            members={members}
+            fresh={m.created_at > openedAt}
+            onShowFellowship={onShowFellowship}
+            onLongPress={() => openPicker(m.id)}
+          />
+        );
       case 'system':
         return <Text style={styles.system}>{m.body}</Text>;
       case 'wizard':
-        return <WizardBubble m={m} first={first} last={last} />;
+        return <WizardBubble m={m} first={first} last={last} onLongPress={() => openPicker(m.id)} />;
       default:
         return m.user_id && m.user_id === myId ? (
-          <MyBubble m={m} chat={chat} members={members} last={last} />
+          <MyBubble m={m} chat={chat} members={members} last={last} onLongPress={() => openPicker(m.id)} />
         ) : (
-          <TheirBubble m={m} members={members} first={first} last={last} />
+          <TheirBubble m={m} members={members} first={first} last={last} onLongPress={() => openPicker(m.id)} />
         );
     }
   };
@@ -131,6 +170,8 @@ export default function ChatView({ chat, members, myId, onShowFellowship }: Chat
             contentContainerStyle={styles.list}
             keyboardDismissMode="interactive"
             keyboardShouldPersistTaps="handled"
+            extraData={extraData}
+            onScrollBeginDrag={() => setPickerFor(null)}
             ListFooterComponent={chat.error ? <Text style={styles.error}>{chat.error}</Text> : undefined}
           />
         )}
@@ -184,7 +225,7 @@ function Composer({ chat }: { chat: ChatState }) {
   );
 }
 
-function MyBubble({ m, chat, members, last }: { m: ChatMessage; chat: ChatState; members: FellowshipMember[]; last: boolean }) {
+function MyBubble({ m, chat, members, last, onLongPress }: { m: ChatMessage; chat: ChatState; members: FellowshipMember[]; last: boolean; onLongPress: () => void }) {
   const me = profileOf(members, m.user_id);
   const bg = crayonHex(me?.color);
   const fg = textOn(me?.color);
@@ -200,7 +241,7 @@ function MyBubble({ m, chat, members, last }: { m: ChatMessage; chat: ChatState;
     : undefined;
   return (
     <View style={[styles.rowMine, last && styles.runEnd]}>
-      <Pressable onPress={onPress} disabled={!failed} style={[styles.bubble, styles.mine, { backgroundColor: bg }, m.status === 'sending' && styles.sending]}>
+      <Pressable onPress={onPress} onLongPress={failed ? undefined : onLongPress} delayLongPress={300} style={[styles.bubble, styles.mine, { backgroundColor: bg }, m.status === 'sending' && styles.sending]}>
         <Text style={[styles.text, { color: fg }]}>{m.body}</Text>
       </Pressable>
       {failed ? (
@@ -216,23 +257,23 @@ function MyBubble({ m, chat, members, last }: { m: ChatMessage; chat: ChatState;
 
 const AVATAR = 32;
 
-function TheirBubble({ m, members, first, last }: { m: ChatMessage; members: FellowshipMember[]; first: boolean; last: boolean }) {
+function TheirBubble({ m, members, first, last, onLongPress }: { m: ChatMessage; members: FellowshipMember[]; first: boolean; last: boolean; onLongPress: () => void }) {
   const p = profileOf(members, m.user_id);
   return (
     <View style={[styles.rowTheirs, last && styles.runEnd]}>
       <View style={styles.avatarCol}>{first ? <Crest crest={p?.crest} color={p?.color} size={AVATAR} /> : null}</View>
       <View style={styles.theirsCol}>
         {first ? <Text style={styles.name}>{p ? heroName(p) : 'A wanderer'}</Text> : null}
-        <View style={[styles.bubble, styles.theirs]}>
+        <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.bubble, styles.theirs]}>
           <Text style={styles.text}>{m.body}</Text>
-        </View>
+        </Pressable>
         {last ? <Text style={[styles.meta, styles.metaLeft]}>{timeLabel(m.created_at)}</Text> : null}
       </View>
     </View>
   );
 }
 
-function WizardBubble({ m, first, last }: { m: ChatMessage; first: boolean; last: boolean }) {
+function WizardBubble({ m, first, last, onLongPress }: { m: ChatMessage; first: boolean; last: boolean; onLongPress: () => void }) {
   return (
     <View style={[styles.rowTheirs, last && styles.runEnd]}>
       <View style={styles.avatarCol}>
@@ -246,9 +287,9 @@ function WizardBubble({ m, first, last }: { m: ChatMessage; first: boolean; last
       </View>
       <View style={styles.theirsCol}>
         {first ? <Text style={styles.name}>Muse</Text> : null}
-        <View style={[styles.bubble, styles.wizard]}>
+        <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.bubble, styles.wizard]}>
           <Text style={[styles.text, styles.wizardText]}>{m.body}</Text>
-        </View>
+        </Pressable>
       </View>
     </View>
   );
