@@ -51,5 +51,11 @@
   reroll (waits on EV's `reroll-mission`); voice (waits on EV transcribe fn); icon/splash need `assets/` + `app.json`
   (merge agent).
 
+## Integration check (local throwaway merge, not pushed)
+- main + feat/engine + feat/friends + feat/coloring + feat/shell: only `handoffs/notes/REQUESTS.md` conflicts
+  (append-only → take both sides). `tsc --noEmit` passes on the result. Mock mode runs on web: coloring page,
+  friends chat, missions, riddle proof → wax seal all work together.
+- Fixed from that run: Muse FAB covered MP's chat Send button → FAB floats above the composer on Friends.
+
 ## Known bugs
 - none yet

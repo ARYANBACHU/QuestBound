@@ -14,7 +14,9 @@ import { ink, space } from '@/shared/theme';
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const screen = screenFromPath(usePathname());
-  const fabBottom = TAB_BAR_HEIGHT + Math.max(insets.bottom, space.sm) + space.md;
+  // Friends has a chat composer pinned above the tab bar — float Muse above it so Send stays reachable.
+  const lift = screen === 'friends' ? FRIENDS_COMPOSER_HEIGHT : 0;
+  const fabBottom = TAB_BAR_HEIGHT + Math.max(insets.bottom, space.sm) + space.md + lift;
 
   return (
     <WizardProvider>
@@ -37,5 +39,7 @@ export default function TabsLayout() {
     </WizardProvider>
   );
 }
+
+const FRIENDS_COMPOSER_HEIGHT = 92;
 
 const styles = StyleSheet.create({ root: { flex: 1, backgroundColor: ink.paper } });
