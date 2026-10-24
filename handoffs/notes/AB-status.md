@@ -33,8 +33,18 @@
 - Task 6: Settings — hero card, edit sheets reusing onboarding pickers, fellowship (invite sheet, leave w/ confirm),
   replay tour, alerts toggle (local stub), about, version label ×5 → Demo Tools.
 
+- Task 7: `supabase/functions/wizard-chat/index.ts` — auth, membership check, loads profile/fellowship/members/
+  latest book/active page missions/last 15 messages, system prompt = persona (inline copy) + app guide + reply
+  rules + live context JSON + screen; `chatJSON` (works with both the old and EV's new `llm.ts` signature);
+  validates actions (known tabs, mission ids on the active page, summon only when no book); canned context-aware
+  reply on any failure or when `LLM_API_KEY` is unset. `deno check` passes.
+  **NOT DEPLOYED** — no `SUPABASE_ACCESS_TOKEN` in this container. Whoever has it:
+  `npx supabase functions deploy wizard-chat`.
+
 ## In progress / next
-- Task 7 server: `wizard-chat` edge function.
+- Swap `components/shell/teammates.tsx` fallbacks for MP/AD components after merge round 1.
+- Swap inline `MUSE_PERSONA` for `_shared/prompts.ts` once EV's branch is on main.
+- Round 2 backlog (meetup poll, reroll, voice, sequel card, icon/splash).
 
 ## Known bugs
 - none yet
