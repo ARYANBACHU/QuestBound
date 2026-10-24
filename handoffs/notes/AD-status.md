@@ -15,8 +15,15 @@
   (hold for last fill → Y-rotation around left edge 1100 ms + heavy haptic → chapter ribbon 2 s), blank book / Muse writing /
   "The End… for now" states. Mock-only dev link "Dev: color a random region" (calls `submitProof`).
 
-## In progress
-- Task 4 storybook
+- Task 4: `app/(tabs)/storybook.tsx` — shelf (book cards with live coloring-page covers) → `components/storybook/BookReader.tsx`
+  (paged chapters: title/narrative, Coloring|Illustration toggle, colored page, scrapbook "tale entries" with deckled+taped
+  photos rotated ±2°, story lines, crests; quote style for text missions) → `RecapPage.tsx` (falls back to a client-built
+  recap from real data when `storyline.recap` is null) → `Montage.tsx` (3 s slides, Ken Burns, crossfade, chapter title cards,
+  tap to pause, swipe to skip, close, play again).
+
+## Next (Round 2)
+- Verify on a real phone (Expo Go): fill reveal animated clip + sparkles on native, page-turn perspective.
+- Art polish; "paint with friends" pending shimmer; share page as image (`Svg.toDataURL` → expo-sharing); montage music.
 
 ## Notes / decisions
 - React Compiler is on (app.json). Mock store mutates rows in place, so AD files start with `'use no memo'` and the coloring
