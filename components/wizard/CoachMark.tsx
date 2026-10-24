@@ -41,9 +41,9 @@ export function CoachMark({ screen, bottom }: { screen: WizardScreen; bottom: nu
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: space.lg, right: space.lg + 72 },
-  card: {
-    backgroundColor: ink.page, borderRadius: 22, borderWidth: 2, borderColor: ink.ink, padding: space.md,
-    shadowColor: ink.ink, shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+  card: { shadowColor: ink.ink, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  ok: {
+    alignSelf: 'flex-end', marginTop: space.sm, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: 999,
+    backgroundColor: ink.page, borderWidth: 2, borderColor: ink.ink,
   },
-  ok: { alignSelf: 'flex-end', marginTop: space.sm, paddingHorizontal: space.md, paddingVertical: space.xs },
 });

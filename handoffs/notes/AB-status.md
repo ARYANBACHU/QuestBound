@@ -16,8 +16,14 @@
   `TAB_CONTENT_BOTTOM_PAD` (from `components/shell/TabBar.tsx`) — pad your tab's scroll content so the FAB
   doesn't cover it. `useWizard().open('question')` from any tab opens Muse and asks it.
 
+- Task 3: onboarding (`app/onboarding.tsx`) with Muse bubble + typewriter, quill dots, crest/crayon/interest
+  (with quips)/budget+availability pickers (reusable in `components/shell/`), fellowship found/join (QR + code),
+  summon ritual (`components/wizard/SummonRitual.tsx`) with error → "write a quick demo book" fallback.
+- Local fallbacks for teammates' components live in **`components/shell/teammates.tsx`** (Crest, CrestRow,
+  InviteSheet, QrScanner, MissionTypeIcon). Swap to re-exports once MP/AD land on main.
+
 ## In progress / next
-- Task 3 onboarding.
+- Task 4 missions dashboard.
 
 ## Known bugs
 - none yet
