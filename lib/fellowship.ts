@@ -106,6 +106,7 @@ const listeners = new Set<() => void>();
 let started = false;
 let currentUid: string | null = null;
 let channel: RealtimeChannel | null = null;
+let extrasChannel: RealtimeChannel | null = null;
 let resolveSeq = 0;
 
 function setSnap(patch: Partial<Snapshot>) {
@@ -136,7 +137,9 @@ async function reloadMembers() {
 
 function unsubscribeRealtime() {
   if (channel) void supabase.removeChannel(channel);
+  if (extrasChannel) void supabase.removeChannel(extrasChannel);
   channel = null;
+  extrasChannel = null;
 }
 
 function subscribeRealtime(fellowshipId: string) {
@@ -150,7 +153,14 @@ function subscribeRealtime(fellowshipId: string) {
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'fellowship_members' }, (p) => {
       if ((p.old as Partial<FellowshipMember>)?.fellowship_id === fellowshipId) void reloadMembers();
     })
-    // Only fires once `profiles` is in the realtime publication (see REQUESTS.md); harmless until then.
+    .subscribe((status) => {
+      // (Re)connected → catch up on anyone who joined while we were away.
+      if (status === 'SUBSCRIBED') void reloadMembers();
+    });
+  // Separate channel: `profiles`/`fellowships` aren't in the realtime publication until REQUESTS.md lands,
+  // and a rejected table must not take the members channel down with it.
+  extrasChannel = supabase
+    .channel(`fellowship-extras:${fellowshipId}`)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (p) => {
       const updated = p.new as Profile;
       if (!snap.members.some((m) => m.user_id === updated.id)) return;
@@ -186,6 +196,7 @@ async function activate(fellowshipId: string | null) {
 
 /** Pick the active fellowship for this user: stored id if still a member, else the first membership. */
 async function resolveActive(uid: string) {
+  const seq = resolveSeq;
   setSnap({ loading: true });
   try {
     const { data: rows, error } = await supabase
@@ -196,6 +207,8 @@ async function resolveActive(uid: string) {
     if (error) throw error;
     const ids = (rows ?? []).map((r) => r.fellowship_id as string);
     const stored = await AsyncStorage.getItem(ACTIVE_KEY).catch(() => null);
+    // A create/join finished while we were looking → it already activated the right fellowship.
+    if (seq !== resolveSeq) return;
     const id = stored && ids.includes(stored) ? stored : (ids[0] ?? null);
     if (id !== stored) {
       if (id) await AsyncStorage.setItem(ACTIVE_KEY, id).catch(() => {});
