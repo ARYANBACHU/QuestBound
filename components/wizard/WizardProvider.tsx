@@ -3,7 +3,13 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { WizardAction } from '@/shared/types';
 
-export interface WizardMsg { id: string; role: 'user' | 'assistant'; content: string; actions?: WizardAction[] }
+export interface WizardMsg {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  actions?: WizardAction[];
+  post?: string; // a chat message Muse offers to post for the user (meetup plan)
+}
 
 interface WizardCtx {
   sheetOpen: boolean;

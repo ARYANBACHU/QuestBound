@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { wizardChat } from '@/lib/api';
+import { useChat } from '@/lib/chat';
 import { USE_MOCKS } from '@/lib/env';
 import { useFellowship } from '@/lib/fellowship';
 import { useMissions, useStoryline } from '@/lib/game';
@@ -15,6 +16,7 @@ import { fonts, ink, radius, space, type } from '@/shared/theme';
 import { T } from '@/components/shell/T';
 import { localMuse } from './localMuse';
 import { MuseAvatar } from './MuseAvatar';
+import { planMeetup } from './planMeetup';
 import { actionLabel, runAction } from './runAction';
 import { SCREEN_GREETINGS, SCREEN_SUGGESTIONS, screenFromPath } from './screens';
 import { useTypewriter } from './useTypewriter';
@@ -29,6 +31,7 @@ export function WizardSheet() {
   const { fellowship, members } = useFellowship();
   const { storyline, activePage } = useStoryline(fellowship?.id ?? null);
   const { missions } = useMissions(storyline?.id ?? null);
+  const chat = useChat(fellowship?.id ?? null);
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState(false);
   const scroll = useRef<ScrollViewInstance>(null);
@@ -43,6 +46,16 @@ export function WizardSheet() {
     setDraft('');
     setThinking(true);
     const ctx = { meId: userId, members, storyline, activePage, missions };
+    if (/meet ?up|plan (a|our)|hang ?out/i.test(q)) {
+      const plan = planMeetup(members, missions.filter((m) => m.page_id === activePage?.id), userId);
+      if (plan) {
+        await new Promise((r) => setTimeout(r, 600));
+        setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: plan.reply, post: plan.post,
+          actions: plan.mission ? [{ type: 'open_mission', target: plan.mission.id }] : [] }]);
+        setThinking(false);
+        return;
+      }
+    }
     let reply;
     try {
       reply = USE_MOCKS
@@ -99,6 +112,30 @@ export function WizardSheet() {
             {messages.map((m) => (
               <View key={m.id}>
                 <Bubble role={m.role} content={m.content} animate={m.role === 'assistant' && m.id === lastId} />
+                {m.post ? (
+                  <View style={styles.actions}>
+                    <Pressable
+                      style={[styles.actionChip, styles.postChip]}
+                      accessibilityRole="button"
+                      onPress={async () => {
+                        const body = m.post!;
+                        setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, post: undefined } : x)));
+                        try {
+                          await chat.send(body);
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                          setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant',
+                            content: 'Posted to the fellowship chat! I’ll be listening for thumbs.',
+                            actions: [{ type: 'navigate', target: 'friends' }] }]);
+                        } catch {
+                          setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant',
+                            content: 'My raven got lost on the way to the chat. Try again in a moment.', post: body }]);
+                        }
+                      }}
+                    >
+                      <T variant="smallBold" color={ink.ink}>📜 Post to the fellowship</T>
+                    </Pressable>
+                  </View>
+                ) : null}
                 {m.actions?.length ? (
                   <View style={styles.actions}>
                     {m.actions.map((a, i) => (
@@ -189,6 +226,7 @@ const styles = StyleSheet.create({
   theirs: { alignSelf: 'flex-start', backgroundColor: ink.page, borderTopLeftRadius: 6 },
   mine: { alignSelf: 'flex-end', backgroundColor: ink.ink, borderTopRightRadius: 6 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.xs },
+  postChip: { backgroundColor: ink.gold, borderWidth: 2, borderColor: ink.ink },
   actionChip: { backgroundColor: ink.ink, borderRadius: radius.pill, paddingVertical: space.sm, paddingHorizontal: space.md },
   thinking: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs },
   chipsRow: { flexGrow: 0, flexShrink: 0 },

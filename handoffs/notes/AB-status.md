@@ -44,7 +44,12 @@
 ## In progress / next
 - Swap `components/shell/teammates.tsx` fallbacks for MP/AD components after merge round 1.
 - Swap inline `MUSE_PERSONA` for `_shared/prompts.ts` once EV's branch is on main.
-- Round 2 backlog (meetup poll, reroll, voice, sequel card, icon/splash).
+- Round 2 #1 done: "Plan our next meetup" → `components/wizard/planMeetup.ts` picks the slot most members share,
+  the best open mission for that many people, proposes a concrete time + place, and offers "📜 Post to the
+  fellowship" (sends a chat message as the user via `useChat().send`).
+- Round 2 next: sequel adaptation card + Demo Tools SerpApi counts (both via EV's `useGenerationInfo`, after merge);
+  reroll (waits on EV's `reroll-mission`); voice (waits on EV transcribe fn); icon/splash need `assets/` + `app.json`
+  (merge agent).
 
 ## Known bugs
 - none yet
