@@ -1,36 +1,12 @@
-// Owner: AD. Local crest bubble + row. Swap to MP's components/friends/Crest.tsx once it lands.
-import { StyleSheet, Text, View } from 'react-native';
-import { CRESTS, ink, type CrestId } from '@/shared/theme';
+// Owner: AD. Crest bubble + row. Since merge round 1 these wrap MP's components/friends/Crest + CrestRow.
+import Crest from '@/components/friends/Crest';
 import type { FellowshipMember } from '@/shared/types';
 import { profileOf } from '@/lib/fellowship';
-import { crayonHex } from './pageUtils';
 
+export { default as CrestRow } from '@/components/friends/CrestRow';
+
+/** One member's crest by user id (MP's <Crest> needs crest + color; this looks them up). */
 export function CrestBubble({ userId, members, size = 28 }: { userId: string; members: FellowshipMember[]; size?: number }) {
   const p = profileOf(members, userId);
-  const emoji = p ? CRESTS[p.crest as CrestId]?.emoji ?? '✨' : '✨';
-  return (
-    <View
-      accessibilityLabel={p?.display_name ?? 'A hero'}
-      style={[styles.bubble, { width: size, height: size, borderRadius: size / 2, borderColor: crayonHex(p?.color) }]}
-    >
-      <Text style={{ fontSize: size * 0.55 }}>{emoji}</Text>
-    </View>
-  );
+  return <Crest crest={p?.crest} color={p?.color} size={size} />;
 }
-
-export function CrestRow({ userIds, members, size = 28 }: { userIds: string[]; members: FellowshipMember[]; size?: number }) {
-  return (
-    <View style={styles.row}>
-      {userIds.map((id, i) => (
-        <View key={id} style={{ marginLeft: i ? -size * 0.25 : 0 }}>
-          <CrestBubble userId={id} members={members} size={size} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  bubble: { backgroundColor: ink.page, borderWidth: 2.5, alignItems: 'center', justifyContent: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center' },
-});
