@@ -129,7 +129,7 @@ export function WizardSheet() {
             ) : null}
           </ScrollView>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
             {SCREEN_SUGGESTIONS[screen].map((s) => (
               <Pressable key={s} style={styles.chip} onPress={() => ask(s)} disabled={thinking} accessibilityRole="button">
                 <T variant="smallBold" color={ink.ink}>{s}</T>
@@ -191,7 +191,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.xs },
   actionChip: { backgroundColor: ink.ink, borderRadius: radius.pill, paddingVertical: space.sm, paddingHorizontal: space.md },
   thinking: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs },
-  chips: { gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.sm },
+  chipsRow: { flexGrow: 0, flexShrink: 0 },
+  chips: { alignItems: 'center', gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.sm },
   chip: { borderWidth: 2, borderColor: ink.ink, borderRadius: radius.pill, paddingVertical: space.xs + 2, paddingHorizontal: space.md, backgroundColor: ink.page },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.lg, paddingTop: space.xs },
   input: {

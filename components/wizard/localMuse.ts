@@ -11,7 +11,9 @@ export interface MuseContext {
   missions: Mission[];
 }
 
-const nameOf = (ctx: MuseContext, id: string) => ctx.members.find((m) => m.user_id === id)?.profile?.display_name ?? 'a friend';
+const nameOf = (ctx: MuseContext, id: string) =>
+  id === ctx.meId ? 'you' : ctx.members.find((m) => m.user_id === id)?.profile?.display_name ?? 'a friend';
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const avail = (ctx: MuseContext, id: string) => ctx.members.find((m) => m.user_id === id)?.profile?.availability ?? [];
 
 function pickPair(ctx: MuseContext): [string, string, string] | null {
@@ -60,11 +62,17 @@ export function localMuse(question: string, screen: WizardScreen, ctx: MuseConte
     return { reply: `"${ctx.activePage.title}" — ${ctx.activePage.narrative} ${done} of ${pageMissions.length} regions colored so far.`, actions: [] };
   }
   if (/need friends|pair|team|who should/.test(q) && needFriends.length) {
-    const m = needFriends[0];
+    const m = needFriends.find((x) => x.type !== 'gathering') ?? needFriends[0];
     const pair = pickPair(ctx);
-    const who = pair ? `${nameOf(ctx, pair[0])} and ${nameOf(ctx, pair[1])} are both free ${pair[2]}` : 'Grab a friend';
+    const who = m.type === 'gathering'
+      ? 'It needs the whole fellowship'
+      : pair ? `${cap(nameOf(ctx, pair[0]))} and ${nameOf(ctx, pair[1])} are both free ${pair[2]}` : 'Grab a friend';
+    const gathering = needFriends.find((x) => x.type === 'gathering' && x.id !== m.id);
     actions.push({ type: 'open_mission', target: m.id });
-    return { reply: `${needFriends.length} missions need company. ${who} — perfect for "${m.title}"${m.place ? ` at ${m.place.title}` : ''}.`, actions };
+    return {
+      reply: `${needFriends.length} missions need company. ${who} — perfect for "${m.title}"${m.place ? ` at ${m.place.title}` : ''}.${gathering ? ` And "${gathering.title}" needs everyone.` : ''}`,
+      actions,
+    };
   }
   if (/meetup|plan|when/.test(q)) {
     const gathering = open.find((m) => m.type === 'gathering') ?? needFriends[0];
