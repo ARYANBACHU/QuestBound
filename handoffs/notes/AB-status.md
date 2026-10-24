@@ -30,8 +30,11 @@
   photo upload cached across retries, Magic Mirror while verifying, "The Mirror sees: …" Lens titles, wax seal +
   typewriter story_line, Chapter complete banner → auto-navigates to coloring after ~3 s.
 
+- Task 6: Settings — hero card, edit sheets reusing onboarding pickers, fellowship (invite sheet, leave w/ confirm),
+  replay tour, alerts toggle (local stub), about, version label ×5 → Demo Tools.
+
 ## In progress / next
-- Task 6 settings.
+- Task 7 server: `wizard-chat` edge function.
 
 ## Known bugs
 - none yet
