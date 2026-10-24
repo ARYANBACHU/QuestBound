@@ -141,6 +141,8 @@ export function useMission(missionId: string | null): { mission: Mission | null;
   return { mission: live.data, loading: live.loading };
 }
 
+// TODO(EV): add `usePages(storylineId: string | null): { pages: Page[]; loading: boolean }` (ordered by chapter_number,
+// + its missions) so AD's Storybook can render older books after a sequel. Requested by AD in REQUESTS.md (round 1).
 /** Every book this fellowship has written (Storybook shelf), newest first. */
 export function useBooks(fellowshipId: string | null): { books: Storyline[]; loading: boolean } {
   useMockTick();
