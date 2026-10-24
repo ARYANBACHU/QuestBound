@@ -439,3 +439,36 @@ export async function writeBookRows(storylineId: string, fellowshipId: string, b
 export function templateTitle(t: TemplateId) {
   return TEMPLATE_META[t].title;
 }
+
+// ------------------------------------------------------------------ reroll alternates
+
+/** Extra region-agnostic missions per size, used when a reroll can't reach the LLM. */
+export const ALTERNATES: Record<RegionSize, FallbackSpec[]> = {
+  large: [
+    { type: 'gathering', title: 'The Round Table', wantsPlace: true, desc: (p) => `Everyone meets at ${at(p, 'someone\'s place')} and plays one game together, any game. Take a group photo mid-game.`, hook: 'Even kings settle things over a good game.', hint: 'Group photo of people playing a game.' },
+    { type: 'gathering', title: 'The Long Walk', wantsPlace: true, desc: (p) => `Take a 20-minute walk all together${p ? ` around ${p.title}` : ''} and snap a group selfie at the halfway point.`, hook: 'Quests are mostly walking, and the best ones are walked together.', hint: 'Group selfie outdoors.' },
+  ],
+  medium: [
+    { type: 'duet', title: 'Two-Person Feast', wantsPlace: true, desc: (p) => `Two of you split a snack or drink${p ? ` at ${p.title}` : ''} and photograph it before the first bite.`, hook: 'Bread broken in two tastes twice as good.', hint: 'Photo of food or drinks for two.' },
+    { type: 'duet', title: 'Mirror Match', desc: () => 'Two of you strike the exact same pose somewhere fun and take one photo of it.', hook: 'Twin knights confuse any dragon.', hint: 'Two people in matching poses.' },
+    { type: 'gift', title: 'A Note in the Satchel', desc: () => 'Write a short kind note for another member and give it to them in person. They confirm when they read it.', hook: 'Some magic is just ink and honesty.', hint: 'The recipient confirms.' },
+  ],
+  small: [
+    { type: 'relic', title: 'The Colored Relic', desc: () => 'Photograph something in the wild that matches your crayon color exactly.', hook: 'Your color is hiding everywhere, waiting to be found.', hint: 'Photo of an object in the player\'s color.' },
+    { type: 'bard', title: 'Tavern Review', desc: () => 'Write a three-sentence fairy-tale review of the last place you ate.', hook: 'Every inn deserves a ballad, good or bad.', hint: 'A short playful review.' },
+    { type: 'relic', title: 'The Sky Today', desc: () => 'Photograph the sky right now, wherever you are.', hook: 'The sky keeps a diary of every quest.', hint: 'Photo of the sky.' },
+  ],
+};
+
+export function alternateMission(templateId: TemplateId, regionId: string, chapterIndex: number, currentTitle: string, place: Place | null, seed: number): DraftMission {
+  const size = TEMPLATE_REGIONS[templateId].find((r) => r.id === regionId)!.size;
+  const base = FALLBACK[templateId][regionId];
+  const pool = [base, ...ALTERNATES[size]].filter((s) => s.title !== currentTitle);
+  const spec = pool[Math.abs(seed) % pool.length];
+  const p = spec.wantsPlace ? place : null;
+  return {
+    region_id: regionId, type: spec.type, title: spec.title, description: spec.desc(p), story_hook: spec.hook, place: p,
+    assignee_ids: [], trial_question: spec.trial?.q ?? null, trial_answer: spec.trial?.a ?? null,
+    verification_hint: spec.hint, points: defaultPoints(size, chapterIndex), source: 'fallback',
+  };
+}

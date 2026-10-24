@@ -1,4 +1,5 @@
 // Owner: EV. POST { fellowship_id, mode: 'first' | 'sequel', demo?: boolean } -> { storyline_id }
+// Also: { fellowship_id, prewarm: true } -> { prewarmed, places_count, serp } (fills the SerpApi cache, writes nothing).
 // Spec: handoffs/EV.md Task 2 + Task 6. Budget < 30 s. Never fails the demo: every AI/search step has a
 // deterministic fallback, so the only 5xx is a database outage.
 //
@@ -60,6 +61,15 @@ Deno.serve(async (req) => {
     .map((r: { profile: Profile | Profile[] | null }) => (Array.isArray(r.profile) ? r.profile[0] : r.profile))
     .filter((p: Profile | null): p is Profile => !!p)
     .map((p: Profile) => memberCtx(p));
+
+  // Pre-warm (before judging): fill the SerpApi cache for this fellowship's themes + Muse's defaults. Writes no book.
+  if (body.prewarm === true) {
+    const ia = analyzeInterests(members);
+    const themes = [...new Set([...ia.themes, 'coffee', 'parks', 'live_music', 'board_games', 'food_trucks'])];
+    const places = await ground(fellowship.lat ?? DEFAULT_LOCATION.lat, fellowship.lng ?? DEFAULT_LOCATION.lng,
+      fellowship.area_label ?? DEFAULT_LOCATION.label, themes, 10_000);
+    return json({ prewarmed: themes, places_count: places.length, serp: snapshotSerpStats() });
+  }
 
   // Idempotency: a double-tap while Muse is writing returns the same book.
   const generating = (books ?? []).find((b) => b.status === 'generating' && Date.now() - new Date(b.created_at).getTime() < 90_000);

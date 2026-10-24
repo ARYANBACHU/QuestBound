@@ -65,6 +65,32 @@ export async function wizardChat(req: WizardChatRequest): Promise<WizardChatResp
   return invoke('wizard-chat', req);
 }
 
+/** Round 2: Muse swaps one OPEN mission for a fresh one on the same region. Throws a readable Error if it can't. */
+export interface RerollMissionResponse { mission: Mission; source: 'llm' | 'fallback' }
+export async function rerollMission(missionId: string, reason?: string): Promise<RerollMissionResponse> {
+  if (USE_MOCKS) {
+    await wait(1200);
+    const m = mock.missions.find((x) => x.id === missionId);
+    if (!m) throw new Error('That mission has vanished from the book. Pull to refresh.');
+    if (m.status !== 'open') throw new Error(m.status === 'complete' ? 'That region is already colored!' : 'That chapter is still sealed.');
+    const alt = MOCK_REROLLS[m.type] ?? MOCK_REROLLS.relic;
+    const next = patchMission(m.id, { ...alt, title: m.title === alt.title ? `${alt.title} II` : alt.title, place: null, trial_question: null })!;
+    addMessage({ fellowship_id: m.fellowship_id, user_id: null, kind: 'wizard', body: `Muse rewrote a quest. "${m.title}" became "${next.title}".`, payload: null });
+    emitMock();
+    return { mission: next, source: 'fallback' };
+  }
+  return invoke('reroll-mission', { mission_id: missionId, ...(reason ? { reason } : {}) });
+}
+
+const MOCK_REROLLS: Record<string, Pick<Mission, 'title' | 'description' | 'story_hook' | 'type' | 'proof_type' | 'verification_hint'>> = {
+  gathering: { title: 'The Round Table', description: 'Everyone meets and plays one game together, any game. Take a group photo mid-game.', story_hook: 'Even kings settle things over a good game.', type: 'gathering', proof_type: 'group_photo', verification_hint: 'Group photo of people playing a game.' },
+  duet: { title: 'Mirror Match', description: 'Two of you strike the exact same pose somewhere fun and take one photo of it.', story_hook: 'Twin knights confuse any dragon.', type: 'duet', proof_type: 'photo', verification_hint: 'Two people in matching poses.' },
+  gift: { title: 'A Note in the Satchel', description: 'Write a short kind note for another member and give it to them in person. They confirm when they read it.', story_hook: 'Some magic is just ink and honesty.', type: 'gift', proof_type: 'confirm', verification_hint: 'The recipient confirms.' },
+  trial: { title: 'The Sky Today', description: 'Photograph the sky right now, wherever you are.', story_hook: 'The sky keeps a diary of every quest.', type: 'relic', proof_type: 'photo', verification_hint: 'Photo of the sky.' },
+  relic: { title: 'The Colored Relic', description: 'Photograph something in the wild that matches your crayon color exactly.', story_hook: 'Your color is hiding everywhere.', type: 'relic', proof_type: 'photo', verification_hint: 'An object in the player\'s color.' },
+  bard: { title: 'Tavern Review', description: 'Write a three-sentence fairy-tale review of the last place you ate.', story_hook: 'Every inn deserves a ballad.', type: 'bard', proof_type: 'text', verification_hint: 'A short playful review.' },
+};
+
 /**
  * Upload a local photo (file:// uri from expo-image-picker) to bucket 'proofs'; returns PUBLIC url (needed by SerpApi Lens).
  * Tip: pick with `quality: 0.6` so uploads stay small on hackathon Wi-Fi.
