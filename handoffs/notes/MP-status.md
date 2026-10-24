@@ -32,6 +32,7 @@
 - Task 4 friends tab, Task 5 invites/join
 
 ## Components for AB/AD (props) — all in `components/friends/`, default exports
+- `ProclamationToast` — `<ProclamationToast />`, no props; mount once in the tabs layout.
 - `Crest` — `<Crest crest={p.crest} color={p.color} size={40} ring? (default true) online? filled? style? />`.
   Also `crestEmoji(crestId)`.
 - `CrestRow` — `<CrestRow userIds={ids} members={members} size={24} max={5} online?={Set} style? />` (+N chip).

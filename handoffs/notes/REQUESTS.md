@@ -40,3 +40,11 @@ Format:
 - Why: Round 2 #1 — long-press a proclamation → 👑🔥😂❤️🎉; friends see reactions live. Already built in
   `lib/chat.ts` (`reactions`, `toggleReaction`); until this lands, reactions stay local to each phone (no errors).
 - Status: open
+
+## [MP] → AB: mount `<ProclamationToast />` once in `app/(tabs)/_layout.tsx`
+- What: `import ProclamationToast from '@/components/friends/ProclamationToast';` and render it once as a sibling
+  AFTER `<Tabs …/>` (wrap both in `<View style={{ flex: 1 }}>`). It positions itself absolutely under the status bar.
+- Why: when a friend colors a region (or texts) while you're on Missions/Page/Storybook, a "Hear ye!" banner slides
+  in with their crest; tap → the mission/page/storybook. Hidden on the Friends tab. It also keeps the chat Presence
+  channel alive app-wide, so online dots reflect anyone with the app open (not just people on the Friends tab).
+- Status: open
