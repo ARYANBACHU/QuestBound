@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "questbound",
+    "name": "Questbound",
     "slug": "questbound",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -31,6 +31,28 @@
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      "expo-sharing",
+      "expo-font",
+      "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Questbound uses your camera to capture mission proofs and scan fellowship invites."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Questbound uses your photos as mission proofs.",
+          "cameraPermission": "Questbound uses your camera to capture mission proofs."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Questbound finds real places near your fellowship for your story."
         }
       ]
     ],
