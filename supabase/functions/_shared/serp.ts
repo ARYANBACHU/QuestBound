@@ -6,6 +6,7 @@ import { admin } from './db.ts';
 import type { Place } from './types.ts';
 
 const KEY = Deno.env.get('SERPAPI_KEY') ?? '';
+const SERP_BASE = Deno.env.get('SERPAPI_BASE_URL') ?? 'https://serpapi.com'; // override only for local tests
 const TTL_HOURS = 12;
 export const HAS_SERP = KEY.length > 0;
 
@@ -43,7 +44,7 @@ export async function serp(params: Record<string, string>, opts: { cache?: boole
   }
   try {
     if (!HAS_SERP) throw new Error('SERPAPI_KEY not set');
-    const url = new URL('https://serpapi.com/search.json');
+    const url = new URL(`${SERP_BASE}/search.json`);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     url.searchParams.set('api_key', KEY);
     const ctrl = new AbortController();

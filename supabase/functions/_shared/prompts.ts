@@ -30,6 +30,7 @@ export interface StoryCtx {
   areaLabel: string;
   members: MemberCtx[];
   shared: string[];
+  themes: string[]; // interest ids grounded with SerpApi
   unique: Record<string, string[]>;
   places: Place[]; // index i => "P{i}"
   chapters: TemplateId[];
@@ -101,14 +102,14 @@ Respond with JSON only. No markdown, no commentary.`;
 }
 
 /** The shared context block every storyline call sees. */
-export function storylineUser(ctx: StoryCtx): string {
+export function storylineUser(ctx: StoryCtx, includePlaces = true): string {
   return `FELLOWSHIP: "${ctx.fellowshipName}" in ${ctx.areaLabel} (${ctx.members.length} members)
 ${memberLines(ctx.members, ctx.unique)}
 Shared interests: ${ctx.shared.map(interestLabel).join(', ') || 'none yet — find common ground'}
 Budget: ${ctx.preferFree ? 'most members are on a tight budget — strongly prefer FREE places and events' : 'modest; cheap is better than fancy'}
 
-REAL PLACES & EVENTS NEARBY (from Google Maps / Google Events — reference them by index):
-${placeLines(ctx.places)}
+${includePlaces ? `REAL PLACES & EVENTS NEARBY (from Google Maps / Google Events — reference them by index):
+${placeLines(ctx.places)}` : 'REAL PLACES: real nearby places are attached later, per chapter. Keep the outline about the city in general.'}
 
 CHAPTERS (in order): ${ctx.chapters.map((c, i) => `${i + 1}. ${c} (${TEMPLATE_META[c].title}: ${TEMPLATE_META[c].mood})`).join('; ')}`;
 }
