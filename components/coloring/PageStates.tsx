@@ -1,44 +1,23 @@
-// Owner: AD. Page-turn overlay, chapter ribbon, blank book, "Muse is writing", and "The End" banner.
+// Owner: AD. Chapter ribbon, blank book, "Sage is writing", and "The End" banner.
 import { useEffect, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { G, Path, Rect } from 'react-native-svg';
+import Svg, { Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import Animated, {
   Easing, FadeOut, SlideInUp, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
-import { INK_STROKE, ink, radius, space } from '@/shared/theme';
-import { storybookFrame } from '@/assets/pages/shapes';
+import { INK_STROKE, MOODS, ink, radius, space } from '@/shared/theme';
+import { frameBand, storybookFrame } from '@/assets/pages/shapes';
 import { MissionTypeGlyph } from './MissionTypeIcon';
 import { InkButton, Txt } from './ui';
-
-export const TURN_MS = 1100;
-
-/** The previous page, laid on top of the next one, swinging away around its left edge. */
-export function PageTurnOverlay({ children, onDone }: { children: ReactNode; onDone: () => void }) {
-  const deg = useSharedValue(0);
-  useEffect(() => {
-    deg.value = withTiming(-180, { duration: TURN_MS, easing: Easing.inOut(Easing.cubic) });
-    const t = setTimeout(onDone, TURN_MS + 30);
-    return () => clearTimeout(t);
-  }, [deg, onDone]);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ perspective: 1200 }, { rotateY: `${deg.value}deg` }],
-    opacity: deg.value < -95 ? 0 : 1,
-  }));
-  const shade = useAnimatedStyle(() => ({ opacity: Math.min(0.35, (-deg.value / 90) * 0.35) }));
-  return (
-    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transformOrigin: 'left center', backfaceVisibility: 'hidden' }, style]}>
-      {children}
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: ink.ink }, shade]} />
-    </Animated.View>
-  );
-}
+import { Sage, SageSays } from './sage';
 
 /** "Chapter II · Whispers in the Wood" ribbon. Parent mounts it for ~2 s. */
 export function ChapterRibbon({ text }: { text: string }) {
   return (
     <Animated.View entering={SlideInUp.duration(450)} exiting={FadeOut.duration(300)} style={styles.ribbonWrap} pointerEvents="none">
       <View style={styles.ribbon}>
-        <Txt v="heading" color={ink.page} center>{text}</Txt>
+        <Sage expression="happy" size="sm" />
+        <Txt v="heading" color={ink.page} style={{ flex: 1 }}>{text}</Txt>
       </View>
     </Animated.View>
   );
@@ -48,7 +27,14 @@ export function ChapterRibbon({ text }: { text: string }) {
 function BlankFrame({ width, children }: { width: number; children?: ReactNode }) {
   return (
     <Svg width={width} height={(width * 1400) / 1000} viewBox="0 0 1000 1400">
+      <Defs>
+        <LinearGradient id="blankFrame" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor={MOODS.castle.gradient[0]} />
+          <Stop offset="1" stopColor={MOODS.castle.gradient[1]} />
+        </LinearGradient>
+      </Defs>
       <Rect x={0} y={0} width={1000} height={1400} fill={ink.page} />
+      <Path d={frameBand()} fill="url(#blankFrame)" />
       {storybookFrame().map((d, i) => (
         <Path key={i} d={d} fill="none" stroke={ink.ink} strokeWidth={INK_STROKE * 0.66} strokeLinecap="round" strokeLinejoin="round" />
       ))}
@@ -63,9 +49,10 @@ export function BlankBook({ width, onSummon, loading, error }: { width: number; 
       <View>
         <BlankFrame width={width} />
         <View style={[StyleSheet.absoluteFill, styles.overlay]}>
-          <Txt v="heading" center>Your book is blank.</Txt>
-          <Txt v="story" center>Summon a story to begin. Muse will weave your interests and real places nearby into a tale.</Txt>
-          <InkButton label="Summon a story" onPress={onSummon} loading={loading} style={{ marginTop: space.md }} />
+          <Sage expression="idle" size="lg" />
+          <Txt v="title" center>Your book is blank.</Txt>
+          <Txt v="story" center>Summon a story to begin. I’ll weave your interests and real places nearby into a tale.</Txt>
+          <InkButton label="Summon a story" onPress={onSummon} loading={loading} style={{ marginTop: space.md, alignSelf: 'stretch' }} />
           {error ? <Txt v="small" color={ink.danger} center>{error} Check your connection and try again.</Txt> : null}
         </View>
       </View>
@@ -77,8 +64,8 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 const LINE = 'M170 700 C300 640 380 760 500 700 S700 640 830 700';
 const LINE_LEN = 760;
 
-/** Muse is writing your book… (the one place a looping animation is allowed). */
-export function MuseWriting({ width }: { width: number }) {
+/** Sage is writing your book… (the one place a looping animation is allowed). */
+export function SageWriting({ width }: { width: number }) {
   const t = useSharedValue(0);
   useEffect(() => {
     t.value = withRepeat(withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.quad) }), -1, false);
@@ -102,8 +89,11 @@ export function MuseWriting({ width }: { width: number }) {
             <G><MissionTypeGlyph type="bard" strokeWidth={1.6} /></G>
           </Svg>
         </Animated.View>
+        <View style={[StyleSheet.absoluteFill, styles.writingTop]} pointerEvents="none">
+          <Sage expression="thinking" size="lg" />
+        </View>
         <View style={[StyleSheet.absoluteFill, styles.writingText]} pointerEvents="none">
-          <Txt v="heading" center>Muse is writing your book…</Txt>
+          <Txt v="heading" center>Sage is writing your book…</Txt>
           <Txt v="story" center>Gathering your interests, scouting real places nearby, and inking the first page.</Txt>
         </View>
       </View>
@@ -114,8 +104,7 @@ export function MuseWriting({ width }: { width: number }) {
 export function TheEndBanner({ onOpenStorybook, onSequel, loading }: { onOpenStorybook: () => void; onSequel: () => void; loading: boolean }) {
   return (
     <View style={styles.end}>
-      <Txt v="title" center>The End… for now</Txt>
-      <Txt v="story" center>Every page is colored. Muse is already dreaming up what comes next.</Txt>
+      <SageSays expression="happy" size="md" title="The End… for now" line="Every page is colored. I’m already dreaming up what comes next." />
       <View style={{ gap: space.sm, alignSelf: 'stretch' }}>
         <InkButton label="Open the Storybook" onPress={onOpenStorybook} />
         <InkButton label="Summon the next book" variant="secondary" onPress={onSequel} loading={loading} />
@@ -127,15 +116,13 @@ export function TheEndBanner({ onOpenStorybook, onSequel, loading }: { onOpenSto
 const styles = StyleSheet.create({
   center: { alignItems: 'center' },
   overlay: { alignItems: 'center', justifyContent: 'center', padding: space.xxl, gap: space.sm },
+  writingTop: { alignItems: 'center', paddingTop: '22%' },
   writingText: { justifyContent: 'flex-end', alignItems: 'center', padding: space.xxl, paddingBottom: '30%', gap: space.sm },
   quill: { position: 'absolute', left: 0, top: 0 },
   ribbonWrap: { position: 'absolute', top: space.md, left: space.lg, right: space.lg, zIndex: 10 },
   ribbon: {
-    backgroundColor: ink.ink, borderRadius: radius.sm, paddingVertical: space.md, paddingHorizontal: space.lg,
-    borderWidth: 2, borderColor: ink.gold,
+    flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: ink.ink, borderRadius: radius.md, overflow: 'hidden',
+    paddingVertical: space.sm, paddingHorizontal: space.md, borderWidth: 2, borderColor: ink.gold,
   },
-  end: {
-    margin: space.lg, padding: space.xl, gap: space.md, alignItems: 'center', borderRadius: radius.lg,
-    borderWidth: 2.5, borderColor: ink.gold, backgroundColor: ink.page,
-  },
+  end: { margin: space.lg, gap: space.md },
 });

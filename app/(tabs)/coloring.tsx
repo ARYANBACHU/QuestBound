@@ -1,22 +1,28 @@
 // Owner: AD. The coloring page tab: the current chapter, its missions as regions, page turns between chapters.
-'use no memo'; // mock store mutates rows in place; opt out of React Compiler auto-memo so updates always render
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+'use no memo'; // reads refs during render (page-turn state machine); keep the React Compiler out
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, PanResponder, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFellowship } from '@/lib/fellowship';
 import { useMissions, useStoryline } from '@/lib/game';
 import { generateStoryline, submitProof } from '@/lib/api';
 import { USE_MOCKS } from '@/lib/env';
-import { ink, radius, space } from '@/shared/theme';
-import type { Mission, Page } from '@/shared/types';
+import { SCREEN_GRADIENTS, ink, moodFor, radius, shadow, space } from '@/shared/theme';
+import type { Page } from '@/shared/types';
 import { ColoringPage, FILL_MS } from '@/components/coloring/ColoringPage';
 import { ChapterHeader } from '@/components/coloring/ChapterHeader';
 import { MissionSheet } from '@/components/coloring/MissionSheet';
-import { BlankBook, ChapterRibbon, MuseWriting, PageTurnOverlay, TheEndBanner } from '@/components/coloring/PageStates';
+import { BlankBook, ChapterRibbon, SageWriting, TheEndBanner } from '@/components/coloring/PageStates';
+import { PageFlip } from '@/components/coloring/PageFlip';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { InkButton, Txt } from '@/components/coloring/ui';
+import { Sage, SageSays } from '@/components/coloring/sage';
+import { Celebration } from '@/components/coloring/Celebration';
+import { UpNext, nextMission } from '@/components/coloring/UpNext';
+import { ChapterTale } from '@/components/coloring/ChapterTale';
 
 const HOLD_MS = FILL_MS + 700; // let the last region's fill + sparkle play before the page turns
 
@@ -26,9 +32,7 @@ export default function ColoringScreen() {
   const pageW = Math.min(screenW - 2 * space.lg, 560);
 
   const { fellowship, members } = useFellowship();
-  const { storyline, pages, activePage: hookActive, loading } = useStoryline(fellowship?.id ?? null);
-  // Recompute from statuses every render (mock rows mutate in place; a memoized activePage can go stale).
-  const activePage = pages.find((p) => p.status === 'active') ?? pages.filter((p) => p.status === 'complete').slice(-1)[0] ?? hookActive;
+  const { storyline, pages, activePage, loading } = useStoryline(fellowship?.id ?? null);
   const { missions } = useMissions(storyline?.id ?? null);
 
   const [viewId, setViewId] = useState<string | null>(null); // null = follow the active page
@@ -36,13 +40,12 @@ export default function ColoringScreen() {
   const [summoning, setSummoning] = useState(false);
   const [summonError, setSummonError] = useState<string | null>(null);
 
-  // ---- page turn state machine: hold (last fill plays) → turning (flip) → ribbon ----
+  // ---- page turns: hold (the last fill plays) → flip → ribbon + confetti. Browsing chapters flips too. ----
   const [hold, setHold] = useState<Page | null>(null);
-  const [turning, setTurning] = useState<{ page: Page; missions: Mission[] } | null>(null);
+  const [flip, setFlip] = useState<{ key: number; mode: 'next' | 'prev'; over: Page; under: Page; auto: boolean } | null>(null);
   const [ribbon, setRibbon] = useState<string | null>(null);
+  const [party, setParty] = useState<{ kind: 'page' | 'book'; at: number } | null>(null);
   const prevActive = useRef<Page | null>(null);
-  const missionsRef = useRef(missions);
-  missionsRef.current = missions;
 
   useEffect(() => {
     const prev = prevActive.current;
@@ -50,21 +53,26 @@ export default function ColoringScreen() {
     if (!prev || !activePage || prev.id === activePage.id) return;
     const prevNow = pages.find((p) => p.id === prev.id);
     if (prevNow?.status !== 'complete') return;
+    const next = activePage;
     setViewId(null);
     setHold(prevNow);
     const t = setTimeout(() => {
       setHold(null);
-      setTurning({ page: prevNow, missions: pageMissions(missionsRef.current, prevNow) });
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+      setFlip({ key: Date.now(), mode: 'next', over: prevNow, under: next, auto: true });
     }, HOLD_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePage?.id]);
 
-  const onTurnDone = useCallback(() => {
-    setTurning(null);
-    const next = prevActive.current;
-    if (next) setRibbon(`Chapter ${roman(next.chapter_number)} · ${next.title}`);
+  const flipRef = useRef(flip);
+  flipRef.current = flip;
+  const onFlipDone = useCallback(() => {
+    const f = flipRef.current;
+    setFlip(null);
+    if (f?.auto) {
+      setRibbon(`Chapter ${roman(f.under.chapter_number)} · ${f.under.title}`);
+      setParty({ kind: 'page', at: Date.now() });
+    }
   }, []);
   useEffect(() => {
     if (!ribbon) return;
@@ -73,9 +81,47 @@ export default function ColoringScreen() {
   }, [ribbon]);
 
   const shown: Page | null = hold ?? (viewId ? pages.find((p) => p.id === viewId) ?? activePage : activePage);
-  const shownMissions = pageMissions(missions, shown); // fresh array each render on purpose (in-place mock mutations)
+
+  /** Browse to another chapter with a page flip (forward = the page turns away, back = it turns back in). */
+  const goTo = (targetId: string) => {
+    const target = pages.find((p) => p.id === targetId);
+    if (!target || !shown || target.id === shown.id || flip || hold) return;
+    const forward = target.chapter_number > shown.chapter_number;
+    setFlip({ key: Date.now(), mode: forward ? 'next' : 'prev', over: forward ? shown : target, under: forward ? target : shown, auto: false });
+    setViewId(target.id === activePage?.id ? null : target.id);
+  };
+  const goRef = useRef(goTo);
+  goRef.current = goTo;
+  const shownIdx = shown ? pages.findIndex((p) => p.id === shown.id) : -1;
+  const idxRef = useRef(shownIdx);
+  idxRef.current = shownIdx;
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
+  const swipe = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+        onPanResponderRelease: (_, g) => {
+          const to = pagesRef.current[idxRef.current + (g.dx < 0 ? 1 : -1)];
+          if (Math.abs(g.dx) > 50 && to) goRef.current(to.id);
+        },
+      }),
+    [],
+  );
+  const shownMissions = pageMissions(missions, shown);
   const sheetMission = missions.find((m) => m.id === sheetId) ?? null;
   const bookDone = !!storyline && (storyline.status === 'complete' || (pages.length > 0 && pages.every((p) => p.status === 'complete')));
+
+  // the book just finished while we watched → confetti for the whole fellowship (after the last fill plays)
+  const wasDone = useRef<boolean | null>(null);
+  useEffect(() => {
+    const before = wasDone.current;
+    wasDone.current = bookDone;
+    if (before === false && bookDone) {
+      const t = setTimeout(() => setParty({ kind: 'book', at: Date.now() }), HOLD_MS);
+      return () => clearTimeout(t);
+    }
+  }, [bookDone]);
 
   const summon = async (mode: 'first' | 'sequel') => {
     if (!fellowship) return;
@@ -85,7 +131,7 @@ export default function ColoringScreen() {
       await generateStoryline({ fellowship_id: fellowship.id, mode });
       setViewId(null);
     } catch (e) {
-      setSummonError(e instanceof Error ? 'Muse dropped the quill.' : 'Something went wrong.');
+      setSummonError(e instanceof Error ? 'Sage dropped the quill.' : 'Something went wrong.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     } finally {
       setSummoning(false);
@@ -100,11 +146,16 @@ export default function ColoringScreen() {
     await submitProof({ mission_id: m.id, participant_ids: members.slice(0, Math.max(1, m.required_members)).map((x) => x.user_id), proof_text: 'dev' });
   };
 
+  const staticPage = (page: Page) => (
+    <ColoringPage templateId={page.template_id} missions={pageMissions(missions, page)} members={members} locked={page.status === 'locked'} interactive={false} animate={false} width={pageW} />
+  );
+
   // ---------------- states ----------------
   let body: React.ReactNode;
   if (loading) {
     body = (
       <View style={styles.fill}>
+        <Sage expression="thinking" size="md" />
         <ActivityIndicator color={ink.ink} />
         <Txt v="story" center>Opening your book…</Txt>
       </View>
@@ -112,52 +163,64 @@ export default function ColoringScreen() {
   } else if (!fellowship) {
     body = (
       <View style={styles.fill}>
-        <Txt v="heading" center>No fellowship, no tale.</Txt>
-        <Txt v="story" center>Muse writes for a band of friends. Gather yours first.</Txt>
-        <InkButton label="Find your fellowship" onPress={() => router.push('/(tabs)/friends')} />
+        <SageSays expression="sleepy" size="md" title="No fellowship, no tale." line="I write for a band of friends. Gather yours first." />
+        <InkButton label="Find your fellowship" onPress={() => router.push('/(tabs)/friends')} style={{ alignSelf: 'stretch' }} />
       </View>
     );
   } else if (summoning || storyline?.status === 'generating') {
-    body = <MuseWriting width={pageW} />;
+    body = <SageWriting width={pageW} />;
   } else if (!storyline || !shown) {
     body = <BlankBook width={pageW} onSummon={() => summon('first')} loading={summoning} error={summonError} />;
   } else {
     const isLocked = shown.status === 'locked';
+    const upNext = shown.status === 'active' ? nextMission(shownMissions) : null;
     body = (
       <>
         <ChapterHeader bookTitle={storyline.title} page={shown} missions={shownMissions} members={members} />
-        <View style={styles.pageWrap}>
+        <View style={styles.pageWrap} {...swipe.panHandlers}>
           <View style={[styles.paperShadow, { width: pageW }]}>
-            <ColoringPage
-              key={shown.id}
-              templateId={shown.template_id}
-              missions={shownMissions}
-              members={members}
-              locked={isLocked}
-              interactive={!isLocked}
-              width={pageW}
-              highlightRegionId={sheetMission?.region_id ?? null}
-              onRegionPress={(missionId) => setSheetId(missionId)}
-            />
-            {isLocked && (
-              <View style={[StyleSheet.absoluteFill, styles.lockedNote]} pointerEvents="none">
-                <View style={styles.lockedPill}>
-                  <Txt v="bodyBold" center>Unlocks when Chapter {roman(shown.chapter_number - 1)} is colored</Txt>
-                </View>
-              </View>
-            )}
-            {turning && (
-              <PageTurnOverlay onDone={onTurnDone}>
-                <ColoringPage templateId={turning.page.template_id} missions={turning.missions} members={members} interactive={false} animate={false} width={pageW} />
-              </PageTurnOverlay>
+            {flip ? (
+              <PageFlip
+                key={flip.key}
+                mode={flip.mode}
+                over={staticPage(flip.over)}
+                under={staticPage(flip.under)}
+                onDone={onFlipDone}
+              />
+            ) : (
+              <>
+                <ColoringPage
+                  key={shown.id}
+                  templateId={shown.template_id}
+                  missions={shownMissions}
+                  members={members}
+                  locked={isLocked}
+                  interactive={!isLocked}
+                  width={pageW}
+                  highlightRegionId={sheetMission?.region_id ?? null}
+                  onRegionPress={(missionId) => setSheetId(missionId)}
+                />
+                {isLocked && (
+                  <View style={[StyleSheet.absoluteFill, styles.lockedNote]} pointerEvents="none">
+                    <View style={styles.lockedPill}>
+                      <Txt v="bodyBold" center>Unlocks when Chapter {roman(shown.chapter_number - 1)} is colored</Txt>
+                    </View>
+                  </View>
+                )}
+              </>
             )}
           </View>
           {ribbon && <ChapterRibbon text={ribbon} />}
         </View>
 
-        <ChapterNav pages={pages} shownId={shown.id} activeId={activePage?.id ?? null} onPick={(id) => setViewId(id === activePage?.id ? null : id)} />
+        <ChapterNav pages={pages} shownId={shown.id} activeId={activePage?.id ?? null} onPick={goTo} />
 
-        {bookDone && !hold && !turning && (
+        {upNext && !hold && !flip ? <UpNext mission={upNext} mood={moodFor(shown.template_id)} onPress={() => setSheetId(upNext.id)} /> : null}
+        {shown.status === 'complete' && !hold && !flip && !(bookDone && shown.id === activePage?.id) ? (
+          <ChapterTale page={shown} missions={shownMissions} members={members} mood={moodFor(shown.template_id)} onOpen={setSheetId} />
+        ) : null}
+
+        {bookDone && !hold && !flip && (
           <TheEndBanner onOpenStorybook={() => router.push('/(tabs)/storybook')} onSequel={() => summon('sequel')} loading={summoning} />
         )}
         {summonError && bookDone ? <Txt v="small" color={ink.danger} center>{summonError} Try again in a moment.</Txt> : null}
@@ -171,9 +234,12 @@ export default function ColoringScreen() {
     );
   }
 
+  const mood = moodFor(shown?.template_id);
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <LinearGradient colors={SCREEN_GRADIENTS[mood.id]} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={{ paddingBottom: space.xxl * 2, flexGrow: 1 }}>{body}</ScrollView>
+      {party && <Celebration key={party.at} kind={party.kind} onDone={() => setParty(null)} />}
       <MissionSheet mission={sheetMission} page={pages.find((p) => p.id === sheetMission?.page_id) ?? null} members={members} onClose={() => setSheetId(null)} />
     </View>
   );
@@ -220,10 +286,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: ink.paper },
   fill: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.xxl, minHeight: 400 },
   pageWrap: { alignItems: 'center' },
-  paperShadow: {
-    borderRadius: radius.sm, overflow: 'visible', backgroundColor: ink.page,
-    shadowColor: ink.ink, shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
-  },
+  paperShadow: { borderRadius: radius.sm, overflow: 'visible', backgroundColor: ink.page, ...shadow.md },
   lockedNote: { alignItems: 'center', justifyContent: 'center', padding: space.xl },
   lockedPill: { backgroundColor: ink.page, borderWidth: 2.5, borderColor: ink.ink, borderRadius: radius.md, padding: space.md },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, marginTop: space.lg },

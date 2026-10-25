@@ -1,7 +1,8 @@
 // Owner: AD. The last page of a finished book: recap, stats, titles, highlights, sequel teaser.
 'use no memo';
 import { StyleSheet, View } from 'react-native';
-import { ink, radius, space } from '@/shared/theme';
+import { accent, ink, panel, space, ui } from '@/shared/theme';
+import { Sage } from '@/components/coloring/sage';
 import type { BookRecap, FellowshipMember, Storyline } from '@/shared/types';
 import { CrestBubble } from '@/components/coloring/Crests';
 import { roman } from '@/components/coloring/pageUtils';
@@ -18,7 +19,8 @@ export function RecapPage({ book, recap, members, onSequel, onMontage, summoning
   ];
   return (
     <View style={styles.wrap}>
-      <Txt v="smallBold" color={ink.gold} center>BOOK {roman(book.book_number)} · THE END</Txt>
+      <View style={{ alignItems: 'center' }}><Sage expression="proud" size="md" /></View>
+      <Txt v="smallBold" color={accent.gold} center>BOOK {roman(book.book_number)} · THE END</Txt>
       <Txt v="hero" center>{book.title}</Txt>
       <Txt v="story" color={ink.ink}>{recap.summary}</Txt>
 
@@ -49,7 +51,7 @@ export function RecapPage({ book, recap, members, onSequel, onMontage, summoning
       {recap.highlights.length > 0 && (
         <View style={styles.section}>
           <Txt v="heading">Best moments</Txt>
-          {recap.highlights.map((h, i) => (
+          {recap.highlights.slice(0, 3).map((h, i) => (
             <View key={i} style={styles.highlight}>
               <Txt v="bodyBold" color={ink.gold}>✦</Txt>
               <Txt v="story" color={ink.ink} style={{ flex: 1 }}>{h}</Txt>
@@ -61,7 +63,7 @@ export function RecapPage({ book, recap, members, onSequel, onMontage, summoning
       <InkButton label="Play montage" variant="secondary" onPress={onMontage} />
 
       <View style={styles.teaser}>
-        <Txt v="smallBold" color={ink.gold}>NEXT TIME…</Txt>
+        <Txt v="smallBold" color={accent.gold}>NEXT TIME…</Txt>
         <Txt v="story" color={ink.ink}>{recap.next_book_hint}</Txt>
         <InkButton label="Summon the next book" onPress={onSequel} loading={summoning} />
       </View>
@@ -76,5 +78,5 @@ const styles = StyleSheet.create({
   section: { gap: space.md },
   hero: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   highlight: { flexDirection: 'row', gap: space.sm },
-  teaser: { gap: space.md, padding: space.lg, borderRadius: radius.lg, borderWidth: 2.5, borderColor: ink.gold, backgroundColor: ink.page },
+  teaser: { gap: space.md, padding: space.lg, borderRadius: ui.cardRadius, borderWidth: ui.borderWidth, borderColor: ink.gold, backgroundColor: panel.parchment, overflow: 'hidden' },
 });

@@ -1,37 +1,41 @@
 # AD status (Artist — coloring page & storybook)
 
-## Done
-- `components/coloring/MissionTypeIcon.tsx` — READY for AB.
-  - `import { MissionTypeIcon } from '@/components/coloring/MissionTypeIcon'` → `<MissionTypeIcon type={mission.type} size={24} color? />`
-  - Also exports `MISSION_TYPE_LABEL` (display names), `MissionTypeGlyph` (raw 24×24 group for use inside an existing `<Svg>`), `HourglassGlyph`.
-- Task 1: `assets/pages/` — 4 pages (`PAGE_ART`), shared helpers in `shapes.ts`, `__DEV__` assertion that region ids == `shared/templates.ts`.
-  Regions use the nonzero fill rule; holes (castle gate/banners, owl in the tree) are drawn counter-clockwise.
-- Task 2: `components/coloring/ColoringPage.tsx` — READY for AB (onboarding mini):
-  `<ColoringPage templateId missions members onRegionPress? highlightRegionId? interactive? locked? width? animate? />`
-  open (stitched edge + type glyph) / pending (25% wash + hourglass) / complete (crayon fill + texture + teammate stripes) /
-  locked. Fill reveal (900 ms growing clip circle) + gold sparkle + success haptic when a mission flips to complete while mounted.
-- Task 3: `app/(tabs)/coloring.tsx` — header + crayon-stub progress, mission bottom sheet (place → Google Maps, crests,
-  story line when colored, "Open mission" → `/mission/<id>`), chapter dots/arrows, locked page silhouette, page turn
-  (hold for last fill → Y-rotation around left edge 1100 ms + heavy haptic → chapter ribbon 2 s), blank book / Muse writing /
-  "The End… for now" states. Mock-only dev link "Dev: color a random region" (calls `submitProof`).
+## Done — Round 1
+- `MissionTypeIcon` (exports `MissionTypeIcon`, `MISSION_TYPE_LABEL`, `MissionTypeGlyph`, `HourglassGlyph`) — used by AB.
+- 4 coloring pages in `assets/pages/` (`PAGE_ART`, `__DEV__` region-id assertion), `ColoringPage`, Coloring tab, Storybook
+  (shelf → reader → recap → montage).
 
-- Task 4: `app/(tabs)/storybook.tsx` — shelf (book cards with live coloring-page covers) → `components/storybook/BookReader.tsx`
-  (paged chapters: title/narrative, Coloring|Illustration toggle, colored page, scrapbook "tale entries" with deckled+taped
-  photos rotated ±2°, story lines, crests; quote style for text missions) → `RecapPage.tsx` (falls back to a client-built
-  recap from real data when `storyline.recap` is null) → `Montage.tsx` (3 s slides, Ken Burns, crossfade, chapter title cards,
-  tap to pause, swipe to skip, close, play again).
+## Done — Round 2 (all pushed to feat/coloring, typecheck clean)
+- NAMING: narrator is **Sage** everywhere in AD copy; Sage bubbles show "✦ powered by Muse". Sheets/modals: outer + edge
+  children share radius with overflow hidden. Chunky game buttons (`InkButton` in `components/coloring/ui.tsx`, gameButton tokens) + `Chip`.
+- D1 colorful pages: mood-gradient storybook frame on every page, chapter-mood screen backgrounds, mood spines on the shelf.
+- D2 `ExpandableStory`: fade-out + "Read more ▾" / "Show less ▴" chip (native line count via onTextLayout, width estimate on web).
+- D3 Montage = stories: animated segment bars, auto-advance, HOLD pauses, tap left/right, swipe sideways, swipe DOWN closes.
+- D4 Bard verses: `VerseCard` (illuminated drop cap, gold rules, author crest) in the Storybook tale entries.
+- D5 Storybook opens ANY book (current or shelved) via `usePages` — removed the "shelved book" workaround and the local activePage recompute.
+- UI upgrade: `Celebration` (crayon-shaving confetti + gold sparkles) after page turns and when the book completes; Sage in blank,
+  writing (thinking), loading, no-fellowship, empty shelf, The End, chapter ribbon, recap.
+- SIMPLIFY: header = "Chapter I · Book" + title + one clamped line + crayon progress; `UpNext` card under the page; leaner mission sheet; calmer shelf.
+- MAPS LINKS: mission sheet place → `openInMaps(place)`; `place.website` is a separate small "Website" link.
+- P1 `PageFlip` (hinged on the spine, lifts from the right edge, light + cast shadow, heavy haptic, page sfx): automatic page
+  turns, chapter arrows/dots/horizontal swipe on the Coloring tab, and the Storybook reader (arrows/dots/swipe). `CoverSwing`: the cover swings open from the shelf.
+- P2 scribble reveal: crayon strokes sweep across the region (dash offset) then settle into the textured fill + sparkle, ~1.2 s,
+  `playSfx('crayon')` + success haptic; reduced motion = instant color.
+- P3 100% coloring: sky/ground behind regions gets a textured mood wash (opacity = colored/6, full at 6/6); frame color runs to the paper edge.
+- P4 past chapters: a finished chapter shows "The tale of this chapter" (every mission, crests, story line); taps open the read-only sheet.
+- P5 revamp polish; checked iPhone SE (375×667) + Pro Max (430×932) on web preview.
 
-## Next (Round 2)
-- Verify on a real phone (Expo Go): fill reveal animated clip + sparkles on native, page-turn perspective.
-- Art polish; "paint with friends" pending shimmer; share page as image (`Svg.toDataURL` → expo-sharing); montage music.
+## Local stand-ins (one-line swaps, listed in REQUESTS.md)
+- `components/storybook/useStoryData.ts` → EV's `usePages` / `useCompletions` (on feat/engine, compatible).
+- `components/coloring/sage.tsx` (`Sage` placeholder + AD's `SageSays`) → AB's `components/wizard/Sage.tsx` (on feat/shell, compatible).
+- `components/coloring/sfx.ts` (no-op) → AB's `components/shell/sfx.ts` (on feat/shell, compatible).
 
-## Notes / decisions
-- React Compiler is on (app.json). Mock store mutates rows in place, so AD files start with `'use no memo'` and the coloring
-  tab recomputes `activePage` from `pages`. Filed in REQUESTS.md for EV.
-- Web preview: `web.output: "server"` SSR crashes on supabase (`window is not defined`). I preview locally with a
-  git-excluded `app.config.js` that sets `web.output: 'single'`. Native (Expo Go) is unaffected.
-- On web, react-native-svg logs "Unknown event handler" for responder props on `<Path onPress>` — harmless.
-- Local `components/coloring/Crests.tsx` + `ui.tsx` stand in for MP's `Crest` and AB's `Button`/`T` until they land on main.
+## Next
+- After the merge agent lands EV/AB on main: do the three swaps, re-test page flip + scribble on a real phone (Expo Go).
+- Montage music; share a finished page as an image.
 
-## Known bugs
-- Mock fixtures only have missions for Chapter I, so later chapters show empty regions (no glyphs) in mock mode.
+## Known issues
+- AB's wizard FAB covers the Storybook reader's "next" arrow until AB's A10 (auto-hide on reader/montage) lands. Swipe still works.
+- Commit 9bfbcbe has the message "x" (pushed by mistake from my push script); its contents are described in 842903d. Not rewritten (no force-push).
+- Web preview tip: run Metro WITHOUT `CI=1` (CI mode disables file watching → stale bundles). react-native-svg logs harmless
+  "Unknown event handler" errors on web.

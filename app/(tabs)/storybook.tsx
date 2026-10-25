@@ -5,15 +5,18 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensio
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFellowship } from '@/lib/fellowship';
-import { useBooks, useMemories, useMissions, useStoryline } from '@/lib/game';
+import { useBooks, useMemories, useMissions } from '@/lib/game';
+import { useCompletions, usePages } from '@/components/storybook/useStoryData';
 import { generateStoryline } from '@/lib/api';
-import { ink, radius, space } from '@/shared/theme';
-import type { FellowshipMember, Mission, Page, Storyline } from '@/shared/types';
+import { SCREEN_GRADIENTS, ink, moodFor, panel, shadow, space, ui } from '@/shared/theme';
+import type { FellowshipMember, Page, Storyline } from '@/shared/types';
 import { ColoringPage } from '@/components/coloring/ColoringPage';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
-import { InkButton, Txt } from '@/components/coloring/ui';
-import { BookReader, ReaderEmpty } from '@/components/storybook/BookReader';
+import { Chip, InkButton, Txt } from '@/components/coloring/ui';
+import { SageSays } from '@/components/coloring/sage';
+import { BookReader } from '@/components/storybook/BookReader';
 import { Montage } from '@/components/storybook/Montage';
 import { fallbackRecap, montageSlides, withDemoMemories } from '@/components/storybook/bookData';
 
@@ -22,20 +25,20 @@ export default function StorybookScreen() {
   const { fellowship, members } = useFellowship();
   const fid = fellowship?.id ?? null;
   const { books, loading } = useBooks(fid);
-  const { storyline, pages } = useStoryline(fid);
-  const { missions } = useMissions(storyline?.id ?? null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [montage, setMontage] = useState(false);
   const [summoning, setSummoning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Any book on the shelf (current or older) loads its own pages, missions, memories and verses.
   const open = books.find((b) => b.id === openId) ?? null;
-  // Page rows are only exposed for the current book (useStoryline); older books show their cover + a note.
-  const openIsCurrent = !!open && open.id === storyline?.id;
-  const { memories: rawMemories } = useMemories(fid, open?.id ?? storyline?.id ?? null);
+  const { pages, loading: pagesLoading } = usePages(open?.id ?? null);
+  const { missions } = useMissions(open?.id ?? null);
+  const { completions } = useCompletions(open?.id ?? null);
+  const { memories: rawMemories } = useMemories(fid, open?.id ?? null);
   const memories = withDemoMemories(rawMemories, missions);
-  const bookDone = (b: Storyline) => b.status === 'complete' || (b.id === storyline?.id && pages.length > 0 && pages.every((p) => p.status === 'complete'));
-  const recap = open && openIsCurrent && bookDone(open) ? open.recap ?? fallbackRecap(open, pages, missions, memories, members) : null;
+  const done = !!open && isBookDone(open, pages);
+  const recap = open && done ? open.recap ?? fallbackRecap(open, pages, missions, memories, members) : null;
 
   const sequel = async () => {
     if (!fid) return;
@@ -46,7 +49,7 @@ export default function StorybookScreen() {
       setOpenId(null);
       router.push('/(tabs)/coloring');
     } catch {
-      setError('Muse dropped the quill. Try summoning again in a moment.');
+      setError('Sage dropped the quill. Try summoning again in a moment.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     } finally {
       setSummoning(false);
@@ -56,13 +59,13 @@ export default function StorybookScreen() {
   if (open) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        {openIsCurrent ? (
+        {pagesLoading && !pages.length ? (
+          <ActivityIndicator color={ink.ink} style={{ marginTop: space.xxl }} />
+        ) : (
           <BookReader
-            book={open} pages={pages} missions={missions} memories={memories} members={members} recap={recap}
+            book={open} pages={pages} missions={missions} memories={memories} completions={completions} members={members} recap={recap}
             onClose={() => setOpenId(null)} onMontage={() => setMontage(true)} onSequel={sequel} summoning={summoning}
           />
-        ) : (
-          <ReaderEmpty onBack={() => setOpenId(null)} />
         )}
         {error ? <Txt v="small" color={ink.danger} center>{error}</Txt> : null}
         <Montage visible={montage} slides={montageSlides(open, pages, missions, memories, recap)} onClose={() => setMontage(false)} />
@@ -72,29 +75,21 @@ export default function StorybookScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <LinearGradient colors={SCREEN_GRADIENTS.castle} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.shelfWrap}>
         <Txt v="hero">Storybook</Txt>
-        <Txt v="story">Every tale your fellowship has lived, with the pictures to prove it.</Txt>
+        <Txt v="story" color={ink.inkSoft}>Every tale your fellowship has lived.</Txt>
         {loading ? (
           <ActivityIndicator color={ink.ink} style={{ marginTop: space.xxl }} />
         ) : books.length === 0 ? (
           <View style={styles.empty}>
-            <Txt v="heading" center>The shelf is empty.</Txt>
-            <Txt v="story" center>Books appear here as Muse writes them. Summon your first tale on the Page tab.</Txt>
-            <InkButton label="Go to the page" onPress={() => router.push('/(tabs)/coloring')} />
+            <SageSays expression="idle" size="md" title="The shelf is empty." line="Books appear here as I write them. Summon your first tale on the Page tab." />
+            <InkButton label="Go to the page" onPress={() => router.push('/(tabs)/coloring')} style={{ alignSelf: 'stretch' }} />
           </View>
         ) : (
           <View style={styles.shelf}>
             {books.map((b) => (
-              <BookCard
-                key={b.id}
-                book={b}
-                pages={b.id === storyline?.id ? pages : []}
-                missions={b.id === storyline?.id ? missions : []}
-                members={members}
-                done={bookDone(b)}
-                onPress={() => setOpenId(b.id)}
-              />
+              <BookCard key={b.id} book={b} members={members} onPress={() => setOpenId(b.id)} />
             ))}
             <View style={styles.plank} />
           </View>
@@ -104,17 +99,20 @@ export default function StorybookScreen() {
   );
 }
 
-function BookCard({ book, pages, missions, members, done, onPress }: {
-  book: Storyline; pages: Page[]; missions: Mission[]; members: FellowshipMember[]; done: boolean; onPress: () => void;
-}) {
+const isBookDone = (b: Storyline, pages: Page[]) => b.status === 'complete' || (pages.length > 0 && pages.every((p) => p.status === 'complete'));
+
+function BookCard({ book, members, onPress }: { book: Storyline; members: FellowshipMember[]; onPress: () => void }) {
   const { width } = useWindowDimensions();
+  const { pages } = usePages(book.id);
+  const { missions } = useMissions(book.id);
+  const done = isBookDone(book, pages);
   const coverW = Math.min(132, width * 0.32);
   const first = pages[0];
   const colored = missions.filter((m) => m.status === 'complete').length;
   const chaptersDone = pages.filter((p) => p.status === 'complete').length;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: 0.98 }] }]} accessibilityRole="button" accessibilityLabel={`Open ${book.title}`}>
-      <View style={styles.spine} />
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: ui.pressScale }] }]} accessibilityRole="button" accessibilityLabel={`Open ${book.title}`}>
+      <View style={[styles.spine, { backgroundColor: moodFor(first?.template_id).deep }]} />
       <View style={styles.cover}>
         {first ? (
           <ColoringPage templateId={first.template_id} missions={pageMissions(missions, first)} members={members} interactive={false} animate={false} width={coverW} />
@@ -123,15 +121,13 @@ function BookCard({ book, pages, missions, members, done, onPress }: {
         )}
       </View>
       <View style={styles.cardText}>
-        <Txt v="smallBold" color={ink.gold}>BOOK {roman(book.book_number)}</Txt>
+        <Txt v="smallBold" color={moodFor(first?.template_id).deep}>BOOK {roman(book.book_number)}</Txt>
         <Txt v="heading" numberOfLines={3}>{book.title}</Txt>
-        <Txt v="small" numberOfLines={3}>{book.synopsis}</Txt>
-        <View style={[styles.badge, done && styles.badgeDone]}>
-          <Txt v="smallBold" color={done ? ink.page : ink.ink}>
-            {done ? 'Complete' : pages.length ? `Chapter ${chaptersDone + 1} of ${pages.length} · ${colored} colored` : 'Being written'}
-          </Txt>
-        </View>
-        <Txt v="bodyBold">Read ›</Txt>
+        <Chip
+          tone={done ? 'gold' : 'neutral'}
+          label={done ? 'Complete ✦' : pages.length ? `Chapter ${Math.min(chaptersDone + 1, pages.length)} of ${pages.length} · ${colored} colored` : 'Being written'}
+          style={{ marginTop: space.xs }}
+        />
       </View>
     </Pressable>
   );
@@ -140,16 +136,14 @@ function BookCard({ book, pages, missions, members, done, onPress }: {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: ink.paper },
   shelfWrap: { padding: space.lg, gap: space.sm, paddingBottom: space.xxl * 2 },
-  empty: { marginTop: space.xxl, alignItems: 'center', gap: space.md, padding: space.xl },
+  empty: { marginTop: space.xl, gap: space.lg },
   shelf: { marginTop: space.lg, gap: space.lg },
   plank: { height: 10, borderRadius: 5, backgroundColor: ink.ink, opacity: 0.12 },
   card: {
-    flexDirection: 'row', gap: space.md, padding: space.md, paddingLeft: space.lg, backgroundColor: ink.page,
-    borderWidth: 2.5, borderColor: ink.ink, borderRadius: radius.md, overflow: 'hidden',
+    flexDirection: 'row', gap: space.md, padding: space.md, paddingLeft: space.lg, backgroundColor: panel.parchment,
+    borderWidth: ui.borderWidth, borderColor: ink.ink, borderRadius: ui.cardRadius, overflow: 'hidden', ...shadow.sm,
   },
   spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 8, backgroundColor: ink.gold },
   cover: { borderWidth: 1.5, borderColor: ink.ink, borderRadius: 4, overflow: 'hidden', alignSelf: 'flex-start' },
   cardText: { flex: 1, gap: space.xs },
-  badge: { alignSelf: 'flex-start', borderWidth: 1.5, borderColor: ink.ink, borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 2, marginTop: space.xs },
-  badgeDone: { backgroundColor: ink.gold, borderColor: ink.gold },
 });

@@ -3,24 +3,30 @@
 // <ColoringPage templateId missions members onRegionPress highlightRegionId? interactive? locked? width? />
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, G, Line, Path, Pattern, Rect } from 'react-native-svg';
-import Animated, { Easing, useAnimatedProps, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Svg, { Circle, ClipPath, Defs, G, Line, LinearGradient, Path, Pattern, Rect, Stop } from 'react-native-svg';
+import Animated, { Easing, useAnimatedProps, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { PAGE_ART, VIEW_H, VIEW_W } from '@/assets/pages';
+import { frameBand, frameInner } from '@/assets/pages/shapes';
 import { TEMPLATES, type TemplateId } from '@/shared/templates';
-import { INK_STROKE, ink, space, type CrayonColor } from '@/shared/theme';
+import { INK_STROKE, ink, moodFor, space, type CrayonColor } from '@/shared/theme';
 import type { FellowshipMember, Mission } from '@/shared/types';
 import { HourglassGlyph, MissionTypeGlyph } from './MissionTypeIcon';
+import { playSfx } from './sfx';
 import { STATUS_LABEL, crayonHex, missionColors, pathBounds, shade } from './pageUtils';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedG = Animated.createAnimatedComponent(G);
 
-export const FILL_MS = 900;
+export const FILL_MS = 1200; // scribble sweep + settle into the textured fill
+const SCRIBBLE_MS = 850;
+const SETTLE_MS = 380;
 const SPARKLE_MS = 500;
 const STRIPE = 12; // teammate stripe width in viewBox units (~4 px on a phone)
 const GLYPH = 60;
-const NATIVE = Platform.OS !== 'web'; // type glyph size in viewBox units
+const NATIVE = Platform.OS !== 'web';
+const FRAME_BAND = frameBand();
+const FRAME_INNER = frameInner();
 
 export interface ColoringPageProps {
   templateId: TemplateId;
@@ -38,6 +44,7 @@ function ColoringPageImpl({
   templateId, missions, members, onRegionPress, highlightRegionId, interactive = true, locked = false, width, animate = true,
 }: ColoringPageProps) {
   const art = PAGE_ART[templateId];
+  const mood = moodFor(templateId);
   const template = TEMPLATES[templateId];
   const { width: screenW } = useWindowDimensions();
   const w = width ?? Math.min(screenW - 2 * space.lg, 560);
@@ -50,6 +57,7 @@ function ColoringPageImpl({
   }, [missions]);
 
   // --- detect open/pending → complete transitions while mounted ---
+  const reduced = useReducedMotion();
   const prev = useRef<Record<string, string> | null>(null);
   const [filling, setFilling] = useState<Record<string, number>>({}); // regionId -> start stamp
   useEffect(() => {
@@ -60,9 +68,11 @@ function ColoringPageImpl({
     if (!before || !animate) return;
     const fresh = Object.keys(now).filter((r) => now[r] === 'complete' && before[r] && before[r] !== 'complete');
     if (!fresh.length) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    playSfx('crayon');
+    if (reduced) return; // colors appear instantly
     const stamp = Date.now();
     setFilling((f) => ({ ...f, ...Object.fromEntries(fresh.map((r) => [r, stamp])) }));
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     const t = setTimeout(() => {
       setFilling((f) => {
         const next = { ...f };
@@ -71,7 +81,7 @@ function ColoringPageImpl({
       });
     }, FILL_MS + SPARKLE_MS + 150);
     return () => clearTimeout(t);
-  }, [missions, animate]);
+  }, [missions, animate, reduced]);
 
   const [pressed, setPressed] = useState<string | null>(null);
 
@@ -85,17 +95,38 @@ function ColoringPageImpl({
   const regionIds = template.regions.map((r) => r.id).filter((id) => art.regions[id]);
   const id = (k: string) => `${uid}${k}`;
 
+  // 100% coloring: the sky/ground behind the regions takes the chapter mood as regions are colored (full at 6/6)
+  const doneCount = locked ? 0 : regionIds.filter((r) => byRegion[r]?.status === 'complete').length;
+  const washTarget = regionIds.length ? doneCount / regionIds.length : 0;
+  const wash = useSharedValue(washTarget);
+  useEffect(() => {
+    wash.value = animate && !reduced ? withDelay(FILL_MS * 0.6, withTiming(washTarget, { duration: 700, easing: Easing.out(Easing.quad) })) : washTarget;
+  }, [washTarget, animate, reduced, wash]);
+  const washProps = useAnimatedProps(() => ({ opacity: wash.value }));
+
   return (
     <Svg width={w} height={h} viewBox={art.viewBox}>
       <Defs>
+        <LinearGradient id={id('wash')} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={mood.gradient[0]} stopOpacity={0.75} />
+          <Stop offset="1" stopColor={mood.gradient[1]} stopOpacity={0.9} />
+        </LinearGradient>
+        <Pattern id={id('washTex')} patternUnits="userSpaceOnUse" width={44} height={44} patternTransform="rotate(-28)">
+          <Line x1={0} y1={8} x2={44} y2={9} stroke={mood.deep} strokeWidth={3} strokeOpacity={0.07} strokeLinecap="round" />
+          <Line x1={0} y1={27} x2={44} y2={26} stroke={mood.deep} strokeWidth={5} strokeOpacity={0.05} strokeLinecap="round" />
+        </Pattern>
+        <LinearGradient id={id('frame')} x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor={mood.gradient[0]} />
+          <Stop offset="1" stopColor={mood.gradient[1]} />
+        </LinearGradient>
         {colorsUsed.map((c) => {
           const dark = shade(crayonHex(c), -0.35);
           return (
             <Pattern key={c} id={id(`tex${c}`)} patternUnits="userSpaceOnUse" width={36} height={36} patternTransform="rotate(-32)">
-              <Line x1={0} y1={4} x2={36} y2={4} stroke={dark} strokeWidth={5} strokeOpacity={0.35} />
-              <Line x1={0} y1={14} x2={36} y2={15} stroke={dark} strokeWidth={2.5} strokeOpacity={0.3} />
-              <Line x1={0} y1={22} x2={36} y2={21} stroke={dark} strokeWidth={4} strokeOpacity={0.35} />
-              <Line x1={0} y1={31} x2={36} y2={31.5} stroke={dark} strokeWidth={1.5} strokeOpacity={0.3} />
+              <Line x1={0} y1={4} x2={36} y2={4} stroke={dark} strokeWidth={5} strokeOpacity={0.3} strokeLinecap="round" />
+              <Line x1={0} y1={14} x2={36} y2={15} stroke={dark} strokeWidth={2.5} strokeOpacity={0.24} strokeLinecap="round" />
+              <Line x1={0} y1={22} x2={36} y2={21} stroke={dark} strokeWidth={4} strokeOpacity={0.28} strokeLinecap="round" />
+              <Line x1={0} y1={31} x2={36} y2={31.5} stroke={dark} strokeWidth={1.5} strokeOpacity={0.22} strokeLinecap="round" />
             </Pattern>
           );
         })}
@@ -107,6 +138,11 @@ function ColoringPageImpl({
       </Defs>
 
       <Rect x={0} y={0} width={VIEW_W} height={VIEW_H} fill={ink.page} />
+      <Path d={FRAME_BAND} fill={`url(#${id('frame')})`} opacity={locked ? 0.45 : 1} />
+      <AnimatedG animatedProps={washProps}>
+        <Path d={FRAME_INNER} fill={`url(#${id('wash')})`} />
+        <Path d={FRAME_INNER} fill={`url(#${id('washTex')})`} />
+      </AnimatedG>
       {art.background?.map((d, i) => (
         <Path key={`bg${i}`} d={d} fill="none" stroke={ink.muted} strokeOpacity={0.45} strokeWidth={5} strokeLinecap="round" />
       ))}
@@ -125,7 +161,7 @@ function ColoringPageImpl({
             <G key={r} transform={transform}>
               <RegionBody
                 regionId={r} d={ra.d} labelAt={ra.labelAt} mission={m} status={status} members={members}
-                clipId={id(`clip${r}`)} texId={(c) => id(`tex${c}`)} fillStamp={filling[r]} animClipId={id(`grow${r}`)}
+                clipId={id(`clip${r}`)} texId={(c) => id(`tex${c}`)} fillStamp={filling[r]}
               />
               {isPressed && <Path d={ra.d} fill={ink.page} fillOpacity={0.25} />}
               {highlightRegionId === r && (
@@ -180,12 +216,11 @@ interface RegionBodyProps {
   status: Mission['status'];
   members: FellowshipMember[];
   clipId: string;
-  animClipId: string;
   texId: (c: CrayonColor) => string;
   fillStamp?: number;
 }
 
-function RegionBody({ d, labelAt, mission, status, members, clipId, animClipId, texId, fillStamp }: RegionBodyProps) {
+function RegionBody({ d, labelAt, mission, status, members, clipId, texId, fillStamp }: RegionBodyProps) {
   if (status === 'locked' || !mission) return <Path d={d} fill={ink.page} />;
 
   if (status === 'open') {
@@ -232,29 +267,66 @@ function RegionBody({ d, labelAt, mission, status, members, clipId, animClipId, 
     </G>
   );
   if (!fillStamp) return fill;
-  return <FillReveal key={fillStamp} d={d} origin={labelAt} clipId={animClipId}>{fill}</FillReveal>;
+  return <ScribbleReveal key={fillStamp} d={d} origin={labelAt} clipId={clipId} color={hex}>{fill}</ScribbleReveal>;
 }
 
-/** The moment: a circle of color grows from the origin to cover the region, then a gold sparkle burst. */
-function FillReveal({ d, origin, clipId, children }: { d: string; origin: [number, number]; clipId: string; children: React.ReactNode }) {
-  const maxR = useMemo(() => {
-    const b = pathBounds(d);
-    const [ox, oy] = origin;
-    return Math.max(...[[b.minX, b.minY], [b.maxX, b.minY], [b.minX, b.maxY], [b.maxX, b.maxY]].map(([x, y]) => Math.hypot(x - ox, y - oy))) + 12;
-  }, [d, origin]);
-  const r = useSharedValue(0);
+/** Back-and-forth crayon strokes covering the region's bounding box (top → bottom), slightly wobbly. */
+function scribblePath(d: string, seed: number): { path: string; length: number } {
+  const b = pathBounds(d);
+  const step = 30; // vertical advance per stroke; stroke width 54 → full coverage
+  const pad = 24;
+  const rnd = (i: number) => {
+    const x = Math.sin((seed + i) * 12.9898) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  let x = b.minX - pad;
+  let y = b.minY - pad;
+  let path = `M${x.toFixed(1)} ${y.toFixed(1)}`;
+  let length = 0;
+  for (let i = 0; y < b.maxY + pad; i++) {
+    const nx = i % 2 === 0 ? b.maxX + pad - rnd(i) * 30 : b.minX - pad + rnd(i) * 30;
+    const ny = y + step * (0.8 + rnd(i + 99) * 0.4);
+    const cx = (x + nx) / 2;
+    const cy = (y + ny) / 2 - 18 + rnd(i + 7) * 36; // a little curve per stroke
+    path += ` Q${cx.toFixed(1)} ${cy.toFixed(1)} ${nx.toFixed(1)} ${ny.toFixed(1)}`;
+    length += Math.hypot(nx - x, ny - y) * 1.04;
+    x = nx;
+    y = ny;
+  }
+  return { path, length };
+}
+
+/**
+ * The moment: a crayon scribbles back and forth across the region (you SEE it being colored), then the
+ * textured crayon fill settles in on top, with a gold sparkle burst.
+ */
+function ScribbleReveal({ d, origin, clipId, color, children }: { d: string; origin: [number, number]; clipId: string; color: string; children: React.ReactNode }) {
+  const { path, length } = useMemo(() => scribblePath(d, Math.round(origin[0] + origin[1])), [d, origin]);
+  const draw = useSharedValue(0);
+  const settle = useSharedValue(0);
   useEffect(() => {
-    r.value = withTiming(maxR, { duration: FILL_MS, easing: Easing.out(Easing.cubic) });
-  }, [maxR, r]);
-  const circleProps = useAnimatedProps(() => ({ r: r.value }));
+    draw.value = withTiming(1, { duration: SCRIBBLE_MS, easing: Easing.inOut(Easing.quad) });
+    settle.value = withDelay(SCRIBBLE_MS - 80, withTiming(1, { duration: SETTLE_MS, easing: Easing.out(Easing.cubic) }));
+  }, [draw, settle]);
+  const strokeProps = useAnimatedProps(() => ({ strokeDashoffset: length * (1 - draw.value) }));
+  const fillProps = useAnimatedProps(() => ({ opacity: settle.value }));
   return (
     <G>
-      <Defs>
-        <ClipPath id={clipId}>
-          <AnimatedCircle cx={origin[0]} cy={origin[1]} animatedProps={circleProps} />
-        </ClipPath>
-      </Defs>
-      <G clipPath={`url(#${clipId})`}>{children}</G>
+      <Path d={d} fill={ink.page} />
+      <G clipPath={`url(#${clipId})`}>
+        <AnimatedPath
+          d={path}
+          fill="none"
+          stroke={color}
+          strokeOpacity={0.9}
+          strokeWidth={54}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray={`${length} ${length}`}
+          animatedProps={strokeProps}
+        />
+      </G>
+      <AnimatedG animatedProps={fillProps}>{children}</AnimatedG>
       <SparkleBurst origin={origin} />
     </G>
   );
@@ -270,7 +342,7 @@ function sparkPath(cx: number, cy: number, r: number): string {
 function SparkleBurst({ origin }: { origin: [number, number] }) {
   const t = useSharedValue(0);
   useEffect(() => {
-    t.value = withDelay(FILL_MS * 0.75, withTiming(1, { duration: SPARKLE_MS, easing: Easing.out(Easing.quad) }));
+    t.value = withDelay(FILL_MS * 0.8, withTiming(1, { duration: SPARKLE_MS, easing: Easing.out(Easing.quad) }));
   }, [t]);
   return (
     <G pointerEvents="none">

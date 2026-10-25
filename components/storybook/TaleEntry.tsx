@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
-import { ink, radius, space } from '@/shared/theme';
+import { ink, radius, space, type Mood } from '@/shared/theme';
 import type { FellowshipMember } from '@/shared/types';
 import { CrestRow } from '@/components/coloring/Crests';
 import { MissionTypeIcon } from '@/components/coloring/MissionTypeIcon';
 import { Txt } from '@/components/coloring/ui';
 import type { TaleEntry as Entry } from './bookData';
+import { VerseCard } from './VerseCard';
 
 /** Wavy (deckled) rectangle outline in a 100×125 box. */
 function deckle(w = 100, h = 125, step = 6.25, amp = 1.3): string {
@@ -43,8 +44,15 @@ export function DeckledPhoto({ uri, tilt, width }: { uri: string; tilt: number; 
   );
 }
 
-export function TaleEntry({ entry, members, index, width }: { entry: Entry; members: FellowshipMember[]; index: number; width: number }) {
-  const { mission, photo } = entry;
+export function TaleEntry({ entry, members, index, width, mood }: { entry: Entry; members: FellowshipMember[]; index: number; width: number; mood: Mood }) {
+  const { mission, photo, verse } = entry;
+  if (verse?.proof_text) {
+    return (
+      <View style={styles.entry}>
+        <VerseCard verse={verse.proof_text} authorId={verse.user_id || mission.completed_by[0] || null} members={members} mood={mood} title={mission.title} />
+      </View>
+    );
+  }
   const tilt = index % 2 ? 2 : -2;
   const line = mission.story_line ?? photo?.caption ?? mission.title;
   return (
