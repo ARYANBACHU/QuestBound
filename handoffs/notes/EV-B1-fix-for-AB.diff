@@ -1,0 +1,86 @@
+diff --git a/components/shell/NewStorylineSheet.tsx b/components/shell/NewStorylineSheet.tsx
+index c567d11..20fc3a4 100644
+--- a/components/shell/NewStorylineSheet.tsx
++++ b/components/shell/NewStorylineSheet.tsx
+@@ -3,7 +3,8 @@
+ import * as Haptics from 'expo-haptics';
+ import { useRouter } from 'expo-router';
+ import { useEffect, useState } from 'react';
+-import { Modal, StyleSheet, View } from 'react-native';
++import { StyleSheet, View } from 'react-native';
++import { LayoutAnimationConfig } from 'react-native-reanimated';
+ import { SummonRitual } from '@/components/wizard/SummonRitual';
+ import { SageBubble } from '@/components/wizard/SageBubble';
+ import { generateStoryline } from '@/lib/api';
+@@ -46,20 +47,20 @@ export function NewStorylineSheet({ visible, onClose }: { visible: boolean; onCl
+     }
+   };
+ 
+-  if (writing) {
+-    return (
+-      <Modal visible animationType="fade" onRequestClose={() => {}}>
+-        <SummonRitual
+-          title="Sage is writing…"
+-          lines={['Closing the old book gently…', 'Gathering everyone’s interests…', 'Consulting the maps…', 'Inking a brand-new first chapter…', 'Almost there…']}
+-        />
+-      </Modal>
+-    );
+-  }
++  // Same Modal the whole time (the ritual is the sheet's cover): presenting a 2nd Modal while the 1st animates out
++  // is what froze/crashed iOS. skipExiting: no layout-exit animations inside a Modal that is being torn down.
++  const ritual = writing ? (
++    <LayoutAnimationConfig skipExiting>
++      <SummonRitual
++        title="Sage is writing…"
++        lines={['Closing the old book gently…', 'Gathering everyone’s interests…', 'Consulting the maps…', 'Inking a brand-new first chapter…', 'Almost there…']}
++      />
++    </LayoutAnimationConfig>
++  ) : null;
+ 
+   const title = storyline?.title ? `“${storyline.title}”` : 'your current book';
+   return (
+-    <Sheet visible={visible} onClose={onClose}>
++    <Sheet visible={visible || writing} onClose={onClose} dismissable={!writing} cover={ritual}>
+       {confirming ? (
+         <View style={styles.body}>
+           <SageBubble expression="surprised" sageSize={64} text={`Close ${title} and start fresh? It goes to the Storybook, colors and all.`} />
+diff --git a/components/shell/Sheet.tsx b/components/shell/Sheet.tsx
+index 8e69a82..f81752b 100644
+--- a/components/shell/Sheet.tsx
++++ b/components/shell/Sheet.tsx
+@@ -6,19 +6,26 @@ import { ink, panel, scrim, space, ui } from '@/shared/theme';
+ 
+ export const SHEET_RADIUS = ui.cardRadius + 6;
+ 
+-export function Sheet({ visible, onClose, children, style, dismissable = true }: {
++export function Sheet({ visible, onClose, children, style, dismissable = true, cover }: {
+   visible: boolean; onClose: () => void; children: React.ReactNode; style?: StyleProp<ViewStyle>; dismissable?: boolean;
++  /** Full-screen content shown INSIDE this same Modal. Never swap one <Modal> for another: iOS drops the second. */
++  cover?: React.ReactNode;
+ }) {
+   const insets = useSafeAreaInsets();
++  const canClose = dismissable && !cover;
+   return (
+-    <Modal visible={visible} transparent animationType="slide" onRequestClose={dismissable ? onClose : () => {}}>
+-      <Pressable style={styles.backdrop} onPress={dismissable ? onClose : undefined} accessibilityLabel="Close" />
+-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.wrap} pointerEvents="box-none">
+-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.lg) }, style]}>
+-          <View style={styles.grabber} />
+-          {children}
+-        </View>
+-      </KeyboardAvoidingView>
++    <Modal visible={visible} transparent animationType="slide" onRequestClose={canClose ? onClose : () => {}}>
++      {cover ? <View style={StyleSheet.absoluteFill}>{cover}</View> : (
++        <>
++          <Pressable style={styles.backdrop} onPress={canClose ? onClose : undefined} accessibilityLabel="Close" />
++          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.wrap} pointerEvents="box-none">
++            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.lg) }, style]}>
++              <View style={styles.grabber} />
++              {children}
++            </View>
++          </KeyboardAvoidingView>
++        </>
++      )}
+     </Modal>
+   );
+ }

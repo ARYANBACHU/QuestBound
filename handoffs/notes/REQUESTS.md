@@ -164,3 +164,55 @@ Format:
 - Why: plan A1/P6 asks to credit the audio in README; README isn't in AB's paths. The full credit table lives in
   `assets/audio/README.md` (AB).
 - Status: ✅ applied in round 2 (README.md Credits line).
+
+## [EV → AB] B1 "new book crashes Expo Go" — root cause is the Modal swap in NewStorylineSheet (round 3)
+- Investigated in mock AND real mode (Expo web + Playwright, 7 real LLM books + 6 mock books, New storyline from the
+  Missions "…" menu and Settings, every difficulty): no JS error, no error overlay. The 482 SVG paths of all 20 templates
+  parse fine. So the crash is native-only.
+- Most likely cause: `components/shell/NewStorylineSheet.tsx` `if (writing) return <Modal …><SummonRitual/></Modal>` —
+  in ONE commit the Sheet's `<Modal>` (`Sheet.tsx`) unmounts and a different full-screen `<Modal>` mounts. On iOS (RN
+  0.88 `RCTModalHostViewComponentView`) presenting while the old modal is still dismissing is rejected while RN thinks it
+  presented → frozen/invisible ritual or a crash. `SummonRitual`'s reanimated `exiting={FadeOut}` view unmounting inside
+  the closing Modal is a second known native crash source.
+- Fix (typechecks, mock web flow verified; full diff: `handoffs/notes/EV-B1-fix-for-AB.diff`): keep ONE Modal for the
+  whole flow — `Sheet` gets a `cover?: ReactNode` prop rendered inside the same Modal; NewStorylineSheet renders
+  `<Sheet visible={visible || writing} dismissable={!writing} cover={writing ? <LayoutAnimationConfig skipExiting><SummonRitual …/></LayoutAnimationConfig> : null}>`.
+- Also: `components/shell/ActionMenu.tsx` opens the next sheet 120 ms after closing the menu; iOS fade-out is ~300 ms →
+  raise to ~350 ms. Wrap DemoTools' `SummonRitual` in `<LayoutAnimationConfig skipExiting>` too.
+- Engine side (EV, deployed): a double-fired "New storyline" (same difficulty, < 2 min, nothing colored) now returns the
+  book it just wrote (`reused: true`) instead of shelving it, so a crash + re-tap can't eat a fresh book.
+- Status: open (AB).
+
+## [EV → AD, AB, MP] G1 crews — label missions by crew, not type (round 3)
+- Missions now need solo / duet / trio / fellowship. A trio still has `type: 'duet'` (or `'trial'`), so label from
+  `required_members`: `import { crewOf, CREW_LABEL } from '@/lib/game'` → `CREW_LABEL[crewOf(mission)]` = "Solo" | "Duet" |
+  "Trio" | "Fellowship". Crest pickers: ask for `mission.required_members` heroes (already the rule).
+- Points = solo 10 / duet 20 / trio 30 / fellowship 40 × difficulty, always on `mission.points` (use `pointsFor`/`leaderboard`).
+- Status: open (each owner, wherever a mission type label or "Duet" badge is shown).
+
+## [EV → AD] B2 shelf labels + G3 paintings (round 3)
+- `import { bookStatus, useBookStatus } from '@/lib/game'`: `bookStatus(book, pages)` → `{ state: 'writing'|'reading'|
+  'finished'|'set_aside', label, chapter, chapters, colored }`. Labels: "Chapter 2 of 3", "Finished", "Set aside · 1 of 3
+  chapters", "Sage is writing…". Never says Finished unless every page is complete. `useBookStatus(book)` loads the pages.
+- `import { paintChapter, paintBook } from '@/lib/api'`: `paintChapter(pageId)` → `{ illustration_url, cached }` for a
+  COMPLETED page (10–40 s when it has to paint; throws "Finish this page first!" for unfinished pages). `paintBook(sid)`
+  back-fills every completed page of a book. Paintings are 1024² JPEGs (~370 KB). `page.illustration_url` also updates
+  over realtime. Show "Sage is painting…" while it runs.
+- Status: open (AD, U3 / B2).
+
+## [EV → AD, MP] G2 needs to know which pages have real art — please export DRAWN_TEMPLATES (round 3)
+- What: in `assets/pages/index.ts` add `export const DRAWN_TEMPLATES = Object.keys(DRAWN) as TemplateId[];` (the ids in
+  your `DRAWN` map, i.e. NOT the placeholder frame; include MP's set-mp pages once imported).
+- Why: `generateStoryline` sends this list as `art_ready`, and the engine only picks chapter templates from it (+ the 4
+  classics). Until the export exists, `lib/api.ts drawnTemplates()` detects placeholder art by its path, which works but
+  is fragile. Never leave a template in DRAWN that still renders the placeholder.
+- Status: open (AD).
+
+## [EV → MERGE] shared/types additions (round 3, additive)
+- `GenerateStorylineRequest`: add `art_ready?: TemplateId[]; // G2: templates this app build can draw (lib/api sends it)`.
+  lib/api.ts already sends it by spreading the request; nothing breaks without the type.
+- `shared/templates.ts` header comment already describes the G1 crew rule; the engine's single source is
+  `supabase/functions/_shared/fallbacks.ts` (`crewFor`) + `_shared/points.ts` (`crewOf`, `CREW_POINTS`).
+- Optional secret: `ART_READY_TEMPLATES=<comma-separated ids>` makes OLD app builds (that don't send `art_ready`) use the
+  new templates too. Leave unset until the new art is on every phone.
+- Status: open (MERGE).
