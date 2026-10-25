@@ -42,3 +42,20 @@
   SerpApi pins are used only when within 150 m of ours (a 609 m "match" was a shop).
 - **Reroll difficulty default is 'easy'** (most rerolls mean "too much today").
 - **Abandoned recap is instant** (no LLM) so `replace_active` doesn't add latency.
+
+## Round 3 (Oct 25)
+- **Sequels never shelve an unfinished book** (B2): a stale "Write the sequel" tap was shelving brand-new books.
+  Shelving is only `replace_active` / `demo`. A replace double-fired within 2 min (same difficulty, nothing colored)
+  returns the book it just wrote. No new storyline status (migrations frozen): `bookStatus()` derives it from pages.
+- **Crew plan is fixed per template slot, not chosen by the model** (G1): each template marks one trio medium and one
+  duet small in `_shared/fallbacks.ts`, so fallback copy and LLM copy agree and the rule (≤2 solos) is guaranteed. A
+  trio keeps `type: 'duet' | 'trial'` (no new mission type → no migration); UIs label with `crewOf()`. Gifts stay 2.
+  Fellowship of 2 → the trio becomes a duet; of 1 → everything solo except the gathering row (capped at submit time).
+- **Fallbacks + picker are import-free files** so Deno and the app's mock engine run the same code (like points.ts).
+- **Art-ready list comes from the client** (G2): only the app build knows what it can draw. Server default = classics
+  (+ `ART_READY_TEMPLATES` secret). Classics are always allowed as a safety net.
+- **Template choice is deterministic scoring, not the LLM**: the outline needs the chapter list up front (it runs in
+  parallel with SerpApi), and a bad pick can't break the book. Slots: opener / middle / finale.
+- **paint-chapter only paints completed pages**: an unfinished chapter isn't a story yet, and it keeps the cost bounded.
+- **JPEG re-encode on the server** (G3): the image API ignores `output_format`; storage image transforms are not on
+  this plan (403). imagescript decode+resize+encode ≈ 250 ms CPU, well under the edge CPU budget.
