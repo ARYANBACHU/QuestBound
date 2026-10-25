@@ -83,6 +83,8 @@ export function playSfx(name: SfxName) {
   }
 }
 
+const used = new Set<SfxName>();
+
 function fire(name: SfxName) {
   try {
     const now = Date.now();
@@ -92,8 +94,16 @@ function fire(name: SfxName) {
     const p = player(name);
     if (!p) return;
     p.volume = VOLUME[name];
-    p.seekTo(0).catch(() => {});
-    p.play();
+    // [MERGE] round 3 (AD's B6 diagnosis): a finished player sits at its end, and seekTo(0) is async — calling play()
+    // right after it can start at the end and stay silent. First play goes straight out; every replay waits for the
+    // rewind to land before playing, so the same sound never comes out silent.
+    if (!used.has(name)) {
+      used.add(name);
+      p.play();
+      return;
+    }
+    p.pause();
+    p.seekTo(0).then(() => p.play(), () => { try { p.play(); } catch {} });
   } catch {
     // never throw from a sound
   }
