@@ -10,7 +10,7 @@ import { useFellowship } from '@/lib/fellowship';
 import { useMissions, useStoryline } from '@/lib/game';
 import { generateStoryline, submitProof } from '@/lib/api';
 import { USE_MOCKS } from '@/lib/env';
-import { SCREEN_GRADIENTS, ink, moodFor, radius, shadow, space } from '@/shared/theme';
+import { SCREEN_GRADIENTS, ink, moodFor, panel, radius, shadow, space } from '@/shared/theme';
 import type { Page } from '@/shared/types';
 import { ColoringPage, REVEAL_MS } from '@/components/coloring/ColoringPage';
 import { ChapterHeader } from '@/components/coloring/ChapterHeader';
@@ -281,7 +281,7 @@ function ChapterNav({ pages, shownId, activeId, onPick }: { pages: Page[]; shown
               style={[
                 styles.dot,
                 p.status === 'complete' && { backgroundColor: ink.ink },
-                p.id === activeId && p.status !== 'complete' && { borderColor: ink.gold, backgroundColor: ink.page },
+                p.id === activeId && p.status !== 'complete' && { borderColor: ink.gold, backgroundColor: panel.parchment },
                 p.status === 'locked' && { borderColor: ink.muted, borderStyle: 'dashed' },
                 shown && styles.dotShown,
               ]}
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   pageWrap: { alignItems: 'center' },
   paperShadow: { borderRadius: radius.sm, overflow: 'visible', backgroundColor: ink.page, ...shadow.md },
   lockedNote: { alignItems: 'center', justifyContent: 'center', padding: space.xl },
-  lockedPill: { backgroundColor: ink.page, borderWidth: 2.5, borderColor: ink.ink, borderRadius: radius.md, padding: space.md },
+  lockedPill: { backgroundColor: panel.parchment, borderWidth: 2.5, borderColor: ink.ink, borderRadius: radius.md, padding: space.md },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, marginTop: space.lg },
   arrow: { paddingHorizontal: space.sm },
   dot: {

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { Path } from 'react-native-svg';
-import { ink, radius, space, type Mood } from '@/shared/theme';
+import { ink, panel, radius, space, type Mood } from '@/shared/theme';
 import type { FellowshipMember } from '@/shared/types';
 import { CrestRow } from '@/components/coloring/Crests';
 import { MissionTypeIcon } from '@/components/coloring/MissionTypeIcon';
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   by: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   quote: {
     alignSelf: 'stretch', padding: space.lg, gap: space.xs, borderLeftWidth: 4, borderLeftColor: ink.gold,
-    backgroundColor: ink.page, borderRadius: radius.sm,
+    backgroundColor: panel.parchment, borderRadius: radius.sm,
   },
   quoteMark: { fontSize: 40, lineHeight: 40, color: ink.gold, marginBottom: -12 },
 });
