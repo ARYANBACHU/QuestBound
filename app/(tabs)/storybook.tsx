@@ -17,6 +17,7 @@ import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { Chip, InkButton, Txt } from '@/components/coloring/ui';
 import { SageSays } from '@/components/coloring/sage';
 import { useHideWizardFab } from '@/components/wizard/WizardProvider';
+import { HeaderMusicToggle } from '@/components/shell/music';
 import { BookReader } from '@/components/storybook/BookReader';
 import { Montage } from '@/components/storybook/Montage';
 import { bookProgress, fallbackRecap, montageSlides, withDemoMemories } from '@/components/storybook/bookData';
@@ -85,7 +86,10 @@ export default function StorybookScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <LinearGradient colors={SCREEN_GRADIENTS.castle} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.shelfWrap}>
-        <Txt v="hero">Storybook</Txt>
+        <View style={styles.head}>
+          <Txt v="hero" style={{ flex: 1 }}>Storybook</Txt>
+          <HeaderMusicToggle />
+        </View>
         <Txt v="story" color={ink.inkSoft}>Every tale your fellowship has lived.</Txt>
         {loading ? (
           <ActivityIndicator color={ink.ink} style={{ marginTop: space.xxl }} />
@@ -135,6 +139,7 @@ function BookCard({ book, members, onPress }: { book: Storyline; members: Fellow
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: ink.paper },
+  head: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   shelfWrap: { padding: space.lg, gap: space.sm, paddingBottom: space.xxl * 2 },
   empty: { marginTop: space.xl, gap: space.lg },
   shelf: { marginTop: space.lg, gap: space.lg },
