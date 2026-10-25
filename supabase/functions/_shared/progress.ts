@@ -117,17 +117,32 @@ export async function paintToBucket(prompt: string, path: string): Promise<strin
   return null;
 }
 
-export async function paintChapter(page: Page, fellowshipId: string, members: MemberCtx[]) {
+/**
+ * Paint a chapter's illustration (Muse Image -> 'art' bucket), set pages.illustration_url and add ONE illustration
+ * memory. Returns the url (or null when the image model is unavailable). Safe to call twice: the second caller
+ * reuses the first one's art (re-checked right before painting and before writing).
+ */
+export async function paintChapter(page: Page, fellowshipId: string, members: MemberCtx[]): Promise<string | null> {
+  const { data: fresh } = await admin.from('pages').select('illustration_url').eq('id', page.id).maybeSingle();
+  if (fresh?.illustration_url) return fresh.illustration_url as string;
   const { data: missions } = await admin.from('missions').select('story_line').eq('page_id', page.id);
   const lines = (missions ?? []).map((m) => m.story_line).filter((x): x is string => !!x);
   const crests = members.map((m) => `${m.crest_title.toLowerCase()} ${m.crest_emoji}`);
   const url = await paintToBucket(illustrationPrompt(page, lines, crests), `${page.storyline_id}/${page.id}.png`);
-  if (!url) return;
-  await admin.from('pages').update({ illustration_url: url }).eq('id', page.id);
+  if (!url) return null;
+  // Cache-bust: the path is stable (upsert), so add a version so phones don't keep an old copy.
+  const versioned = `${url}?v=${Date.now().toString(36)}`;
+  const { data: won } = await admin.from('pages').update({ illustration_url: versioned }).eq('id', page.id)
+    .is('illustration_url', null).select('id').maybeSingle();
+  if (!won) {
+    const { data: other } = await admin.from('pages').select('illustration_url').eq('id', page.id).maybeSingle();
+    return (other?.illustration_url as string | undefined) ?? versioned;
+  }
   await admin.from('memories').insert({
-    fellowship_id: fellowshipId, storyline_id: page.storyline_id, page_id: page.id, image_url: url,
+    fellowship_id: fellowshipId, storyline_id: page.storyline_id, page_id: page.id, image_url: versioned,
     caption: page.title, kind: 'illustration',
   });
+  return versioned;
 }
 
 /** Round 2: 3-5 storybook frames of the best moments, for AD's montage player. */

@@ -11,7 +11,7 @@
 // - Photo verdicts may carry verdict.lens_titles (SerpApi Google Lens) → show as "The Mirror sees: …".
 import { USE_MOCKS } from './env';
 import { supabase } from './supabase';
-import { addBook, addCompletion, addMemory, addMessage, advanceIfPageDone, emitMock, mock, patchMission, restoreDemoBook } from './mockStore';
+import { addBook, addCompletion, addMemory, addMessage, advanceIfPageDone, emitMock, mock, patchMission, patchPage, restoreDemoBook } from './mockStore';
 import { ME, MOCK_RECAP } from '@/fixtures/demo';
 import { utMockBook } from '@/fixtures/ut-campus';
 import { asDifficulty, crewOf, missionPoints } from '@/supabase/functions/_shared/points';
@@ -146,6 +146,40 @@ const MOCK_REROLLS: Record<string, Pick<Mission, 'title' | 'description' | 'stor
   relic: { title: 'The Colored Relic', description: 'Photograph something in the wild that matches your crayon color exactly.', story_hook: 'Your color is hiding everywhere.', type: 'relic', proof_type: 'photo', verification_hint: 'An object in the player\'s color.' },
   bard: { title: 'Tavern Review', description: 'Write a three-sentence fairy-tale review of the last place you ate.', story_hook: 'Every inn deserves a ballad.', type: 'bard', proof_type: 'text', verification_hint: 'A short playful review.' },
 };
+
+/** G3: a chapter's Muse Image painting. `cached` = it already existed (no painting happened). */
+export interface PaintChapterResponse { page_id: string; illustration_url: string | null; cached: boolean }
+
+/**
+ * Get (or paint, ~10–40 s) the storybook painting of a COMPLETED chapter. Resolves with the url; the page row's
+ * `illustration_url` also updates over realtime, and an 'illustration' memory is added once.
+ * Throws a readable Error for an unfinished chapter ("Finish this page first!") or when painting fails.
+ * Safe to call from several phones at once: they share one painting.
+ */
+export async function paintChapter(pageId: string): Promise<PaintChapterResponse> {
+  if (USE_MOCKS) {
+    const page = mock.pages.find((p) => p.id === pageId);
+    if (!page) throw new Error('That chapter has vanished from the book. Pull to refresh.');
+    if (page.illustration_url) return { page_id: pageId, illustration_url: page.illustration_url, cached: true };
+    if (page.status !== 'complete') throw new Error('Sage paints a chapter once every region is colored. Finish this page first!');
+    await wait(2500);
+    const url = `https://picsum.photos/seed/questbound-${encodeURIComponent(page.id)}/1024/1024`;
+    patchPage(pageId, { illustration_url: url });
+    addMemory({ fellowship_id: mock.fellowship.id, storyline_id: page.storyline_id, page_id: page.id, mission_id: null, user_id: null, image_url: url, caption: page.title, kind: 'illustration' });
+    emitMock();
+    return { page_id: pageId, illustration_url: url, cached: false };
+  }
+  return invoke('paint-chapter', { page_id: pageId });
+}
+
+/** G3: back-fill paintings for every completed chapter of a book (e.g. when an older book opens). */
+export async function paintBook(storylineId: string): Promise<{ pages: PaintChapterResponse[] }> {
+  if (USE_MOCKS) {
+    const done = mock.pages.filter((p) => p.storyline_id === storylineId && p.status === 'complete');
+    return { pages: await Promise.all(done.map((p) => paintChapter(p.id))) };
+  }
+  return invoke('paint-chapter', { storyline_id: storylineId });
+}
 
 /**
  * Upload a local photo (file:// uri from expo-image-picker) to bucket 'proofs'; returns PUBLIC url (needed by SerpApi Lens).

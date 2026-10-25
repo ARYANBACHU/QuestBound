@@ -351,19 +351,23 @@ STORY LINES (in order):
 ${args.missions.filter((m) => m.story_line).map((m) => `- ${m.story_line}`).join('\n')}`;
 }
 
+/** G3: the storybook look for every Muse Image painting (chapter illustrations + montage frames). */
+export const PAINT_STYLE = 'Style: lush, vibrant, classic best-selling fairy-tale picture-book art; a rich storybook painting with ' +
+  'warm golden light, saturated jewel colors, soft painterly textures, charming details and a cozy, joyful mood. ' +
+  'Full-bleed illustration. No text, no letters, no words, no logos, no watermarks, no real human faces.';
+
 export function illustrationPrompt(page: Pick<Page, 'title' | 'narrative' | 'template_id'>, storyLines: string[], crests: string[]): string {
-  return `A whimsical storybook illustration for a fairy-tale chapter titled "${page.title}". ${page.narrative}
-Scene: ${TEMPLATE_META[page.template_id].title.toLowerCase()} — ${TEMPLATE_META[page.template_id].mood}.
-What happened: ${storyLines.slice(0, 4).join(' ')}
-The heroes appear as friendly animal companions: ${crests.join(', ')}.
-Style: hand-inked children's book art, thick deep-indigo outlines, soft watercolor washes, warm golden light,
-cozy and joyful, no text, no letters, no logos, no real human faces.`;
+  return `A storybook painting for a fairy-tale chapter titled "${page.title}". ${page.narrative}
+Setting: ${TEMPLATE_META[page.template_id].title.toLowerCase()} — ${TEMPLATE_META[page.template_id].mood}.
+What happened in this chapter: ${storyLines.slice(0, 4).join(' ')}
+The heroes appear as friendly storybook animal companions, together in the scene: ${crests.join(', ')}.
+${PAINT_STYLE}`;
 }
 
 export function montagePrompt(storyLine: string, crests: string[]): string {
-  return `Storybook illustration of this moment: ${storyLine}
-Heroes as friendly animal companions: ${crests.join(', ')}.
-Style: hand-inked children's book art, thick deep-indigo outlines, watercolor washes, warm light, no text, no real faces.`;
+  return `A storybook painting of this moment: ${storyLine}
+The heroes appear as friendly storybook animal companions: ${crests.join(', ')}.
+${PAINT_STYLE}`;
 }
 
 /** Reroll: Sage swaps one open mission for a fresh one on the same region. */
