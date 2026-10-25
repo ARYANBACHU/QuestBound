@@ -181,14 +181,14 @@ Format:
   raise to ~350 ms. Wrap DemoTools' `SummonRitual` in `<LayoutAnimationConfig skipExiting>` too.
 - Engine side (EV, deployed): a double-fired "New storyline" (same difficulty, < 2 min, nothing colored) now returns the
   book it just wrote (`reused: true`) instead of shelving it, so a crash + re-tap can't eat a fresh book.
-- Status: open (AB).
+- Status: ✅ applied in round 3 — AB's NewBookProvider covers it (ritual is an in-tree overlay, never a 2nd Modal; no exit anims; Demo Tools uses the same host); merge added the ActionMenu 350 ms delay.
 
 ## [EV → AD, AB, MP] G1 crews — label missions by crew, not type (round 3)
 - Missions now need solo / duet / trio / fellowship. A trio still has `type: 'duet'` (or `'trial'`), so label from
   `required_members`: `import { crewOf, CREW_LABEL } from '@/lib/game'` → `CREW_LABEL[crewOf(mission)]` = "Solo" | "Duet" |
   "Trio" | "Fellowship". Crest pickers: ask for `mission.required_members` heroes (already the rule).
 - Points = solo 10 / duet 20 / trio 30 / fellowship 40 × difficulty, always on `mission.points` (use `pointsFor`/`leaderboard`).
-- Status: open (each owner, wherever a mission type label or "Duet" badge is shown).
+- Status: ✅ applied in round 3 (merge, callers): Missions card/detail, AD's mission sheet + Up next, Missions "Duets & trios" section use CREW_LABEL[crewOf(m)].
 
 ## [EV → AD] B2 shelf labels + G3 paintings (round 3)
 - `import { bookStatus, useBookStatus } from '@/lib/game'`: `bookStatus(book, pages)` → `{ state: 'writing'|'reading'|
@@ -198,7 +198,7 @@ Format:
   COMPLETED page (10–40 s when it has to paint; throws "Finish this page first!" for unfinished pages). `paintBook(sid)`
   back-fills every completed page of a book. Paintings are 1024² JPEGs (~370 KB). `page.illustration_url` also updates
   over realtime. Show "Sage is painting…" while it runs.
-- Status: open (AD, U3 / B2).
+- Status: ✅ applied in round 3 (merge): AD's bookProgress() derives its state from bookStatus() (AD's wording kept); Storybook painting calls paintChapter() directly.
 
 ## [EV → AD, MP] G2 needs to know which pages have real art — please export DRAWN_TEMPLATES (round 3)
 - What: in `assets/pages/index.ts` add `export const DRAWN_TEMPLATES = Object.keys(DRAWN) as TemplateId[];` (the ids in
@@ -206,7 +206,7 @@ Format:
 - Why: `generateStoryline` sends this list as `art_ready`, and the engine only picks chapter templates from it (+ the 4
   classics). Until the export exists, `lib/api.ts drawnTemplates()` detects placeholder art by its path, which works but
   is fragile. Never leave a template in DRAWN that still renders the placeholder.
-- Status: open (AD).
+- Status: ✅ applied in round 3 (merge): `DRAWN_TEMPLATES` exported from assets/pages/index.ts — all 20 ids; placeholder.ts deleted.
 
 ## [EV → MERGE] shared/types additions (round 3, additive)
 - `GenerateStorylineRequest`: add `art_ready?: TemplateId[]; // G2: templates this app build can draw (lib/api sends it)`.
@@ -215,7 +215,7 @@ Format:
   `supabase/functions/_shared/fallbacks.ts` (`crewFor`) + `_shared/points.ts` (`crewOf`, `CREW_POINTS`).
 - Optional secret: `ART_READY_TEMPLATES=<comma-separated ids>` makes OLD app builds (that don't send `art_ready`) use the
   new templates too. Leave unset until the new art is on every phone.
-- Status: open (MERGE).
+- Status: ✅ applied in round 3: `GenerateStorylineRequest.art_ready?: TemplateId[]`. `ART_READY_TEMPLATES` secret left unset (Expo Go phones load the new JS, so they send art_ready).
 ## [MP → AD] Round 3 U2: MP's 8 pages are drawn — wire them into PAGE_ART
 - What: in `assets/pages/index.ts` add `import { SET_MP } from './set-mp';` and spread it into DRAWN:
   `const DRAWN: Partial<Record<TemplateId, PageArt>> = { castle_gate, enchanted_forest, dragon_peak, royal_feast, ...SET_MP };`
@@ -225,7 +225,7 @@ Format:
   shared/templates.ts. Checked on feat/friends: all 48 ids match, every `labelAt` is inside its region (browser
   isPointInFill), no NaN paths, and the two-line wiring above typechecks with `validatePageArt()` passing.
 - Why: the plan says AD owns index.ts and adds the imports.
-- Status: open (MP pushed `assets/pages/set-mp/**` to feat/friends).
+- Status: ✅ applied in round 3 (merge): `...SET_MP` spread into DRAWN; validatePageArt() clean for all 20.
 ## [AD → EV] Round 3 G3: `paintChapter(pageId)` in lib/api.ts (U3 Storybook painting hero)
 - What: export `paintChapter(pageId: string): Promise<{ illustration_url: string | null }>` from `lib/api.ts`
   (invokes the `paint-chapter` edge function; mock mode can resolve a stock image after ~1.5 s).
@@ -233,7 +233,7 @@ Format:
   request per page, and accepts `{ illustration_url }`, `{ url }`, `{ page: { illustration_url } }` or a bare string.
   Until it exists: mock mode shows a stock painting after a "Sage is painting…" beat; real mode keeps the coloring page
   as the hero. No AD change needed when EV's lands.
-- Status: open.
+- Status: ✅ EV shipped it; merge wired components/storybook/paint.ts to import it directly.
 
 ## [AD → AB] Round 3 U7: a dedicated `'pageBack'` sound in components/shell/sfx.ts
 - What: add `'pageBack'` to `SfxName` (a softer, lower page settle). AD already calls `playSfx('pageBack')` through
@@ -244,7 +244,7 @@ Format:
   a fresh player for every sfx.
 - When AB ships `'pageBack'`: in `components/coloring/sfx.ts` drop the `pageTurn` stand-in only if AB's helper also
   fixes the replay bug; otherwise keep it and point it at the new file.
-- Status: open.
+- Status: ✅ applied in round 3 (merge): shell sfx replays wait for seekTo(0); AB ships pageBack.wav; components/coloring/sfx.ts now re-exports AB's playSfx.
 
 ## [AD → MERGE] Round 3 U2: import MP's set-mp pages in assets/pages/index.ts when feat/friends lands
 - MP's 8 pages export `export const <templateId>: PageArt` from `assets/pages/set-mp/<templateId>.ts`.
@@ -252,7 +252,7 @@ Format:
   `import { troll_bridge } from './set-mp/troll_bridge';` (… cloud_kingdom, crystal_cave, owl_library, rose_garden,
   lantern_festival, swamp_hollow, unicorn_meadow) and add each name to the `DRAWN` object. Anything not imported keeps
   the placeholder frame. AD will do it on the next `git merge origin/main` if the merge agent doesn't.
-- Status: open.
+- Status: ✅ applied in round 3.
 ## [AB → MP, AD, everyone with a text input] Round 3 B4 — shared keyboard helper is on feat/shell
 - `import { KeyboardSafe, KeyboardSafeScroll, useKeyboardVisible, useKeyboardInset } from '@/components/shell/KeyboardSafe';`
 - Pattern (replace any `KeyboardAvoidingView`):
@@ -269,6 +269,7 @@ Format:
 - MP: `components/friends/ChatView.tsx` (+ `useKeyboardLift`) and `app/join/[code].tsx` can switch to it, or keep
   `useKeyboardLift` if it already tests well — just make sure the composer is visible and tap-outside dismisses.
 - AB already uses it in: onboarding, mission detail, Settings editor sheet, every `components/shell/Sheet`, Sage's sheet.
+- Status: ✅ applied in round 3 (merge): MP's ChatView + join screen use components/shell/KeyboardSafe; MP's local copy deleted.
 
 ## [AB → MP, AD] Round 3 U6 — music toggle moves to the top of screens
 - `import { HeaderMusicToggle } from '@/components/shell/music';` → a 40 px header icon (same look as the "…" button).
@@ -276,6 +277,7 @@ Format:
   toggle until then (the tab-bar one is gone; the floating fallback is skipped there because Invite sits top-right).
 - **AD (Page, Storybook):** optional — put `<HeaderMusicToggle />` header-right. Until you do, the tabs layout shows a
   small floating fallback top-right on those two tabs; it hides itself automatically while your header renders one.
+- Status: MP ✅ applied in round 3 (merge, Friends header). AD: open — the floating fallback overlaps the Storybook reader's Montage button (see ROUND-3.md).
 
 ## [AB → AD, MP] Round 3 U7 — sound effects for every tap (one per action)
 - `playSfx(name)` names now: `tap · toggle · open · close · send · success · error · reward · page · pageBack · crayon ·
@@ -286,3 +288,5 @@ Format:
   within a frame — so `Button` + `playSfx('success')` in its onPress is heard as just `success`.
 - **AD B6:** flipping back → `playSfx('pageBack')`; forward stays `playSfx('page')`.
 - **MP:** chat Send → `playSfx('send')`; plain Pressables (chips, toggles) → `'tap'` / `'toggle'`.
+- Status: MP chat Send ✅ applied in round 3 (merge); AD pageBack ✅. Open (MP): 'tap'/'toggle' on plain Pressables.
+
