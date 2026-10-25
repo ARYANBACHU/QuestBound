@@ -22,6 +22,7 @@ import { InkButton, Txt } from '@/components/coloring/ui';
 import { Sage, SageSays } from '@/components/coloring/sage';
 import { Celebration } from '@/components/coloring/Celebration';
 import { UpNext, nextMission } from '@/components/coloring/UpNext';
+import { ChapterTale } from '@/components/coloring/ChapterTale';
 
 const HOLD_MS = FILL_MS + 700; // let the last region's fill + sparkle play before the page turns
 
@@ -215,6 +216,9 @@ export default function ColoringScreen() {
         <ChapterNav pages={pages} shownId={shown.id} activeId={activePage?.id ?? null} onPick={goTo} />
 
         {upNext && !hold && !flip ? <UpNext mission={upNext} mood={moodFor(shown.template_id)} onPress={() => setSheetId(upNext.id)} /> : null}
+        {shown.status === 'complete' && !hold && !flip && !(bookDone && shown.id === activePage?.id) ? (
+          <ChapterTale page={shown} missions={shownMissions} members={members} mood={moodFor(shown.template_id)} onOpen={setSheetId} />
+        ) : null}
 
         {bookDone && !hold && !flip && (
           <TheEndBanner onOpenStorybook={() => router.push('/(tabs)/storybook')} onSequel={() => summon('sequel')} loading={summoning} />
