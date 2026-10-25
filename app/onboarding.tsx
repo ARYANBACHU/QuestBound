@@ -13,7 +13,7 @@ import { INTEREST_MAX, INTEREST_MIN, InterestPicker } from '@/components/shell/I
 import { QuillDots } from '@/components/shell/QuillDots';
 import { T } from '@/components/shell/T';
 import { InviteCard, QrScanner, parseInviteCode } from '@/components/shell/teammates';
-import { MuseBubble } from '@/components/wizard/MuseBubble';
+import { SageBubble } from '@/components/wizard/SageBubble';
 import { interestQuip } from '@/components/wizard/quips';
 import { SummonRitual } from '@/components/wizard/SummonRitual';
 import { generateStoryline } from '@/lib/api';
@@ -346,7 +346,7 @@ export default function Onboarding() {
             <QuillDots count={STEPS.length} index={idx} />
             <View style={{ width: 12 }} />
           </View>
-          <MuseBubble text={bubble} />
+          <SageBubble text={bubble} />
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {body}

@@ -1,4 +1,4 @@
-// Owner: AB. Root stack: fonts + splash, providers (gesture root, safe area), routes.
+// Owner: AB. Root stack: fonts + splash, providers (gesture root, safe area), sound (sfx preload + bards), routes.
 import { Fraunces_400Regular_Italic, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
 import { Nunito_400Regular, Nunito_700Bold } from '@expo-google-fonts/nunito';
 import { useFonts } from 'expo-font';
@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { MusicController } from '@/components/shell/music';
 import { preloadSfx } from '@/components/shell/sfx';
 import { ink } from '@/shared/theme';
 
@@ -29,6 +30,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
+        <MusicController />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ink.paper } }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(tabs)" />

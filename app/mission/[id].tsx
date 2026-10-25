@@ -16,7 +16,7 @@ import { StatusPill } from '@/components/shell/StatusPill';
 import { T } from '@/components/shell/T';
 import { CrestRow, MissionTypeIcon, MISSION_TYPE_LABEL } from '@/components/shell/teammates';
 import { WaxSeal } from '@/components/shell/WaxSeal';
-import { MuseBubble } from '@/components/wizard/MuseBubble';
+import { SageBubble } from '@/components/wizard/SageBubble';
 import { useTypewriter } from '@/components/wizard/useTypewriter';
 import { submitProof, uploadProof } from '@/lib/api';
 import { useChat } from '@/lib/chat';
@@ -68,7 +68,7 @@ export default function MissionDetail() {
   if (!mission) {
     return (
       <Shell onClose={() => router.back()}>
-        <MuseBubble text="Hmm. That mission scroll has blown away. Head back to the board and pick another." />
+        <SageBubble text="Hmm. That mission scroll has blown away. Head back to the board and pick another." />
         <Button label="Back to missions" onPress={() => router.navigate('/(tabs)/missions')} style={{ marginTop: space.xl }} />
       </Shell>
     );
@@ -294,12 +294,12 @@ export default function MissionDetail() {
               {isGift ? (
                 iAmGiftRecipient ? (
                   <View style={{ gap: space.sm }}>
-                    <MuseBubble text="A gift awaits your seal! Who gave it to you?" avatarSize={32} />
+                    <SageBubble text="A gift awaits your seal! Who gave it to you?" sageSize={32} />
                     <ParticipantPicker members={fs.members} meId={userId} value={giver ? [giver] : []}
                       onChange={(ids) => setGiver(ids[0] ?? null)} mode="single" exclude={userId ? [userId] : []} />
                   </View>
                 ) : mission.status === 'pending' ? (
-                  <MuseBubble text="Your gift is on its way. Once your friend seals it, the region fills with color." avatarSize={32} />
+                  <SageBubble text="Your gift is on its way. Once your friend seals it, the region fills with color." sageSize={32} />
                 ) : (
                   <View style={{ gap: space.sm }}>
                     <T variant="small">Who is receiving your gift? They'll confirm to seal it.</T>
@@ -364,7 +364,7 @@ function Result({ res, mission, photo, onRetry, onPage, onMissions }: {
         {!verdict.pass ? (
           <>
             {photo ? <MagicMirror photoUri={photo} pondering={false} caption="" /> : null}
-            <MuseBubble text={verdict.flavor_text || 'Not quite, traveler. Look again and try once more.'} />
+            <SageBubble text={verdict.flavor_text || 'Not quite, traveler. Look again and try once more.'} />
             <Button label="Try again" onPress={onRetry} style={{ alignSelf: 'stretch' }} />
             <Button label="Back to missions" variant="ghost" onPress={onMissions} />
           </>
@@ -372,7 +372,7 @@ function Result({ res, mission, photo, onRetry, onPage, onMissions }: {
           <>
             <T style={styles.bigEmoji}>🎁</T>
             <T variant="title" center>Gift sent!</T>
-            <MuseBubble text={verdict.flavor_text || 'Now your friend must seal it. The banner waits.'} />
+            <SageBubble text={verdict.flavor_text || 'Now your friend must seal it. The banner waits.'} />
             <Button label="Back to missions" onPress={onMissions} style={{ alignSelf: 'stretch' }} />
           </>
         ) : (

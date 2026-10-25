@@ -15,7 +15,7 @@ import { useSession } from '@/lib/session';
 import { fonts, ink, radius, scrim, space, type } from '@/shared/theme';
 import { T } from '@/components/shell/T';
 import { localMuse } from './localMuse';
-import { MuseAvatar } from './MuseAvatar';
+import { Sage } from './Sage';
 import { planMeetup } from './planMeetup';
 import { actionLabel, runAction } from './runAction';
 import { SCREEN_GREETINGS, SCREEN_SUGGESTIONS, screenFromPath } from './screens';
@@ -97,7 +97,7 @@ export function WizardSheet() {
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
           <View style={styles.grabber} />
           <View style={styles.header}>
-            <MuseAvatar size={36} />
+            <Sage size={40} variant="face" still />
             <View style={{ flex: 1 }}>
               <T variant="heading">Muse</T>
               <T variant="small">The Wizard · knows your whole tale</T>

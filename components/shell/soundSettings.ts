@@ -11,6 +11,7 @@ export interface SoundSettings {
 const KEYS = { sfx: 'qb.sound.sfx', music: 'qb.sound.music' } as const;
 let state: SoundSettings = { sfx: true, music: false };
 let loaded = false;
+let musicStored = false; // has this device ever saved a music choice?
 let loading: Promise<SoundSettings> | null = null;
 const listeners = new Set<(s: SoundSettings) => void>();
 
@@ -21,6 +22,7 @@ export function loadSoundSettings(): Promise<SoundSettings> {
     try {
       const [[, sfx], [, music]] = await AsyncStorage.multiGet([KEYS.sfx, KEYS.music]);
       state = { sfx: sfx == null ? true : sfx === '1', music: music === '1' };
+      musicStored = music != null;
     } catch {}
     loaded = true;
     listeners.forEach((fn) => fn(state));
@@ -33,7 +35,13 @@ export function getSoundSettings(): SoundSettings {
   return state;
 }
 
+/** True once this device has a saved music choice (otherwise the profile's music_enabled is adopted). */
+export function hasStoredMusicChoice() {
+  return musicStored;
+}
+
 export function setSoundSetting(key: keyof SoundSettings, value: boolean) {
+  if (key === 'music') musicStored = true;
   state = { ...state, [key]: value };
   loaded = true;
   listeners.forEach((fn) => fn(state));

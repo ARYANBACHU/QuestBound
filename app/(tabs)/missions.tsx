@@ -12,7 +12,7 @@ import { ParchmentLoading } from '@/components/shell/ParchmentLoading';
 import { T } from '@/components/shell/T';
 import { TAB_CONTENT_BOTTOM_PAD } from '@/components/shell/TabBar';
 import { Crest } from '@/components/shell/teammates';
-import { MuseBubble } from '@/components/wizard/MuseBubble';
+import { SageBubble } from '@/components/wizard/SageBubble';
 import { useFellowship } from '@/lib/fellowship';
 import { useMissions, useStoryline } from '@/lib/game';
 import { useSession } from '@/lib/session';
@@ -62,7 +62,7 @@ export default function MissionsScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.empty}>
-          <MuseBubble text="No missions yet — summon a story and I'll write you some." />
+          <SageBubble text="No missions yet — summon a story and I'll write you some." />
           <Button label="Summon our story" onPress={() => router.push({ pathname: '/onboarding', params: { step: 'summon' } })} />
         </View>
       </SafeAreaView>

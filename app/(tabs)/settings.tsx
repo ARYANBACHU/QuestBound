@@ -12,6 +12,8 @@ import { Button } from '@/components/shell/Button';
 import { CrayonPicker, crayonName } from '@/components/shell/CrayonPicker';
 import { CrestPicker } from '@/components/shell/CrestPicker';
 import { INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
+import { useMusicToggle } from '@/components/shell/music';
+import { setSoundSetting, useSoundSettings } from '@/components/shell/soundSettings';
 import { T } from '@/components/shell/T';
 import { TAB_CONTENT_BOTTOM_PAD } from '@/components/shell/TabBar';
 import { Crest, InviteSheet } from '@/components/shell/teammates';
@@ -35,6 +37,8 @@ export default function SettingsScreen() {
   const [notify, setNotify] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const taps = useRef<number[]>([]);
+  const { music, setMusic } = useMusicToggle();
+  const { sfx } = useSoundSettings();
 
   useEffect(() => {
     AsyncStorage.getItem(NOTIFY_KEY).then((v) => v != null && setNotify(v === '1')).catch(() => {});
@@ -144,6 +148,11 @@ export default function SettingsScreen() {
               thumbColor={ink.page}
             />
           </View>
+        </Section>
+
+        <Section title="Sound">
+          <ToggleRow label="Music" sub="Shall the bards play?" value={music} onChange={setMusic} />
+          <ToggleRow label="Sound effects" sub="Sage's chime, crayons, page turns" value={sfx} onChange={(v) => setSoundSetting('sfx', v)} last />
         </Section>
 
         <Section title="About">
@@ -271,6 +280,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <View style={{ marginTop: space.xl }}>
       <T variant="smallBold" color={ink.inkSoft} style={{ marginBottom: space.sm, marginLeft: space.xs }}>{title.toUpperCase()}</T>
       <View style={styles.card}>{children}</View>
+    </View>
+  );
+}
+
+function ToggleRow({ label, sub, value, onChange, last }: {
+  label: string; sub: string; value: boolean; onChange: (v: boolean) => void; last?: boolean;
+}) {
+  return (
+    <View style={[styles.row, last && styles.rowLast]}>
+      <View style={{ flex: 1 }}>
+        <T variant="bodyBold">{label}</T>
+        <T variant="small">{sub}</T>
+      </View>
+      <Switch value={value} onValueChange={onChange} accessibilityLabel={label}
+        trackColor={{ true: ink.ink, false: ink.lavenderMist }} thumbColor={ink.page} />
     </View>
   );
 }

@@ -5,7 +5,7 @@ import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { ink, space } from '@/shared/theme';
 import { T } from '@/components/shell/T';
 import { hasSeenCoach, markCoachSeen, onCoachReset } from './coachMarks';
-import { MuseBubble } from './MuseBubble';
+import { SageBubble } from './SageBubble';
 import { COACH_MARKS, type WizardScreen } from './screens';
 
 export function CoachMark({ screen, bottom }: { screen: WizardScreen; bottom: number }) {
@@ -30,7 +30,7 @@ export function CoachMark({ screen, bottom }: { screen: WizardScreen; bottom: nu
     <Animated.View entering={FadeInDown.duration(260)} exiting={FadeOutDown.duration(180)} style={[styles.wrap, { bottom }]}
       pointerEvents="box-none">
       <View style={styles.card}>
-        <MuseBubble text={COACH_MARKS[screen]} avatarSize={34} onPress={dismiss} />
+        <SageBubble text={COACH_MARKS[screen]} sageSize={34} onPress={dismiss} />
         <Pressable onPress={dismiss} hitSlop={10} style={styles.ok} accessibilityRole="button" accessibilityLabel="Got it">
           <T variant="smallBold" color={ink.ink}>Got it</T>
         </Pressable>
