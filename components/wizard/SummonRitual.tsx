@@ -1,8 +1,9 @@
 // Owner: AB. Full-screen "Sage writes your book" ritual: an ink quill scribbles across a blank page while
 // Sage (thinking) narrates what's happening (interests → SerpApi maps/events → chapters).
 // No exit animations in here: it is unmounted from inside Modals/overlays, and exiting layout animations on a
-// disappearing host are a known native crash (B1). Optional `onHide` shows "Keep exploring" after a while.
-import { useEffect, useState } from 'react';
+// disappearing host are a known native crash (B1). Optional `progressMs` fills a progress bar to ~95 % over that time;
+// optional `footer` (e.g. Retry buttons) replaces the narration line's spare space at the bottom.
+import { useEffect, useState, type ReactNode } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing, FadeIn, cancelAnimation, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
@@ -11,7 +12,6 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SAGE_CREDIT, SCREEN_GRADIENTS, ink, shadow, space } from '@/shared/theme';
-import { Button } from '@/components/shell/Button';
 import { T } from '@/components/shell/T';
 import { Sage } from './Sage';
 
@@ -35,18 +35,23 @@ function scribble(y: number, seed: number) {
 }
 const PATHS = Array.from({ length: LINES }, (_, i) => scribble(lineY(i), i));
 
-export function SummonRitual({ lines, title = 'Sage is writing…', onHide }: { lines: string[]; title?: string; onHide?: () => void }) {
-  const [canHide, setCanHide] = useState(false);
-  useEffect(() => {
-    if (!onHide) return;
-    const id = setTimeout(() => setCanHide(true), 9000);
-    return () => clearTimeout(id);
-  }, [onHide]);
+export function SummonRitual({ lines, title = 'Sage is writing…', progressMs, footer }: {
+  lines: string[]; title?: string; progressMs?: number; footer?: ReactNode;
+}) {
   const progress = useSharedValue(0);
+  const bar = useSharedValue(0);
+  useEffect(() => {
+    if (!progressMs) return;
+    bar.value = 0;
+    bar.value = withTiming(0.95, { duration: progressMs, easing: Easing.out(Easing.quad) });
+    return () => cancelAnimation(bar);
+  }, [progressMs, bar]);
+  const barStyle = useAnimatedStyle(() => ({ width: `${Math.round(bar.value * 1000) / 10}%` }));
   const [lineIdx, setLineIdx] = useState(0);
   const { width, height } = useWindowDimensions();
   const compact = height < 720;
-  const scale = Math.min(1, (width - 48) / W, (height - (compact ? 330 : 400)) / H); // fit small phones
+  const chrome = (compact ? 330 : 400) + (progressMs ? 30 : 0) + (footer ? 130 : 0);
+  const scale = Math.max(0.4, Math.min(1, (width - 48) / W, (height - chrome) / H)); // fit small phones
 
   useEffect(() => {
     progress.value = withRepeat(withTiming(LINES, { duration: LINES * 1800, easing: Easing.linear }), -1, false);
@@ -74,7 +79,7 @@ export function SummonRitual({ lines, title = 'Sage is writing…', onHide }: { 
     <LinearGradient colors={SCREEN_GRADIENTS.castle} style={styles.wrap}>
       <View style={styles.sage}>
         <Sage expression="thinking" size={compact ? 64 : 88} />
-        <View>
+        <View style={styles.titleBox}>
           <T variant="title">{title}</T>
           <T variant="small">{SAGE_CREDIT}</T>
         </View>
@@ -90,11 +95,12 @@ export function SummonRitual({ lines, title = 'Sage is writing…', onHide }: { 
       <Animated.View key={lineIdx} entering={FadeIn.duration(350)} style={styles.lineBox}>
         <T variant="story" center>{lines[lineIdx]}</T>
       </Animated.View>
-      {onHide ? (
-        <View style={[styles.hide, !canHide && styles.invisible]} pointerEvents={canHide ? 'auto' : 'none'}>
-          <Button label="Keep exploring — I’ll keep writing" variant="ghost" small sfx="close" onPress={onHide} />
+      {progressMs ? (
+        <View style={styles.track} accessibilityRole="progressbar" accessibilityLabel="Writing progress">
+          <Animated.View style={[styles.barFill, barStyle]} />
         </View>
       ) : null}
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
     </LinearGradient>
   );
 }
@@ -112,14 +118,19 @@ function InkLine({ d, i, progress }: { d: string; i: number; progress: SharedVal
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl, gap: space.xl },
-  sage: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  sage: { flexDirection: 'row', alignItems: 'center', gap: space.md, alignSelf: 'stretch', justifyContent: 'center' },
+  titleBox: { flexShrink: 1 },
   page: {
     width: W, height: H, backgroundColor: ink.page, borderWidth: 3, borderColor: ink.ink, borderRadius: 6,
     ...shadow.md,
   },
   quill: { position: 'absolute', left: 0, top: 0 },
   quillEmoji: { fontSize: 34, lineHeight: 42 },
-  hide: { minHeight: 40 },
-  invisible: { opacity: 0 },
+  track: {
+    width: '80%', maxWidth: 300, height: 10, borderRadius: 5, borderWidth: 2, borderColor: ink.ink, backgroundColor: ink.page,
+    overflow: 'hidden',
+  },
+  barFill: { height: '100%', backgroundColor: ink.gold },
+  footer: { alignSelf: 'stretch', gap: space.sm },
   lineBox: { minHeight: 52, justifyContent: 'center', paddingHorizontal: space.lg },
 });

@@ -5,10 +5,10 @@
 //   4. points count up (+ selection ticks), a gold seal stamps the corner, and Sage's story line types out.
 // Calm everywhere else: every motion is one-shot, nothing loops. Then AD's coloring animation plays on the page.
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
-  Easing, cancelAnimation, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring,
+  Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring,
   withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { G, Path } from 'react-native-svg';
@@ -19,8 +19,6 @@ import { CRAYONS, accent, fonts, ink, panel, radius, realm, shadow, space } from
 import { playSfx } from './sfx';
 import { T } from './T';
 import { WaxSeal } from './WaxSeal';
-
-const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 // timeline (ms)
 const SHAKE = 750;
@@ -184,19 +182,28 @@ export function RewardPack({ templateId, regionId, regionLabel, color, points, s
 }
 
 // ---------- the page on the card ----------
-function MiniPage({ templateId, regionId, color, fill }: {
+// V3: the fill is a separate layer whose opacity is an animated VIEW style. It used to be `fillOpacity` via SVG
+// animatedProps — react-native-svg re-sends fillOpacity=1 on every re-render, and the points count-up re-renders the
+// card ~14×, so the region flickered blank→color→blank→color. Now: starts uncolored, fills once, never re-renders.
+const MiniPage = memo(function MiniPage({ templateId, regionId, color, fill }: {
   templateId: TemplateId | null | undefined; regionId: string; color: string; fill: SharedValue<number>;
 }) {
   const art = templateId ? PAGE_ART[templateId] : null;
-  const props = useAnimatedProps(() => ({ fillOpacity: fill.value }));
+  const fillStyle = useAnimatedStyle(() => ({ opacity: fill.value }));
   const region = art?.regions[regionId];
   if (!art || !region) {
     // unknown art: a big crayon swatch still says "this is yours"
+    const d = 'M20 30 Q50 10 80 30 L80 110 Q50 130 20 110 Z';
     return (
       <View style={styles.mini}>
         <Svg width="100%" height="100%" viewBox="0 0 100 140">
-          <AnimatedPath d="M20 30 Q50 10 80 30 L80 110 Q50 130 20 110 Z" fill={color} stroke={ink.ink} strokeWidth={3} animatedProps={props} />
+          <Path d={d} fill={ink.page} stroke={ink.ink} strokeWidth={3} />
         </Svg>
+        <Animated.View style={[StyleSheet.absoluteFill, fillStyle]} pointerEvents="none">
+          <Svg width="100%" height="100%" viewBox="0 0 100 140">
+            <Path d={d} fill={color} stroke={ink.ink} strokeWidth={3} />
+          </Svg>
+        </Animated.View>
       </View>
     );
   }
@@ -209,11 +216,16 @@ function MiniPage({ templateId, regionId, color, fill }: {
             : <Path key={id} d={r.d} fill={ink.page} stroke={ink.ink} strokeWidth={6} fillRule="nonzero" />)}
           {art.ink.map((d, i) => <Path key={`i${i}`} d={d} stroke={ink.ink} strokeWidth={4} fill="none" />)}
         </G>
-        <AnimatedPath d={region.d} fill={color} stroke={ink.ink} strokeWidth={10} fillRule="nonzero" animatedProps={props} />
+        <Path d={region.d} fill={ink.page} stroke={ink.ink} strokeWidth={10} fillRule="nonzero" />
       </Svg>
+      <Animated.View style={[StyleSheet.absoluteFill, fillStyle]} pointerEvents="none">
+        <Svg width="100%" height="100%" viewBox={art.viewBox}>
+          <Path d={region.d} fill={color} stroke={ink.ink} strokeWidth={10} fillRule="nonzero" />
+        </Svg>
+      </Animated.View>
     </View>
   );
-}
+});
 
 // ---------- burst bits ----------
 function Rays({ size }: { size: number }) {

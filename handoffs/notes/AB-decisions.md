@@ -41,3 +41,14 @@
   then AD's page animation plays on the coloring tab.
 - Spotlight = four blurred/dimmed panes around the target + a gold ring (no masks needed; works in Expo Go).
 - Soft sounds (tap/toggle) wait 24 ms and drop if the action plays a real sound → never two sfx per action.
+
+## V1 (final round)
+- The writing overlay replaces the old "Keep exploring after 9 s" ritual: one overlay, 45 s timeout → Try again / Keep
+  exploring; failures stay in the overlay instead of re-opening the sheet (never a pop-up on a pop-up).
+- `POPUP_CLOSE_MS = 420` is the shared "wait for a Modal to finish closing" constant (exported from NewBook.tsx); used
+  by the overlay, Settings → Leave, Demo Tools navigation and the fellowship guard (+300 ms so Leave's own replace wins).
+- Retry re-sends with `replace_active` if any book exists — the server replaces a half-written one.
+- Demo books (`geo_enforced === false`): distance is informational ("counts from anywhere"); location errors aren't shown.
+- V5: rather than moving the floating toggle somewhere else on the reader (every corner holds a control or art), it
+  steps aside whenever the focused screen hides Sage's FAB. AD can add a header toggle in the reader if wanted.
+- V8: ducking (35 %) instead of pausing — the plan allows either; ducking keeps the mood.

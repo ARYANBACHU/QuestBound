@@ -1,4 +1,47 @@
-# AB status (Wizard & Shell) — Round 3
+# AB status (Wizard & Shell) — V1 (final round)
+
+## Done in V1 (all on feat/shell, typecheck clean; checked on web in mock mode at 390×844 / 375×667)
+- **V1 crash (P0)** — `components/shell/NewBook.tsx` rewritten:
+  - No active fellowship → nothing writes a book: `openNewBook()`/`writeBook()` route to `/onboarding?step=fellowship`.
+    New `FellowshipGuard` in `app/(tabs)/_layout.tsx` sends a fellowship-less player to create/join (after pop-ups
+    close). Settings → Leave: closes the sheet, waits for its slide-out, then leaves the tabs.
+  - `writeBook` first closes EVERY pop-up (new-book sheet, Sage's sheet, Demo Tools, keyboard; coach marks hide on
+    `writing`), swallows taps for `POPUP_CLOSE_MS` (420 ms) while they animate away, THEN shows the overlay and calls
+    the server. Demo Tools' confirm alert also waits for its own dismissal.
+  - ONE full-screen, in-tree (non-Modal) overlay "Sage is writing your book…": blocks double taps, narration lines +
+    gold progress bar, after 45 s "The ink is thick tonight" with **Try again** / Keep exploring. Failures stay in the
+    overlay (**Try again** / Back to my book) — no sheet re-opens on top. Fellowship errors from the server → create/join.
+    No layout entering/exiting animations (opacity fade-in only). Realtime arrival of the new book also counts as done.
+  - Verified: Settings → New storyline → confirm → overlay → lands on the new book; slow state renders (tested with a
+    1 s timeout); Demo Tools → Start UT campus demo → overlay → page.
+- **V2 (P0)** — mission detail reads `storyline.geo_enforced`; when `false` the place card shows "1.2 mi away · counts
+  from anywhere", no "Location off" warning, and a failed verdict never blames distance. Demo Tools "Start UT campus
+  demo" already writes `demo: 'ut'` through the new overlay. (The UT book content + server geo skip are EV's.)
+- **V3** — `RewardPack`: region fill moved off SVG `animatedProps` (react-native-svg re-sent fillOpacity=1 on each of the
+  ~14 count-up re-renders → flicker) to an animated-view-opacity layer; mini page memoized. Frame-checked: uncolored →
+  one fill → seal. AD note in REQUESTS.md (same pattern in ColoringPage).
+- **V5** — the floating music toggle hides while a focused screen hides Sage's FAB (Storybook reader + montage), so
+  Montage owns the top-right. Shelf keeps the toggle.
+- **V8** — one module-level bards player (no second/overlapping track, never restarted when already playing) +
+  `useMusicDuck(active)` to lower it (35 %, 300 ms glide).
+
+## Needs someone else (REQUESTS.md)
+- AD: V8 one line `useMusicDuck(montage)` in `app/(tabs)/storybook.tsx`; V3 same flicker pattern in ColoringPage;
+  V5 optional `<HeaderMusicToggle />` in the reader top bar.
+- EV: V1 server half (friendly error for missing/foreign fellowship — client already maps "Only members…"/"not found"
+  to create/join); V2 UT book content + `geo_enforced=false` skip in submit-proof.
+- Still not deployed from here: `wizard-chat` (unchanged this round).
+
+## Known bugs / caveats
+- Web dev build: "Unknown event handler property onStartShouldSetResponder…" console errors come from the Page tab
+  (AD's SVG), not AB code; dev-only.
+- After a 45 s timeout + "Keep exploring", a late server success isn't announced by the overlay (the book just appears
+  via realtime). Intentional: no pop-ups the player didn't ask for.
+- Leave fellowship is a no-op in mock mode (MP's mock), so the guard can only be exercised against real Supabase.
+
+---
+
+# Round 3 (previous)
 
 ## Done in Round 3 (all on feat/shell, typecheck clean, checked in mock mode on web at 390×844 / 375×667)
 - **B4 keyboard — `components/shell/KeyboardSafe.tsx`** (pushed first so others can use it):

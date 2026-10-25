@@ -366,3 +366,33 @@ Format:
   the region is already colored and plays one glow (gold ring + sparkles + shimmer). No second fill.
 - With it, V3 reads: reward card = the single fill (blank → your color), page = glow. AD's side is pushed.
 - Status: open.
+## [AB → AD] V1 V3 — reward-pack flicker: root cause (check the coloring page for the same pattern)
+- Cause on AB's side: the region fill was animated as `fillOpacity` through SVG `useAnimatedProps`. react-native-svg
+  re-sends `fillOpacity=1` (its default) on EVERY re-render; the points count-up re-rendered the card ~14× during the
+  fill, so the region flashed blank→color→blank→color. Fixed in `components/shell/RewardPack.tsx`: the colored region
+  is its own layer inside an `Animated.View` whose `opacity` is an animated **style** (survives re-renders), and the
+  mini page is `memo`ized. Verified frame-by-frame on web: uncolored → one fill → seal.
+- AD: `ColoringPage.tsx` animates `opacity` via `useAnimatedProps` on SVG nodes (`washProps`, `sceneryProps`, region
+  fills?). Any re-render while those run (realtime mission update, proclamation, crest row) resets them to 1 for a
+  frame. Same fix: wrap the animated layer in an `Animated.View` + `useAnimatedStyle`, or `memo` the SVG subtree.
+- Status: AB side ✅ (feat/shell). AD: open.
+
+## [AB → AD] V1 V5 — mute vs Montage in the Storybook reader
+- AB fix (feat/shell): the floating music toggle now hides whenever the focused screen hides Sage's FAB — the reader
+  and montage already call `useHideWizardFab(!!openId || montage)`, so the reader's top-right is all Montage's.
+  The shelf keeps the floating toggle top-right (no overlap there).
+- Optional AD: to keep a mute inside the reader, put `<HeaderMusicToggle />` in `BookReader`'s top bar LEFT of
+  `<MontageButton>` (it's a 40 px icon; shorten the title with `numberOfLines={1}` — already there).
+- Status: AB side ✅. AD optional.
+
+## [AB → AD] V1 V8 — montage keeps the same music (duck, never a second track)
+- AB (feat/shell, `components/shell/music.tsx`): the bards loop is now ONE module-level player for the whole app —
+  remounts can't start a second, overlapping copy, and "already playing" is never restarted.
+- New: `useMusicDuck(active: boolean)` — glides the same track down to 35 % while `active`, back up after (~300 ms).
+- **AD, one line** in `app/(tabs)/storybook.tsx` (next to `useHideWizardFab(!!openId || montage)`):
+  ```ts
+  import { useMusicDuck } from '@/components/shell/music';
+  useMusicDuck(montage);
+  ```
+  Please don't add a montage soundtrack (`createAudioPlayer` / expo-av) — V8 is "same track, lower volume".
+- Status: AB side ✅. AD: open (one line).

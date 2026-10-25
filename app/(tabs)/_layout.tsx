@@ -1,17 +1,19 @@
 // Owner: AB. Five tabs with the custom coloring-book tab bar, plus Sage (FAB, sheet, coach marks, demo tools).
-import { Tabs, usePathname } from 'expo-router';
+import { Tabs, usePathname, useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProclamationToast from '@/components/friends/ProclamationToast';
 import { DemoTools } from '@/components/shell/DemoTools';
 import { FloatingMusicToggle } from '@/components/shell/music';
-import { NewBookProvider } from '@/components/shell/NewBook';
+import { NewBookProvider, POPUP_CLOSE_MS } from '@/components/shell/NewBook';
 import { TAB_BAR_HEIGHT, TabBar } from '@/components/shell/TabBar';
 import { CoachMark } from '@/components/wizard/CoachMark';
 import { screenFromPath } from '@/components/wizard/screens';
 import { WizardFab } from '@/components/wizard/WizardFab';
 import { WizardProvider } from '@/components/wizard/WizardProvider';
 import { WizardSheet } from '@/components/wizard/WizardSheet';
+import { useFellowship } from '@/lib/fellowship';
 import { ink, space } from '@/shared/theme';
 
 // A broken screen shows Sage's "Something went awry — tap to recover" instead of crashing (B1).
@@ -26,6 +28,7 @@ export default function TabsLayout() {
 
   return (
     <WizardProvider>
+      <FellowshipGuard />
       <View style={styles.root}>
         <NewBookProvider>
         <Tabs
@@ -51,6 +54,22 @@ export default function TabsLayout() {
       </View>
     </WizardProvider>
   );
+}
+
+/**
+ * V1: no active fellowship (left it, or it vanished) → the tabs have nothing to show and nothing may write a book.
+ * Send the player to create/join — after pop-ups had time to animate away (never navigate under a closing Modal).
+ */
+function FellowshipGuard() {
+  const router = useRouter();
+  const { fellowship, loading } = useFellowship();
+  const gone = !loading && !fellowship;
+  useEffect(() => {
+    if (!gone) return;
+    const t = setTimeout(() => router.replace({ pathname: '/onboarding', params: { step: 'fellowship' } }), POPUP_CLOSE_MS + 300);
+    return () => clearTimeout(t);
+  }, [gone, router]);
+  return null;
 }
 
 const FRIENDS_COMPOSER_HEIGHT = 92;

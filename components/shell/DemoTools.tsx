@@ -13,7 +13,7 @@ import { useSession } from '@/lib/session';
 import type { GenerateStorylineRequest } from '@/shared/types';
 import { ink, panel, scrim, shadow, space, ui } from '@/shared/theme';
 import { Button } from './Button';
-import { useNewBook } from './NewBook';
+import { POPUP_CLOSE_MS, useNewBook } from './NewBook';
 import { T } from './T';
 import { playSfx } from './sfx';
 
@@ -45,7 +45,7 @@ export function DemoTools() {
   // Close the tools first, then write through the one shared host (no Modal swaps — B1).
   const summonDemo = (label: string, demo: GenerateStorylineRequest['demo']) => {
     if (!fellowship) { setNote('Join a fellowship first'); return; }
-    closeDemoTools();
+    // writeBook closes these tools (and every other pop-up) and waits for the fade before showing its overlay (V1).
     writeBook({
       demo,
       lines: demo === 'ut'
@@ -56,7 +56,8 @@ export function DemoTools() {
 
   const confirm = (title: string, body: string, ok: string, fn: () => void) => {
     if (Platform.OS === 'web') { fn(); return; } // RN-web has no Alert
-    Alert.alert(title, body, [{ text: 'Cancel', style: 'cancel' }, { text: ok, onPress: fn }]);
+    // let the alert finish dismissing before anything closes/opens (iOS rejects overlapping transitions)
+    Alert.alert(title, body, [{ text: 'Cancel', style: 'cancel' }, { text: ok, onPress: () => setTimeout(fn, 250) }]);
   };
 
   const serp = info?.serp;
@@ -82,7 +83,7 @@ export function DemoTools() {
                   <Button label="Summon instant demo book" icon="⚡" variant="secondary" loading={busy === 'Instant book'} disabled={!fellowship}
                     onPress={() => summonDemo('Instant book', true)} />
                   <Button label="Replay the summoning ritual" variant="secondary"
-                    onPress={() => { closeDemoTools(); router.push({ pathname: '/onboarding', params: { step: 'summon', replay: '1' } }); }} />
+                    onPress={() => { closeDemoTools(); setTimeout(() => router.push({ pathname: '/onboarding', params: { step: 'summon', replay: '1' } }), POPUP_CLOSE_MS); }} />
                   <Button label="Replay the tour" variant="secondary"
                     onPress={() => run('Replay tour', async () => { await resetCoachMarks(); setNote('Coach marks reset. Visit each tab.'); })} />
                   <Button label="Restart onboarding" variant="secondary" loading={busy === 'Restart onboarding'}
@@ -90,6 +91,7 @@ export function DemoTools() {
                       () => run('Restart onboarding', async () => {
                         await updateProfile({ onboarded: false });
                         closeDemoTools();
+                        await new Promise((r) => setTimeout(r, POPUP_CLOSE_MS));
                         router.replace('/onboarding');
                       }))} />
 

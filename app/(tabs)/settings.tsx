@@ -17,7 +17,7 @@ import { CrayonPicker, CrayonPreview, crayonName } from '@/components/shell/Cray
 import { CrestPicker } from '@/components/shell/CrestPicker';
 import { INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
 import { HeaderMusicToggle, useMusicToggle } from '@/components/shell/music';
-import { useNewBook } from '@/components/shell/NewBook';
+import { POPUP_CLOSE_MS, useNewBook } from '@/components/shell/NewBook';
 import { Sheet } from '@/components/shell/Sheet';
 import { setSoundSetting, useSoundSettings } from '@/components/shell/soundSettings';
 import { T } from '@/components/shell/T';
@@ -171,7 +171,9 @@ export default function SettingsScreen() {
         <LeaveSheet visible={leaveOpen} onClose={() => setLeaveOpen(false)} name={fs.fellowship?.name ?? 'your fellowship'}
           onLeave={async () => {
             await fs.leave();
+            // V1: close the sheet, let its slide-out finish, THEN leave the tabs (never navigate under a closing Modal).
             setLeaveOpen(false);
+            await new Promise((r) => setTimeout(r, POPUP_CLOSE_MS));
             router.replace({ pathname: '/onboarding', params: { step: 'fellowship' } });
           }} />
         <InviteSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} fellowship={fs.fellowship} />
