@@ -20,6 +20,7 @@ import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { InkButton, Txt } from '@/components/coloring/ui';
 import { Sage, SageSays } from '@/components/coloring/sage';
 import { Celebration } from '@/components/coloring/Celebration';
+import { UpNext, nextMission } from '@/components/coloring/UpNext';
 
 const HOLD_MS = FILL_MS + 700; // let the last region's fill + sparkle play before the page turns
 
@@ -137,6 +138,7 @@ export default function ColoringScreen() {
     body = <BlankBook width={pageW} onSummon={() => summon('first')} loading={summoning} error={summonError} />;
   } else {
     const isLocked = shown.status === 'locked';
+    const upNext = shown.status === 'active' ? nextMission(shownMissions) : null;
     body = (
       <>
         <ChapterHeader bookTitle={storyline.title} page={shown} missions={shownMissions} members={members} />
@@ -170,6 +172,8 @@ export default function ColoringScreen() {
         </View>
 
         <ChapterNav pages={pages} shownId={shown.id} activeId={activePage?.id ?? null} onPick={(id) => setViewId(id === activePage?.id ? null : id)} />
+
+        {upNext && !hold && !turning ? <UpNext mission={upNext} mood={moodFor(shown.template_id)} onPress={() => setSheetId(upNext.id)} /> : null}
 
         {bookDone && !hold && !turning && (
           <TheEndBanner onOpenStorybook={() => router.push('/(tabs)/storybook')} onSequel={() => summon('sequel')} loading={summoning} />

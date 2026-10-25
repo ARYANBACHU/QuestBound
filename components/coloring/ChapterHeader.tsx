@@ -1,11 +1,11 @@
-// Owner: AD. Book title → chapter title → narrative (tap to expand) → crayon-stub progress.
-'use no memo'; // mock store mutates rows in place; opt out of React Compiler auto-memo so updates always render
+// Owner: AD. Calm header: "Chapter I · Book title" → chapter title → one line of story (Read more) → crayon progress.
+'use no memo';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { TEMPLATES } from '@/shared/templates';
 import { SCREEN_GRADIENTS, ink, moodFor, space } from '@/shared/theme';
-import { ExpandableStory } from './ExpandableStory';
 import type { FellowshipMember, Mission, Page } from '@/shared/types';
+import { ExpandableStory } from './ExpandableStory';
 import { crayonHex, missionColors, roman } from './pageUtils';
 import { Txt } from './ui';
 
@@ -13,10 +13,11 @@ export function ChapterHeader({ bookTitle, page, missions, members }: { bookTitl
   const mood = moodFor(page.template_id);
   return (
     <View style={styles.wrap}>
-      {bookTitle ? <Txt v="smallBold" color={ink.muted} numberOfLines={1}>{bookTitle.toUpperCase()}</Txt> : null}
-      <Txt v="smallBold" color={mood.deep}>Chapter {roman(page.chapter_number)}</Txt>
-      <Txt v="title" style={styles.title}>{page.title}</Txt>
-      <ExpandableStory text={page.narrative} lines={2} mood={mood} fadeColor={SCREEN_GRADIENTS[mood.id][0]} />
+      <Txt v="smallBold" color={mood.deep} numberOfLines={1}>
+        Chapter {roman(page.chapter_number)}{bookTitle ? ` · ${bookTitle}` : ''}
+      </Txt>
+      <Txt v="title" numberOfLines={2}>{page.title}</Txt>
+      <ExpandableStory text={page.narrative} lines={1} mood={mood} fadeColor={SCREEN_GRADIENTS[mood.id][0]} />
       <CrayonProgress page={page} missions={missions} members={members} />
     </View>
   );
@@ -30,15 +31,15 @@ export function CrayonProgress({ page, missions, members, compact }: { page: Pag
   const byRegion = Object.fromEntries(missions.map((m) => [m.region_id, m]));
   const done = regions.filter((r) => byRegion[r.id]?.status === 'complete').length;
   return (
-    <View style={styles.progress}>
+    <View style={styles.progress} accessible accessibilityLabel={`${done} of ${regions.length} regions colored`}>
       <View style={styles.stubs}>
         {regions.map((r) => {
           const m = byRegion[r.id];
           const color = m?.status === 'complete' ? crayonHex(missionColors(m, members)[0]) : null;
-          return <CrayonStub key={r.id} color={color} size={small ? 13 : 18} />;
+          return <CrayonStub key={r.id} color={color} size={small ? 13 : 16} />;
         })}
       </View>
-      <Txt v="smallBold" numberOfLines={1}>{done} of {regions.length} colored</Txt>
+      <Txt v="smallBold" numberOfLines={1}>{done === regions.length ? 'All colored ✦' : `${done} of ${regions.length} colored`}</Txt>
     </View>
   );
 }
@@ -61,7 +62,6 @@ function CrayonStub({ color, size }: { color: string | null; size: number }) {
 
 const styles = StyleSheet.create({
   wrap: { gap: space.xs, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.md },
-  title: { marginBottom: space.xs },
   progress: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.sm, gap: space.sm },
   stubs: { flexDirection: 'row', gap: 2, flexShrink: 1 },
 });

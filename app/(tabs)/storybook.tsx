@@ -5,15 +5,16 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensio
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFellowship } from '@/lib/fellowship';
 import { useBooks, useMemories, useMissions } from '@/lib/game';
 import { useCompletions, usePages } from '@/components/storybook/useStoryData';
 import { generateStoryline } from '@/lib/api';
-import { ink, moodFor, radius, space } from '@/shared/theme';
+import { SCREEN_GRADIENTS, ink, moodFor, panel, shadow, space, ui } from '@/shared/theme';
 import type { FellowshipMember, Page, Storyline } from '@/shared/types';
 import { ColoringPage } from '@/components/coloring/ColoringPage';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
-import { InkButton, Txt } from '@/components/coloring/ui';
+import { Chip, InkButton, Txt } from '@/components/coloring/ui';
 import { SageSays } from '@/components/coloring/sage';
 import { BookReader } from '@/components/storybook/BookReader';
 import { Montage } from '@/components/storybook/Montage';
@@ -74,9 +75,10 @@ export default function StorybookScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <LinearGradient colors={SCREEN_GRADIENTS.castle} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.shelfWrap}>
         <Txt v="hero">Storybook</Txt>
-        <Txt v="story">Every tale your fellowship has lived, with the pictures to prove it.</Txt>
+        <Txt v="story" color={ink.inkSoft}>Every tale your fellowship has lived.</Txt>
         {loading ? (
           <ActivityIndicator color={ink.ink} style={{ marginTop: space.xxl }} />
         ) : books.length === 0 ? (
@@ -109,7 +111,7 @@ function BookCard({ book, members, onPress }: { book: Storyline; members: Fellow
   const colored = missions.filter((m) => m.status === 'complete').length;
   const chaptersDone = pages.filter((p) => p.status === 'complete').length;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: 0.98 }] }]} accessibilityRole="button" accessibilityLabel={`Open ${book.title}`}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: ui.pressScale }] }]} accessibilityRole="button" accessibilityLabel={`Open ${book.title}`}>
       <View style={[styles.spine, { backgroundColor: moodFor(first?.template_id).deep }]} />
       <View style={styles.cover}>
         {first ? (
@@ -121,13 +123,11 @@ function BookCard({ book, members, onPress }: { book: Storyline; members: Fellow
       <View style={styles.cardText}>
         <Txt v="smallBold" color={moodFor(first?.template_id).deep}>BOOK {roman(book.book_number)}</Txt>
         <Txt v="heading" numberOfLines={3}>{book.title}</Txt>
-        <Txt v="small" numberOfLines={3}>{book.synopsis}</Txt>
-        <View style={[styles.badge, done && styles.badgeDone]}>
-          <Txt v="smallBold" color={done ? ink.page : ink.ink}>
-            {done ? 'Complete' : pages.length ? `Chapter ${chaptersDone + 1} of ${pages.length} · ${colored} colored` : 'Being written'}
-          </Txt>
-        </View>
-        <Txt v="bodyBold">Read ›</Txt>
+        <Chip
+          tone={done ? 'gold' : 'neutral'}
+          label={done ? 'Complete ✦' : pages.length ? `Chapter ${Math.min(chaptersDone + 1, pages.length)} of ${pages.length} · ${colored} colored` : 'Being written'}
+          style={{ marginTop: space.xs }}
+        />
       </View>
     </Pressable>
   );
@@ -140,12 +140,10 @@ const styles = StyleSheet.create({
   shelf: { marginTop: space.lg, gap: space.lg },
   plank: { height: 10, borderRadius: 5, backgroundColor: ink.ink, opacity: 0.12 },
   card: {
-    flexDirection: 'row', gap: space.md, padding: space.md, paddingLeft: space.lg, backgroundColor: ink.page,
-    borderWidth: 2.5, borderColor: ink.ink, borderRadius: radius.md, overflow: 'hidden',
+    flexDirection: 'row', gap: space.md, padding: space.md, paddingLeft: space.lg, backgroundColor: panel.parchment,
+    borderWidth: ui.borderWidth, borderColor: ink.ink, borderRadius: ui.cardRadius, overflow: 'hidden', ...shadow.sm,
   },
   spine: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 8, backgroundColor: ink.gold },
   cover: { borderWidth: 1.5, borderColor: ink.ink, borderRadius: 4, overflow: 'hidden', alignSelf: 'flex-start' },
   cardText: { flex: 1, gap: space.xs },
-  badge: { alignSelf: 'flex-start', borderWidth: 1.5, borderColor: ink.ink, borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 2, marginTop: space.xs },
-  badgeDone: { backgroundColor: ink.gold, borderColor: ink.gold },
 });
