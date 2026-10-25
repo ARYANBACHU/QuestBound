@@ -103,3 +103,64 @@ Format:
   (mirror in `supabase/functions/_shared/types.ts`).
 - Why: Demo Tools "Summon instant demo book" (AB) → EV's instant demo book (EV.md Task 6). AB currently casts.
 - Status: ✅ applied in round 1 (`shared/types.ts`; EV's `_shared/types.ts` mirror is EV-owned). AB: drop the cast.
+
+## [EV] `BookRecap.abandoned?: boolean` (round 2, E2)
+- What: `shared/types.ts` → in `BookRecap` add `abandoned?: boolean; // book shelved unfinished (replace_active)`.
+  Mirror already in `supabase/functions/_shared/types.ts`.
+- Why: `generateStoryline({ replace_active: true })` shelves the current book with status `complete` and a quick recap
+  marked `abandoned: true` ("…was set aside with 3 of 24 regions colored"). AD's Storybook can show it as "set aside"
+  instead of "complete". Until it lands, read it as `(recap as BookRecap & { abandoned?: boolean }).abandoned`.
+- Optional secret: `GEO_RADIUS_M` (default 400) tunes the GPS gate in submit-proof. Not set on the project = 400 m.
+- Status: ✅ applied in round 2 (`shared/types.ts` BookRecap.abandoned; Deno mirror already on feat/engine). GEO_RADIUS_M confirmed = 400 on the project.
+
+## [MP] → EV: `pointsFor` / `leaderboard` in lib/game.ts (Round 2 · E4)
+- What: MP codes against `pointsFor(userId: string, missions: Mission[]): number` and
+  `leaderboard(members: FellowshipMember[], missions: Mission[]): { user_id; points; missions }[]` (highest first,
+  every member incl. 0). Local copy with the same rule lives in `components/friends/points.ts`.
+- Why: one source of truth for points (Friends tab member cards + profile sheet).
+- When EV's exports land, MP swaps `components/friends/points.ts` to `export { pointsFor, leaderboard } from '@/lib/game'`.
+  If EV's `leaderboard` row shape differs, MP adapts — no change needed from EV.
+- Status: ✅ landed in round 2 (EV's E4 in lib/game.ts). Merge agent swapped `components/friends/points.ts` to re-export EV's `pointsFor`/`leaderboard` and adapted callers to EV's row shape.
+
+## [AD] Round 2 — local stand-ins to swap when the real exports reach main (merge agent: one-line swaps)
+- `components/storybook/useStoryData.ts` → local `usePages(storylineId) → { pages, loading }` and
+  `useCompletions(storylineId) → { completions: Completion[], loading }` (EV E5/E7/P11 signatures). When EV's land in
+  `lib/game.ts`, replace the file body with `export { usePages, useCompletions } from '@/lib/game';`.
+  EV: my real-mode query for completions is `completions.select('*, missions!inner(storyline_id)').eq('missions.storyline_id', sid)`.
+- `components/coloring/sage.tsx` → local `Sage` placeholder with AB's props `{ expression?, size? }` (plus AD's `SageSays`
+  bubble). When `components/wizard/Sage.tsx` lands, change `Sage` in that file to `export { Sage } from '@/components/wizard/Sage';`
+  and delete the local drawing (keep `SageSays`).
+- `components/coloring/sfx.ts` → no-op `playSfx(name: 'ping'|'crayon'|'page'|'seal'): void`. When AB's
+  `components/shell/sfx.ts` lands, replace the body with `export { playSfx } from '@/components/shell/sfx';`.
+- Checked against origin/feat/engine + origin/feat/shell (end of AD round 2): EV's `usePages`/`useCompletions` and AB's
+  `Sage`/`playSfx` are drop-in compatible (EV's `CompletionEntry extends Completion`; AD reads mission_id/proof_text/user_id).
+  Status: ✅ round 2 — all three swaps done by the merge agent after merging (useStoryData → lib/game, Sage → components/wizard/Sage, playSfx → components/shell/sfx).
+
+## [AB → AD] Storybook: hide Sage's FAB while the reader / montage is open (A10)
+- What: in `app/(tabs)/storybook.tsx` add `import { useHideWizardFab } from '@/components/wizard/WizardProvider';` and call
+  `useHideWizardFab(!!openId || montage);` inside the screen component.
+- Why: the plan says the FAB auto-hides on the Storybook reader/montage. AB can't see AD's reader state; the hook is
+  ref-counted and safe to call from any screen under the tabs.
+- Status: ✅ round 2 — merge agent added `useHideWizardFab(!!openId || montage)` in `app/(tabs)/storybook.tsx`.
+
+## [AB → AD, MP] Sound + Sage are ready to import (P6)
+- `import { playSfx } from '@/components/shell/sfx'` → `playSfx('ping' | 'crayon' | 'page' | 'seal')`. Preloaded,
+  low volume, honors Settings → "Sound effects", never throws.
+- `import { Sage, SageTitle, speakOnce } from '@/components/wizard/Sage'` →
+  `<Sage expression="happy" size="sm|md|lg" speakKey={message.id} />` talks + pings ONCE per new key (never on
+  re-render/reopen). `variant="face"` = head only, `still` = no idle loop (use it in long lists).
+  `speakOnce(key)` = ping once without rendering Sage. `<SageTitle />` = "Sage" + "✦ powered by Muse".
+- Status: ✅ round 2 — MP and AD stand-ins now re-export these.
+
+## [AB → EV] reroll-mission difficulty + points helpers (E2, E4)
+- What: `lib/api.ts` → `rerollMission(missionId: string, reason?: string, difficulty?: Difficulty)` and send
+  `{ mission_id, reason?, difficulty? }`. AB already calls it with the 3rd arg (extra args are ignored until then)
+  and puts the difficulty in `reason` as a fallback hint. Also `pointsFor(userId, missions)` export from lib/game.ts:
+  AB's `components/shell/engine.ts` uses it automatically the moment it exists (local identical fallback until then).
+- Status: ✅ round 2 — both on feat/engine (EV E2/E4); AB's `components/shell/engine.ts` now re-exports EV's helpers.
+
+## [AB → MERGE] README credits for audio
+- What: add to README.md: "Music & sound effects: original, synthesized for Questbound, CC0 — see assets/audio/README.md".
+- Why: plan A1/P6 asks to credit the audio in README; README isn't in AB's paths. The full credit table lives in
+  `assets/audio/README.md` (AB).
+- Status: ✅ applied in round 2 (README.md Credits line).

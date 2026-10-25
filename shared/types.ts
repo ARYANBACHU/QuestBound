@@ -185,6 +185,7 @@ export interface BookRecap {
   per_member: { user_id: UUID; title: string; contribution: string }[]; // "Aria the Bold"
   next_book_hint: string; // teaser for the sequel
   serp?: SerpStats;
+  abandoned?: boolean; // book shelved unfinished (replace_active)
 }
 
 // ---------- edge function API ----------
