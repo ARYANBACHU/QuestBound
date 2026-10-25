@@ -77,10 +77,16 @@ export function wave(x1: number, x2: number, y: number, amp = 10, len = 60): str
   return out;
 }
 
-/** The band between the frame's outer and inner borders (filled with the chapter mood gradient). */
+/** Everything outside the frame's inner border, to the paper edge (filled with the chapter mood gradient). */
 export function frameBand(): string {
-  const W = 1000, H = 1400, o = 24, i = 50;
-  return `${rr(o, o, W - 2 * o, H - 2 * o, 34)} ${rr(i, i, W - 2 * i, H - 2 * i, 16, true)}`;
+  const W = 1000, H = 1400, i = 50;
+  return `M0 0 H${W} V${H} H0 Z ${rr(i, i, W - 2 * i, H - 2 * i, 16, true)}`;
+}
+
+/** The picture area inside the frame: sky + ground behind the regions (gets the mood wash as regions are colored). */
+export function frameInner(): string {
+  const W = 1000, H = 1400, i = 50;
+  return rr(i, i, W - 2 * i, H - 2 * i, 16);
 }
 
 /** The storybook frame every page shares: double rounded border + corner flourishes. */

@@ -7,7 +7,7 @@ import Svg, { Circle, ClipPath, Defs, G, Line, LinearGradient, Path, Pattern, Re
 import Animated, { Easing, useAnimatedProps, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { PAGE_ART, VIEW_H, VIEW_W } from '@/assets/pages';
-import { frameBand } from '@/assets/pages/shapes';
+import { frameBand, frameInner } from '@/assets/pages/shapes';
 import { TEMPLATES, type TemplateId } from '@/shared/templates';
 import { INK_STROKE, ink, moodFor, space, type CrayonColor } from '@/shared/theme';
 import type { FellowshipMember, Mission } from '@/shared/types';
@@ -26,6 +26,7 @@ const STRIPE = 12; // teammate stripe width in viewBox units (~4 px on a phone)
 const GLYPH = 60;
 const NATIVE = Platform.OS !== 'web';
 const FRAME_BAND = frameBand();
+const FRAME_INNER = frameInner();
 
 export interface ColoringPageProps {
   templateId: TemplateId;
@@ -94,9 +95,26 @@ function ColoringPageImpl({
   const regionIds = template.regions.map((r) => r.id).filter((id) => art.regions[id]);
   const id = (k: string) => `${uid}${k}`;
 
+  // 100% coloring: the sky/ground behind the regions takes the chapter mood as regions are colored (full at 6/6)
+  const doneCount = locked ? 0 : regionIds.filter((r) => byRegion[r]?.status === 'complete').length;
+  const washTarget = regionIds.length ? doneCount / regionIds.length : 0;
+  const wash = useSharedValue(washTarget);
+  useEffect(() => {
+    wash.value = animate && !reduced ? withDelay(FILL_MS * 0.6, withTiming(washTarget, { duration: 700, easing: Easing.out(Easing.quad) })) : washTarget;
+  }, [washTarget, animate, reduced, wash]);
+  const washProps = useAnimatedProps(() => ({ opacity: wash.value }));
+
   return (
     <Svg width={w} height={h} viewBox={art.viewBox}>
       <Defs>
+        <LinearGradient id={id('wash')} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={mood.gradient[0]} stopOpacity={0.75} />
+          <Stop offset="1" stopColor={mood.gradient[1]} stopOpacity={0.9} />
+        </LinearGradient>
+        <Pattern id={id('washTex')} patternUnits="userSpaceOnUse" width={44} height={44} patternTransform="rotate(-28)">
+          <Line x1={0} y1={8} x2={44} y2={9} stroke={mood.deep} strokeWidth={3} strokeOpacity={0.07} strokeLinecap="round" />
+          <Line x1={0} y1={27} x2={44} y2={26} stroke={mood.deep} strokeWidth={5} strokeOpacity={0.05} strokeLinecap="round" />
+        </Pattern>
         <LinearGradient id={id('frame')} x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0" stopColor={mood.gradient[0]} />
           <Stop offset="1" stopColor={mood.gradient[1]} />
@@ -121,6 +139,10 @@ function ColoringPageImpl({
 
       <Rect x={0} y={0} width={VIEW_W} height={VIEW_H} fill={ink.page} />
       <Path d={FRAME_BAND} fill={`url(#${id('frame')})`} opacity={locked ? 0.45 : 1} />
+      <AnimatedG animatedProps={washProps}>
+        <Path d={FRAME_INNER} fill={`url(#${id('wash')})`} />
+        <Path d={FRAME_INNER} fill={`url(#${id('washTex')})`} />
+      </AnimatedG>
       {art.background?.map((d, i) => (
         <Path key={`bg${i}`} d={d} fill="none" stroke={ink.muted} strokeOpacity={0.45} strokeWidth={5} strokeLinecap="round" />
       ))}
