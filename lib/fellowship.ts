@@ -157,8 +157,8 @@ function subscribeRealtime(fellowshipId: string) {
       // (Re)connected → catch up on anyone who joined while we were away.
       if (status === 'SUBSCRIBED') void reloadMembers();
     });
-  // Separate channel: `profiles`/`fellowships` aren't in the realtime publication until REQUESTS.md lands,
-  // and a rejected table must not take the members channel down with it.
+  // Profiles (crest / crayon / name changes) and the fellowship row (rename, area) — both in the realtime
+  // publication since 0002_round1.sql. Own channel so a hiccup here never drops the members channel.
   extrasChannel = supabase
     .channel(`fellowship-extras:${fellowshipId}`)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (p) => {
@@ -167,9 +167,17 @@ function subscribeRealtime(fellowshipId: string) {
       setSnap({ members: snap.members.map((m) => (m.user_id === updated.id ? { ...m, profile: updated } : m)) });
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'fellowships', filter: `id=eq.${fellowshipId}` }, (p) => {
-      if (snap.fellowship?.id === fellowshipId) setSnap({ fellowship: p.new as Fellowship });
+      if (snap.fellowship?.id === fellowshipId) setSnap({ fellowship: { ...snap.fellowship, ...(p.new as Fellowship) } });
     })
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') void reloadFellowshipRow(fellowshipId);
+    });
+}
+
+/** Catch up on a rename / area change made while we were offline. */
+async function reloadFellowshipRow(fellowshipId: string) {
+  const { data } = await supabase.from('fellowships').select('*').eq('id', fellowshipId).maybeSingle();
+  if (data && snap.fellowship?.id === fellowshipId) setSnap({ fellowship: data as Fellowship });
 }
 
 /** Load a fellowship + members and make it the active one. */

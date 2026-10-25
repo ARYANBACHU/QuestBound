@@ -11,6 +11,7 @@ import { heroName, profileOf } from '@/lib/fellowship';
 import Crest from './Crest';
 import { crayonHex, withAlpha } from './color';
 import { haptic } from './haptics';
+import { pointsFor } from './points';
 
 const INTEREST_LABEL = Object.fromEntries(INTERESTS.map((i) => [i.id, i.label]));
 const NUDGE_COOLDOWN_MS = 10 * 60 * 1000;
@@ -127,7 +128,7 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
             </View>
           ) : null}
 
-          <Text style={styles.section}>Colored in this book</Text>
+          <Text style={styles.section}>Colored in this book · {pointsFor(member.user_id, missions)} pts</Text>
           {colored.length ? (
             colored.map(({ m, region, chapter }) => (
               <View key={m.id} style={[styles.region, { borderLeftColor: crayonHex(p.color), backgroundColor: withAlpha(crayonHex(p.color), 0.08) }]}>

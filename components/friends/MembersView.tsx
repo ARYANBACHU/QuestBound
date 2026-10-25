@@ -5,6 +5,7 @@ import { CRESTS, INTERESTS, fonts, ink, radius, space, type, type CrestId } from
 import type { FellowshipMember, Mission } from '@/shared/types';
 import Crest from './Crest';
 import { crayonHex } from './color';
+import { leaderboard } from './points';
 
 const INTEREST_LABEL = Object.fromEntries(INTERESTS.map((i) => [i.id, i.label]));
 
@@ -23,19 +24,7 @@ export interface MembersViewProps {
 }
 
 export default function MembersView({ members, missions, online, myId, onInvite, onOpenMember }: MembersViewProps) {
-  const stats = useMemo(() => {
-    const out: Record<string, { count: number; points: number }> = {};
-    missions
-      .filter((m) => m.status === 'complete')
-      .forEach((m) =>
-        m.completed_by.forEach((uid) => {
-          out[uid] ??= { count: 0, points: 0 };
-          out[uid].count += 1;
-          out[uid].points += m.points;
-        }),
-      );
-    return out;
-  }, [missions]);
+  const stats = useMemo(() => Object.fromEntries(leaderboard(members, missions).map((r) => [r.user_id, r])), [members, missions]);
 
   // Founder first, then me, then by join order.
   const sorted = useMemo(
@@ -95,7 +84,7 @@ export default function MembersView({ members, missions, online, myId, onInvite,
                 ) : null}
               </View>
               <Text style={styles.stat}>
-                {s ? `${s.count} mission${s.count === 1 ? '' : 's'} colored · ${s.points} pts` : 'No regions colored yet'}
+                {s?.missions ? `${s.missions} mission${s.missions === 1 ? '' : 's'} colored · ${s.points} pts` : 'No regions colored yet'}
               </Text>
               {p?.interests?.length ? (
                 <View style={styles.chips}>

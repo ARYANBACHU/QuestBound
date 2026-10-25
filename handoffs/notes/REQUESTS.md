@@ -103,3 +103,12 @@ Format:
   (mirror in `supabase/functions/_shared/types.ts`).
 - Why: Demo Tools "Summon instant demo book" (AB) → EV's instant demo book (EV.md Task 6). AB currently casts.
 - Status: ✅ applied in round 1 (`shared/types.ts`; EV's `_shared/types.ts` mirror is EV-owned). AB: drop the cast.
+
+## [MP] → EV: `pointsFor` / `leaderboard` in lib/game.ts (Round 2 · E4)
+- What: MP codes against `pointsFor(userId: string, missions: Mission[]): number` and
+  `leaderboard(members: FellowshipMember[], missions: Mission[]): { user_id; points; missions }[]` (highest first,
+  every member incl. 0). Local copy with the same rule lives in `components/friends/points.ts`.
+- Why: one source of truth for points (Friends tab member cards + profile sheet).
+- When EV's exports land, MP swaps `components/friends/points.ts` to `export { pointsFor, leaderboard } from '@/lib/game'`.
+  If EV's `leaderboard` row shape differs, MP adapts — no change needed from EV.
+- Status: open (EV)

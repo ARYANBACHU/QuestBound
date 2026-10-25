@@ -11,7 +11,7 @@ import { supabase } from './supabase';
 import { sessionStore } from './session';
 import { fellowshipStore } from './fellowship';
 import { ME } from '@/fixtures/demo';
-import type { Message } from '@/shared/types';
+import type { Message, MessageReaction } from '@/shared/types';
 
 /** A message plus local delivery state for my own optimistic sends. */
 export type ChatMessage = Message & { status?: 'sending' | 'failed' };
@@ -44,12 +44,11 @@ export const REACTIONS = ['👑', '🔥', '😂', '❤️', '🎉'] as const;
 export type ReactionEmoji = (typeof REACTIONS)[number];
 export type Reactions = Record<string, Partial<Record<ReactionEmoji, string[]>>>;
 
-/** Row in `message_reactions` (proposed in REQUESTS.md; not in shared/types yet). */
-interface ReactionRow {
-  message_id: string;
-  fellowship_id: string;
-  user_id: string;
-  emoji: ReactionEmoji;
+/** The columns of `message_reactions` we read. */
+type ReactionRow = Pick<MessageReaction, 'message_id' | 'fellowship_id' | 'user_id'> & { emoji: ReactionEmoji };
+
+function isReactionEmoji(e: unknown): e is ReactionEmoji {
+  return typeof e === 'string' && (REACTIONS as readonly string[]).includes(e);
 }
 
 function applyReaction(r: Reactions, messageId: string, emoji: ReactionEmoji, uid: string, on: boolean): Reactions {
@@ -63,7 +62,9 @@ function applyReaction(r: Reactions, messageId: string, emoji: ReactionEmoji, ui
 }
 
 function reactionsFromRows(rows: ReactionRow[]): Reactions {
-  return rows.reduce<Reactions>((acc, row) => applyReaction(acc, row.message_id, row.emoji, row.user_id, true), {});
+  return rows
+    .filter((row) => isReactionEmoji(row.emoji))
+    .reduce<Reactions>((acc, row) => applyReaction(acc, row.message_id, row.emoji, row.user_id, true), {});
 }
 
 const PAGE = 100;
@@ -92,8 +93,6 @@ interface Room {
   presenceUid: string | null;
   typing: Map<string, number>;
   reactionsCh: RealtimeChannel | null;
-  /** false once we learn the message_reactions table doesn't exist yet → reactions stay local. */
-  reactionsRemote: boolean;
   typingTimer: ReturnType<typeof setInterval> | null;
   lastTypingSent: number;
   stopSession: (() => void) | null;
@@ -199,18 +198,7 @@ function stopPresence(room: Room) {
   room.typing.clear();
 }
 
-const MISSING_TABLE = new Set(['42P01', 'PGRST205', 'PGRST200']);
-let warnedReactions = false;
-function reactionsUnavailable(room: Room, err: { code?: string; message?: string }) {
-  if (!MISSING_TABLE.has(err.code ?? '') && !/message_reactions/.test(err.message ?? '')) return false;
-  room.reactionsRemote = false;
-  if (!warnedReactions) console.warn('[chat] message_reactions table missing — reactions are local only (see REQUESTS.md)');
-  warnedReactions = true;
-  return true;
-}
-
 async function loadReactions(room: Room) {
-  if (!room.reactionsRemote) return;
   const { data, error } = await supabase
     .from('message_reactions')
     .select('message_id, fellowship_id, user_id, emoji')
@@ -218,27 +206,31 @@ async function loadReactions(room: Room) {
     .order('created_at', { ascending: false })
     .limit(1000);
   if (error) {
-    if (!reactionsUnavailable(room, error)) console.warn('[chat] reactions load failed', error);
+    console.warn('[chat] reactions load failed', error);
     return;
   }
   setRoom(room, { reactions: reactionsFromRows((data ?? []) as ReactionRow[]) });
 }
 
 function subscribeReactions(room: Room) {
-  // Own channel: if the table isn't published yet, the chat channel must keep working.
+  // Own channel so a reactions hiccup never takes the chat channel down.
   room.reactionsCh = supabase
     .channel(`reactions:${room.id}`)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reactions', filter: `fellowship_id=eq.${room.id}` }, (p) => {
       const r = p.new as ReactionRow;
+      if (!isReactionEmoji(r.emoji)) return;
       setRoom(room, { reactions: applyReaction(room.snap.reactions, r.message_id, r.emoji, r.user_id, true) });
     })
     // DELETEs can't be filtered; with replica identity full the old row has every column.
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'message_reactions' }, (p) => {
       const r = p.old as Partial<ReactionRow>;
-      if (r.fellowship_id !== room.id || !r.message_id || !r.emoji || !r.user_id) return;
+      if (r.fellowship_id !== room.id || !r.message_id || !isReactionEmoji(r.emoji) || !r.user_id) return;
       setRoom(room, { reactions: applyReaction(room.snap.reactions, r.message_id, r.emoji, r.user_id, false) });
     })
-    .subscribe();
+    .subscribe((status) => {
+      // (Re)connected → resync anything we missed.
+      if (status === 'SUBSCRIBED') void loadReactions(room);
+    });
 }
 
 async function toggleReactionReal(fellowshipId: string, messageId: string, emoji: ReactionEmoji) {
@@ -246,11 +238,13 @@ async function toggleReactionReal(fellowshipId: string, messageId: string, emoji
   const uid = await sessionStore.ensureSignedIn();
   const had = (room.snap.reactions[messageId]?.[emoji] ?? []).includes(uid);
   setRoom(room, { reactions: applyReaction(room.snap.reactions, messageId, emoji, uid, !had) });
-  if (!room.reactionsRemote || messageId.startsWith('temp-')) return;
+  if (messageId.startsWith('temp-')) return;
+  // fellowship_id is overwritten from the message by a DB trigger; we send it for the insert policy.
   const { error } = had
     ? await supabase.from('message_reactions').delete().match({ message_id: messageId, user_id: uid, emoji })
     : await supabase.from('message_reactions').insert({ message_id: messageId, fellowship_id: fellowshipId, user_id: uid, emoji });
-  if (error && error.code !== '23505' && !reactionsUnavailable(room, error)) {
+  if (error && error.code !== '23505') {
+    console.warn('[chat] reaction failed', error);
     setRoom(room, { reactions: applyReaction(room.snap.reactions, messageId, emoji, uid, had) });
   }
 }
@@ -264,14 +258,10 @@ function open(room: Room) {
     )
     .subscribe((status) => {
       // (Re)connected → backfill anything missed while offline / backgrounded.
-      if (status === 'SUBSCRIBED') {
-        void loadLatest(room);
-        void loadReactions(room);
-      }
+      if (status === 'SUBSCRIBED') void loadLatest(room);
     });
   void loadLatest(room);
-  void loadReactions(room);
-  subscribeReactions(room);
+  subscribeReactions(room); // loads reactions once its channel is up
   const syncPresence = () => {
     const uid = sessionStore.get().userId;
     if (uid) startPresence(room, uid);
@@ -305,7 +295,6 @@ function getRoom(id: string): Room {
       presenceUid: null,
       typing: new Map(),
       reactionsCh: null,
-      reactionsRemote: true,
       typingTimer: null,
       lastTypingSent: 0,
       stopSession: null,
