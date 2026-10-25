@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { haptic } from './haptics';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
+import { SAGE_CREDIT, SAGE_SIZES, fonts, ink, radius, space, type } from '@/shared/theme';
 import type { FellowshipMember } from '@/shared/types';
 import type { ChatMessage, ChatState } from '@/lib/chat';
 import { heroName, profileOf } from '@/lib/fellowship';
@@ -21,6 +21,7 @@ import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
 import { ReactionChips, ReactionPicker } from './Reactions';
 import { useKeyboardLift, type ViewRef } from './useKeyboardLift';
+import { Sage } from './sage';
 
 type Row =
   | { key: string; type: 'day'; label: string }
@@ -318,17 +319,13 @@ function TheirBubble({
 function WizardBubble({ m, first, last, onLongPress }: { m: ChatMessage; first: boolean; last: boolean; onLongPress: () => void }) {
   return (
     <View style={[styles.rowTheirs, last && styles.runEnd]}>
-      <View style={styles.avatarCol}>
-        {first ? (
-          <View style={styles.wizardAvatar}>
-            <Text style={styles.wizardEmoji} allowFontScaling={false}>
-              🧙
-            </Text>
-          </View>
-        ) : null}
-      </View>
+      <View style={styles.sageCol}>{first ? <Sage expression="happy" size="sm" /> : null}</View>
       <View style={styles.theirsCol}>
-        {first ? <Text style={styles.name}>Sage</Text> : null}
+        {first ? (
+          <Text style={styles.name}>
+            Sage<Text style={styles.credit}>{`  ${SAGE_CREDIT}`}</Text>
+          </Text>
+        ) : null}
         <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.bubble, styles.wizard]}>
           <Text style={[styles.text, styles.wizardText]}>{m.body}</Text>
         </Pressable>
@@ -360,8 +357,8 @@ const styles = StyleSheet.create({
   sending: { opacity: 0.6 },
   theirs: { backgroundColor: ink.page, borderWidth: 2, borderColor: ink.ink, borderBottomLeftRadius: 6 },
   wizard: { backgroundColor: ink.lavenderMist, borderWidth: 2, borderColor: ink.inkSoft, borderBottomLeftRadius: 6 },
-  wizardAvatar: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: ink.lavenderMist, borderWidth: 2, borderColor: ink.inkSoft, alignItems: 'center', justifyContent: 'center' },
-  wizardEmoji: { fontSize: 17 },
+  sageCol: { width: SAGE_SIZES.sm, marginRight: space.sm, justifyContent: 'flex-start', paddingTop: 14 },
+  credit: { fontFamily: fonts.body, fontSize: 11, color: ink.muted },
   wizardText: { fontFamily: fonts.displayItalic },
   text: { fontFamily: fonts.body, fontSize: type.body, lineHeight: 21, color: ink.ink },
   meta: { fontFamily: fonts.body, fontSize: 11, color: ink.muted, marginTop: 2 },
