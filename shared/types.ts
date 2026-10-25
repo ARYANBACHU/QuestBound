@@ -20,6 +20,8 @@ export type StorylineStatus = 'generating' | 'active' | 'complete';
 export type MessageKind = 'text' | 'proclamation' | 'system' | 'wizard';
 export type MemoryKind = 'photo' | 'illustration' | 'montage_frame';
 export type Budget = 'free' | '$' | '$$' | '$$$';
+/** Round 2: book difficulty. Points multiplier easy 0.75 / normal 1 / hard 1.5 (set server-side). */
+export type Difficulty = 'easy' | 'normal' | 'hard';
 
 // ---------- rows ----------
 export interface Profile {
@@ -32,6 +34,7 @@ export interface Profile {
   availability: string[]; // e.g. ['weekday_evenings','weekends']
   home_area: string | null;
   onboarded: boolean;
+  music_enabled: boolean; // 0003_round2.sql — "Shall the bards play?"
   created_at: ISODate;
 }
 
@@ -77,6 +80,7 @@ export interface Storyline {
   synopsis: string;
   theme_tags: string[];
   status: StorylineStatus;
+  difficulty?: Difficulty; // 0003_round2.sql (db default 'normal'); optional so older rows/mocks still typecheck
   recap: BookRecap | null;
   created_at: ISODate;
 }
@@ -123,6 +127,7 @@ export interface Verdict {
   reason: string; // internal/debug
   flavor_text: string; // shown to user, in Muse's voice
   lens_titles?: string[]; // SerpApi Google Lens visual match titles
+  distance_m?: number; // GPS: meters between the submitter and the mission's place
 }
 
 export interface Completion {
@@ -184,7 +189,9 @@ export interface BookRecap {
 export interface GenerateStorylineRequest {
   fellowship_id: UUID;
   mode: 'first' | 'sequel';
-  demo?: boolean; // instant handcrafted book (no LLM) for the judging table
+  demo?: boolean | 'ut'; // true = instant handcrafted book (no LLM); 'ut' = "The Legend of the Forty Acres" (UT campus)
+  difficulty?: Difficulty; // default 'normal'
+  replace_active?: boolean; // archive the current book (status complete, recap abandoned) and start a new one
   prewarm?: boolean; // only fill the SerpApi cache; writes nothing, returns { prewarmed, places_count, serp }
 }
 export interface SerpStats { live: number; cached: number; stale: number; failed: number }
@@ -201,6 +208,16 @@ export interface SubmitProofRequest {
   proof_url?: string; // public URL in storage bucket 'proofs'
   proof_text?: string; // text / answer / transcript
   confirm_for?: UUID; // gift: the friend confirming
+  lat?: number; // GPS proof for place missions
+  lng?: number;
+  accuracy_m?: number;
+}
+
+/** reroll-mission: POST { mission_id, reason?, difficulty? } -> RerollMissionResponse (matches lib/api.ts). */
+export interface RerollMissionRequest {
+  mission_id: UUID;
+  reason?: string;
+  difficulty?: Difficulty; // easier / similar / harder replacement
 }
 export interface SubmitProofResponse {
   verdict: Verdict;
