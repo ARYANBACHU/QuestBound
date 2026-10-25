@@ -5,8 +5,8 @@ import { circle, cloud, star4, storybookFrame, wave } from './shapes';
 const n = (v: number) => Math.round(v * 10) / 10;
 
 /** Point mapper: local (x, y) → scaled + translated "X Y" string (and .at for a tuple). */
-function xf(ox: number, oy: number, s = 1) {
-  const at = (x: number, y: number): [number, number] => [n(ox + s * x), n(oy + s * y)];
+function xf(ox: number, oy: number, sx = 1, sy = sx) {
+  const at = (x: number, y: number): [number, number] => [n(ox + sx * x), n(oy + sy * y)];
   return Object.assign((x: number, y: number) => at(x, y).join(' '), { at });
 }
 
@@ -37,12 +37,15 @@ const HALL =
   'M260 480 L500 200 L610 328 L610 255 L670 255 L670 398 L740 480 L710 480 L710 930 L290 930 L290 480 Z';
 
 // ── The lollipop grove: three lollipop trees (left, top-left behind the roof, top-right) ──
-const lolly = (cx: number, cy: number, r: number, stickTo: number, w = 24) =>
-  `${circle(cx, cy, r)} M${cx - w / 2} ${cy + r - 4} L${cx + w / 2} ${cy + r - 4} L${cx + w / 2} ${stickTo} L${cx - w / 2} ${stickTo} Z`;
-const L1: [number, number, number] = [170, 380, 92];
-const L2: [number, number, number] = [845, 300, 80];
-const L3: [number, number, number] = [330, 180, 75];
-const LOLLIPOPS = [lolly(...L1, 930), lolly(...L2, 452, 22), lolly(...L3, 398, 22)].join(' ');
+/** candy disc + stick; the stick's foot can slope (left y, right y) to sit flush on a roof */
+const lolly = ([cx, cy, r]: [number, number, number], footL: number, footR = footL, w = 26) =>
+  `${circle(cx, cy, r)} M${cx - w / 2} ${cy + r - 4} L${cx + w / 2} ${cy + r - 4} L${cx + w / 2} ${footR} L${cx - w / 2} ${footL} Z`;
+const L1: [number, number, number] = [172, 382, 97];
+const L2: [number, number, number] = [845, 296, 84];
+const L3: [number, number, number] = [330, 176, 80];
+/** roof's left slope y at x */
+const roofL = (x: number) => n(480 - ((x - 260) * 280) / 240);
+const LOLLIPOPS = [lolly(L1, 930), lolly(L2, 452), lolly(L3, roofL(317), roofL(343))].join(' ');
 
 // ── The candy cane: a chunky lamp-post cane hugging the hall's right wall, hook curling right ──
 const CANE =
@@ -50,16 +53,16 @@ const CANE =
 
 // ── The chocolate river: two pools either side of the wafer bridge ──
 const RIVER =
-  'M68 958 Q160 940 250 955 T448 952 L440 1070 Q340 1088 250 1074 T68 1068 Z ' +
-  'M552 952 Q650 938 750 954 T932 950 L932 1068 Q840 1084 750 1072 T560 1070 Z';
+  'M68 950 Q160 932 250 947 T448 944 L440 1070 Q340 1088 250 1074 T68 1068 Z ' +
+  'M552 944 Q650 930 750 946 T932 942 L932 1068 Q840 1084 750 1072 T560 1070 Z';
 
 // ── The cupcake: swirled frosting, pleated liner, cherry on top ──
-const cp = xf(195, 1236, 0.9);
+const cp = xf(200, 1238, 1.0, 0.9);
 const CUPCAKE =
   `M${cp(-108, 6)} Q${cp(-134, -18)} ${cp(-104, -40)} Q${cp(-98, -68)} ${cp(-64, -68)} Q${cp(-54, -96)} ${cp(-20, -94)} ` +
   `Q${cp(-6, -112)} ${cp(0, -122)} Q${cp(6, -112)} ${cp(20, -94)} Q${cp(54, -96)} ${cp(64, -68)} Q${cp(98, -68)} ${cp(104, -40)} ` +
   `Q${cp(134, -18)} ${cp(108, 6)} L${cp(86, 98)} Q${cp(0, 108)} ${cp(-86, 98)} Z ` +
-  circle(...cp.at(0, -142), 0.9 * 22);
+  circle(...cp.at(0, -142), 21);
 
 // ── The gumdrop: a big sugary dome ──
 const GUMDROP = 'M690 1318 C684 1196 742 1112 805 1112 C868 1112 926 1196 920 1318 Q805 1336 690 1318 Z';
@@ -97,17 +100,17 @@ export const candy_village: PageArt = {
     // hall: gumdrops on the roof, peppermint swirls on the walls, gingerbread icing zigzag
     'M406 352 A14 14 0 0 1 434 352 Z M566 352 A14 14 0 0 1 594 352 Z',
     circle(350, 800, 28), spiral(350, 800, 24, 1.6), circle(650, 800, 28), spiral(650, 800, 24, 1.6),
-    'M300 730 l25 18 l25 -18 l25 18 l25 -18 M600 730 l25 18 l25 -18 l25 18 l25 -18',
+    icing(316, 712, 404, 712, 3, 14), icing(596, 712, 684, 712, 3, 14),
     // lollipops: candy ring on the big one, swirls on the others, little bows
-    circle(L1[0], L1[1], 68), spiral(L2[0], L2[1], L2[2] - 12), spiral(L3[0], L3[1], L3[2] - 12),
-    'M146 520 q-24 -18 -24 6 q0 22 24 4 M194 520 q24 -18 24 6 q0 22 -24 4',
+    circle(L1[0], L1[1], 72), spiral(L2[0], L2[1], L2[2] - 12), spiral(L3[0], L3[1], L3[2] - 12),
+    'M148 526 q-24 -18 -24 6 q0 22 24 4 M196 526 q24 -18 24 6 q0 22 -24 4',
     // candy cane stripes (stick + hook), skipping the label spot
     'M714 640 L798 600 M714 700 L798 660 M714 850 L798 810 M714 910 L798 870',
     'M732 500 L782 540 M820 464 L820 548 M908 500 L858 540',
     'M842 620 L926 600',
     // chocolate river: ripples + a wafer bridge between the pools
     wave(110, 220, 1040, 7, 34), wave(300, 410, 1000, 7, 34), wave(600, 700, 1000, 7, 34), wave(780, 900, 1040, 7, 34),
-    'M448 944 V1078 M552 944 V1078 M448 962 H552 M448 1060 H552 M478 962 V1060 M522 962 V1060',
+    'M448 940 V1078 M552 940 V1078 M448 958 H552 M448 1060 H552 M478 958 V1060 M522 958 V1060',
     // cupcake: frosting edge, liner pleats, cherry stem + shine
     `M${cp(-104, 6)} Q${cp(-78, 22)} ${cp(-52, 6)} Q${cp(-26, 22)} ${cp(0, 6)} Q${cp(26, 22)} ${cp(52, 6)} Q${cp(78, 22)} ${cp(104, 6)}`,
     `M${cp(-60, 20)} L${cp(-52, 98)} M${cp(-30, 20)} L${cp(-26, 100)} M${cp(30, 20)} L${cp(26, 100)} M${cp(60, 20)} L${cp(52, 98)}`,
