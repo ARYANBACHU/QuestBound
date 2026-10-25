@@ -9,7 +9,7 @@ import { haptic } from './haptics';
 import GameButton from './GameButton';
 import { Sage } from './sage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
+import { fonts, ink, panel, radius, space, type } from '@/shared/theme';
 
 export interface QrScannerProps {
   onCode: (code: string) => void;
@@ -122,14 +122,14 @@ const styles = StyleSheet.create({
   body: { fontFamily: fonts.body, fontSize: type.body, color: ink.inkSoft, textAlign: 'center', marginTop: space.sm, marginBottom: space.lg },
   small: { fontFamily: fonts.body, fontSize: type.small, color: ink.muted, textAlign: 'center', marginBottom: space.md },
   btn: { borderRadius: radius.pill, borderWidth: 3, borderColor: ink.ink, paddingVertical: space.md, paddingHorizontal: space.xl, alignItems: 'center', marginTop: space.sm, alignSelf: 'stretch' },
-  btnGhost: { backgroundColor: ink.page },
+  btnGhost: { backgroundColor: panel.parchment },
   btnGhostText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.ink },
   pressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },
   link: { marginTop: space.md, padding: space.sm },
   linkText: { fontFamily: fonts.bodyBold, color: ink.inkSoft, fontSize: type.body },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', paddingHorizontal: space.xl },
   topRow: { flexDirection: 'row', justifyContent: 'flex-end', minHeight: 40 },
-  close: { width: 40, height: 40, borderRadius: 20, backgroundColor: ink.page, borderWidth: 3, borderColor: ink.ink, alignItems: 'center', justifyContent: 'center' },
+  close: { width: 40, height: 40, borderRadius: 20, backgroundColor: panel.parchment, borderWidth: 3, borderColor: ink.ink, alignItems: 'center', justifyContent: 'center' },
   closeText: { fontFamily: fonts.bodyBold, fontSize: 18, color: ink.ink },
   overlayTitle: { fontFamily: fonts.display, fontSize: type.heading, color: ink.page, marginBottom: space.lg, textAlign: 'center' },
   frame: { width: 250, height: 250, borderRadius: radius.lg, borderWidth: 5, borderColor: ink.gold },

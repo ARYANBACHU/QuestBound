@@ -1,5 +1,30 @@
 # MP status (Fellowship & Friends · feat/friends)
 
+## Round 3 — done (all MP items: B4, U8, U2)
+- **B4 keyboard** (`components/friends/KeyboardSafe.tsx`, default export `{ children, style?, extra?, onKeyboardChange? }` +
+  `useKeyboardVisible()`): Reanimated `useAnimatedKeyboard` (UI thread, frame-synced, iOS interactive dismiss) pads the
+  view by exactly the part the keyboard covers: `max(0, viewBottom − (screenBottom − kbHeight))`. Tab bar / home
+  indicator below the view → smaller lift; tab bar hiding → onLayout re-measures; Android resizing anyway → 0 (no
+  double lift). Used by the chat (`ChatView`) and the join-code error screen. Tap the list or the header/Up next area to
+  dismiss; ⌄ button while typing. Old `useKeyboardLift.ts` deleted.
+  - **Swap when AB's lands on main:** AB's `components/shell/KeyboardSafe.tsx` is on feat/shell (named export
+    `KeyboardSafe`, props `offset`, `dismissOnTap`, `enabled`; plus `useKeyboardVisible`). To swap: in ChatView use
+    `<KeyboardSafe dismissOnTap={false}>` (the list already dismisses on tap) and replace `onKeyboardChange` with AB's
+    `useKeyboardVisible()`; in `app/join/[code].tsx` use `<KeyboardSafe>` (drop my Pressable). Then delete mine.
+- **U8 backgrounds**: no plain white in MP UI. Bubbles, day pills, composer input, reactions, toast, crest discs →
+  `panel.parchment`; composer bar = chapter mood tint (`ChatView` new optional prop `surface`) over the mood
+  gradient. The invite QR stays white (scan contrast).
+- **U2 art**: 8 pages in `assets/pages/set-mp/` — troll_bridge, cloud_kingdom, crystal_cave, owl_library, rose_garden,
+  lantern_festival, swamp_hollow, unicorn_meadow — AD's PageArt format, region ids exactly `shared/templates.ts`.
+  Barrel `set-mp/index.ts` exports `SET_MP`. **AD wires it** (REQUESTS.md): `import { SET_MP } from './set-mp'` and
+  spread into DRAWN in `assets/pages/index.ts` (verified: typechecks, validatePageArt passes). Checked: all 48 ids
+  match, every labelAt is inside its region (browser isPointInFill), no NaN paths. Contact sheet rendered offline.
+
+## Known bugs / notes (round 3)
+- Keyboard fix can't be device-tested from the cloud sandbox; logic mirrors AB's approach (both measure the covered
+  part). If Android shows a gap, check `useSafeAreaFrame()` vs `measureInWindow` origin on that device.
+- Pages haven't been seen inside AD's ColoringPage yet (not wired on this branch); format is identical to AD's pages.
+
 ## Round 2 — done (all MP items + NAMING, SIMPLIFY, MAPS LINKS)
 - **NAMING**: every "Muse" in MP copy → "Sage"; Sage messages show "Sage  ✦ powered by Muse" (chat + toast).
   Sheets/modals: outer radius `ui.cardRadius` + `overflow:'hidden'`. `textOn()` uses theme `ON_CRAYON` (AA).

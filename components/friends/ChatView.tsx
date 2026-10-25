@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { haptic } from './haptics';
-import { SAGE_CREDIT, SAGE_SIZES, fonts, ink, radius, realm, sageColors, shadow, space, type, ui } from '@/shared/theme';
+import { SAGE_CREDIT, SAGE_SIZES, fonts, ink, panel, radius, realm, sageColors, shadow, space, type, ui } from '@/shared/theme';
 import type { FellowshipMember, Mission } from '@/shared/types';
 import type { ChatMessage, ChatState } from '@/lib/chat';
 import { heroName, profileOf } from '@/lib/fellowship';
@@ -20,7 +20,7 @@ import Crest from './Crest';
 import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
 import { ReactionChips, ReactionPicker } from './Reactions';
-import { useKeyboardLift, type ViewRef } from './useKeyboardLift';
+import KeyboardSafe from './KeyboardSafe';
 import { Sage, playSfx } from './sage';
 import SageTalk from './SageTalk';
 import GameButton from './GameButton';
@@ -80,18 +80,19 @@ export interface ChatViewProps {
   onOpenMember?: (userId: string) => void;
   /** Missions of the current book by id — proclamations show the mission's place (Open in Maps). */
   missionsById?: Record<string, Mission>;
+  /** Composer bar color — pass the chapter mood tint so it sits calmly on the screen gradient. */
+  surface?: string;
 }
 
-export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember, missionsById }: ChatViewProps) {
+export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember, missionsById, surface }: ChatViewProps) {
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
-  const rootRef = useRef<ViewRef>(null);
   const listRef = useRef<FlatList<Row>>(null);
-  const keyboard = useKeyboardLift(rootRef);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const scrollToNewest = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
   // Keyboard opens → jump to the newest message so you see what you're replying to.
   useEffect(() => {
-    if (keyboard.visible) scrollToNewest();
-  }, [keyboard.visible]);
+    if (keyboardOpen) scrollToNewest();
+  }, [keyboardOpen]);
   // My own message lands → follow it down.
   const newest = chat.messages[chat.messages.length - 1];
   useEffect(() => {
@@ -195,7 +196,7 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
   const typing = chat.typingUserIds.map((id) => profileOf(members, id)).filter(Boolean);
 
   return (
-    <View ref={rootRef} onLayout={keyboard.remeasure} style={[styles.flex, { paddingBottom: keyboard.lift }]}>
+    <KeyboardSafe onKeyboardChange={setKeyboardOpen}>
       <Pressable style={styles.flex} onPress={Keyboard.dismiss} accessible={false}>
         {chat.loading && chat.messages.length === 0 ? (
           <View style={styles.center}>
@@ -229,12 +230,12 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
           {typing.length === 1 ? `${heroName(typing[0])} is writing…` : `${typing.length} heroes are writing…`}
         </Text>
       ) : null}
-      <Composer chat={chat} keyboardOpen={keyboard.visible} onSent={scrollToNewest} />
-    </View>
+      <Composer chat={chat} keyboardOpen={keyboardOpen} onSent={scrollToNewest} surface={surface} />
+    </KeyboardSafe>
   );
 }
 
-function Composer({ chat, keyboardOpen, onSent }: { chat: ChatState; keyboardOpen: boolean; onSent: () => void }) {
+function Composer({ chat, keyboardOpen, onSent, surface }: { chat: ChatState; keyboardOpen: boolean; onSent: () => void; surface?: string }) {
   const [text, setText] = useState('');
   const canSend = text.trim().length > 0;
   const submit = () => {
@@ -246,7 +247,7 @@ function Composer({ chat, keyboardOpen, onSent }: { chat: ChatState; keyboardOpe
     haptic.tap();
   };
   return (
-    <View style={styles.composer}>
+    <View style={[styles.composer, surface ? { backgroundColor: surface } : null]}>
       {keyboardOpen ? (
         <Pressable onPress={Keyboard.dismiss} hitSlop={8} style={({ pressed }) => [styles.hideKb, pressed && styles.pressed]} accessibilityLabel="Hide keyboard">
           <Text style={styles.hideKbText}>⌄</Text>
@@ -402,7 +403,7 @@ const styles = StyleSheet.create({
     color: ink.inkSoft,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    backgroundColor: ink.page,
+    backgroundColor: panel.parchment,
     borderRadius: radius.pill,
     overflow: 'hidden',
     paddingHorizontal: space.md,
@@ -418,7 +419,7 @@ const styles = StyleSheet.create({
   bubble: { maxWidth: '82%', paddingHorizontal: space.md, paddingVertical: 9, borderRadius: radius.lg },
   mine: { borderBottomRightRadius: 6, borderWidth: ui.borderWidth, borderColor: ink.ink },
   sending: { opacity: 0.6 },
-  theirs: { backgroundColor: ink.page, borderWidth: ui.borderWidth, borderColor: ink.ink, borderBottomLeftRadius: 6 },
+  theirs: { backgroundColor: panel.parchment, borderWidth: ui.borderWidth, borderColor: ink.ink, borderBottomLeftRadius: 6 },
   wizard: { backgroundColor: realm.royalMist, borderWidth: ui.borderWidth, borderColor: sageColors.robe, borderBottomLeftRadius: 6 },
   sageCol: { width: SAGE_SIZES.sm, marginRight: space.sm, justifyContent: 'flex-start', paddingTop: 14 },
   credit: { fontFamily: fonts.body, fontSize: 11, color: ink.muted },
@@ -451,7 +452,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: type.body,
     color: ink.ink,
-    backgroundColor: ink.page,
+    backgroundColor: panel.parchment,
   },
   hideKb: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
   hideKbText: { fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 30, color: ink.inkSoft, marginTop: -8 },

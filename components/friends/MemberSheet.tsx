@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CRESTS, INTERESTS, accent, chips, fonts, ink, radius, scrim, space, type, ui, type CrestId } from '@/shared/theme';
+import { CRESTS, INTERESTS, accent, chips, fonts, ink, panel, radius, scrim, space, type, ui, type CrestId } from '@/shared/theme';
 import { regionDef } from '@/shared/templates';
 import type { FellowshipMember, Mission, Page, Profile } from '@/shared/types';
 import type { ChatState } from '@/lib/chat';
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   name: { fontFamily: fonts.display, fontSize: type.hero, color: ink.ink, marginTop: space.md },
   title: { fontFamily: fonts.displayItalic, fontSize: type.heading, color: ink.inkSoft },
   badges: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.sm, marginTop: space.md },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 2, borderColor: ink.ink, borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 3, backgroundColor: ink.page },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 2, borderColor: ink.ink, borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 3, backgroundColor: panel.parchment },
   badgeText: { fontFamily: fonts.bodyBold, fontSize: type.small, color: ink.ink },
   swatch: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: ink.ink },
   chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: space.md },

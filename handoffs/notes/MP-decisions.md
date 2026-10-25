@@ -32,3 +32,16 @@
 - **Leaderboard ties share a rank and the crown.**
 - **No overflow:hidden on cards with shadows** (it clips iOS shadows); only sheets/modals and clipped children use it.
 - **Proclamation place** comes from the current book's missions (`missionsById`); older books' cards just don't show it.
+
+## Round 3
+- **Own KeyboardSafe until AB's is on main.** Same principle as AB's (pad by the covered part, never guess offsets),
+  but Reanimated-driven so the composer rides the keyboard frame by frame. Screen bottom = max window frame seen
+  (from `useSafeAreaFrame`), so an Android window that resizes for the keyboard can't cause a double lift.
+- **Composer bar takes the mood tint**, not parchment: it sits on the mood gradient and should read as part of the
+  page, not a white band.
+- **QR code stays white.** Scanners need contrast; it's a small framed square, not a background.
+- **Page art: regions are single closed outlines where it matters** (castle + its cloud underside, bridge with its
+  arch, unicorn with legs) so the fill animation sweeps one shape; small regions may overlap a big one (they draw on
+  top) instead of cutting holes, except where a hole reads better.
+- **Charm lives in the ink layer** (faces, sparkles, ripples, books, roses) so the crayon fill stays the only color.
+- **`SET_MP` barrel** so AD wires 8 pages with one import and no knowledge of file names.

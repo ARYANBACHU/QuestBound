@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SAGE_CREDIT, fonts, ink, radius, shadow, space, type } from '@/shared/theme';
+import { SAGE_CREDIT, fonts, ink, panel, radius, shadow, space, type } from '@/shared/theme';
 import type { Message } from '@/shared/types';
 import { useChat } from '@/lib/chat';
 import { heroName, profileOf, useFellowship } from '@/lib/fellowship';
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
-    backgroundColor: ink.page,
+    backgroundColor: panel.parchment,
     borderWidth: 3,
     borderColor: ink.ink,
     borderRadius: radius.md,
