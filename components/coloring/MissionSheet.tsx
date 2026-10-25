@@ -3,7 +3,8 @@ import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { regionDef } from '@/shared/templates';
-import { ink, moodFor, radius, scrim, space, ui } from '@/shared/theme';
+import { accent, ink, moodFor, radius, scrim, space, ui } from '@/shared/theme';
+import { openInMaps } from '@/lib/maps';
 import type { FellowshipMember, Mission, Page } from '@/shared/types';
 import { MISSION_TYPE_LABEL, MissionTypeIcon } from './MissionTypeIcon';
 import { CrestRow } from './Crests';
@@ -77,20 +78,29 @@ export function MissionSheet({ mission, page, members, onClose }: { mission: Mis
 
 function PlaceRow({ mission }: { mission: Mission }) {
   const place = mission.place!;
-  const openMaps = () => {
-    const q = encodeURIComponent([place.title, place.address].filter(Boolean).join(' '));
-    Linking.openURL(`https://maps.google.com/?q=${q}`).catch(() => {});
-  };
+  const site = place.website?.trim();
   return (
-    <Pressable onPress={openMaps} style={styles.place} accessibilityRole="link" accessibilityLabel={`Open ${place.title} in maps`}>
-      <Txt v="body">📍</Txt>
-      <View style={{ flex: 1 }}>
-        <Txt v="bodyBold" numberOfLines={1}>{place.title}</Txt>
-        {place.address ? <Txt v="small" numberOfLines={1}>{place.address}</Txt> : null}
-        {place.when ? <Txt v="small">{place.when}</Txt> : null}
-      </View>
-      <Txt v="smallBold">Map ›</Txt>
-    </Pressable>
+    <View style={styles.place}>
+      <Pressable
+        onPress={() => { openInMaps(place).catch(() => {}); }}
+        style={styles.placeMain}
+        accessibilityRole="link"
+        accessibilityLabel={`Open ${place.title} in Maps`}
+      >
+        <Txt v="body">📍</Txt>
+        <View style={{ flex: 1 }}>
+          <Txt v="bodyBold" numberOfLines={1}>{place.title}</Txt>
+          {place.address ? <Txt v="small" numberOfLines={1}>{place.address}</Txt> : null}
+          {place.when ? <Txt v="small">{place.when}</Txt> : null}
+        </View>
+        <Txt v="smallBold" color={accent.secondary}>Open in Maps ›</Txt>
+      </Pressable>
+      {site ? (
+        <Pressable onPress={() => Linking.openURL(site).catch(() => {})} hitSlop={8} accessibilityRole="link" accessibilityLabel={`${place.title} website`} style={styles.website}>
+          <Txt v="small" color={accent.primary} style={{ textDecorationLine: 'underline' }}>Website</Txt>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -105,9 +115,8 @@ const styles = StyleSheet.create({
   body: { gap: space.md, paddingHorizontal: space.xl, paddingTop: space.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  place: {
-    flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.md, overflow: 'hidden',
-    backgroundColor: ink.lavenderMist, borderWidth: 1.5, borderColor: ink.ink,
-  },
+  place: { borderRadius: radius.md, overflow: 'hidden', backgroundColor: ink.lavenderMist, borderWidth: 1.5, borderColor: ink.ink },
+  placeMain: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md },
+  website: { alignSelf: 'flex-start', marginLeft: space.xxl + space.sm, marginTop: -space.sm, paddingBottom: space.md },
   done: { gap: space.md, padding: space.md, borderRadius: radius.md, borderWidth: 2.5, borderStyle: 'dashed' },
 });
