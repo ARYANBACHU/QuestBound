@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProclamationToast from '@/components/friends/ProclamationToast';
 import { DemoTools } from '@/components/shell/DemoTools';
+import { NewBookProvider } from '@/components/shell/NewBook';
 import { TAB_BAR_HEIGHT, TabBar } from '@/components/shell/TabBar';
 import { CoachMark } from '@/components/wizard/CoachMark';
 import { screenFromPath } from '@/components/wizard/screens';
@@ -11,6 +12,9 @@ import { FAB_SIZE, WizardFab } from '@/components/wizard/WizardFab';
 import { WizardProvider } from '@/components/wizard/WizardProvider';
 import { WizardSheet } from '@/components/wizard/WizardSheet';
 import { ink, space } from '@/shared/theme';
+
+// A broken screen shows Sage's "Something went awry — tap to recover" instead of crashing (B1).
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/shell/ErrorBoundary';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -22,6 +26,7 @@ export default function TabsLayout() {
   return (
     <WizardProvider>
       <View style={styles.root}>
+        <NewBookProvider>
         <Tabs
           tabBar={(props) => <TabBar {...props} />}
           screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: ink.paper } }}
@@ -38,6 +43,7 @@ export default function TabsLayout() {
         <WizardFab bottom={fabBottom} />
         <WizardSheet />
         <DemoTools />
+        </NewBookProvider>
       </View>
     </WizardProvider>
   );

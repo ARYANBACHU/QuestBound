@@ -4,6 +4,7 @@
 import * as Haptics from 'expo-haptics';
 import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { gameButton, ink, space, ui, type GameButtonTone } from '@/shared/theme';
+import { playSfx, type SfxName } from './sfx';
 import { T } from './T';
 
 export interface ButtonProps {
@@ -18,10 +19,12 @@ export interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   small?: boolean;
   accessibilityHint?: string;
+  /** Sound on press (U7). Default 'tap'; pass the action's own sound ('send', 'open', …) or null for silence. */
+  sfx?: SfxName | null;
 }
 
 export function Button({
-  label, onPress, onLongPress, variant = 'primary', tone, disabled, loading, icon, style, small, accessibilityHint,
+  label, onPress, onLongPress, variant = 'primary', tone, disabled, loading, icon, style, small, accessibilityHint, sfx = 'tap',
 }: ButtonProps) {
   const off = disabled || loading;
   const height = small ? ui.buttonHeightSm : ui.buttonHeight;
@@ -34,7 +37,7 @@ export function Button({
         accessibilityHint={accessibilityHint}
         accessibilityState={{ disabled: !!off }}
         disabled={off}
-        onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress?.(); }}
+        onPress={() => { Haptics.selectionAsync().catch(() => {}); if (sfx) playSfx(sfx); onPress?.(); }}
         onLongPress={onLongPress}
         hitSlop={6}
         style={({ pressed }) => [styles.ghost, { minHeight: height - 8 }, off && styles.disabled, pressed && styles.ghostPressed, style]}
@@ -61,7 +64,7 @@ export function Button({
       accessibilityState={{ disabled: !!off, busy: !!loading }}
       disabled={off}
       onLongPress={onLongPress}
-      onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress?.(); }}
+      onPress={() => { Haptics.selectionAsync().catch(() => {}); if (sfx) playSfx(sfx); onPress?.(); }}
       style={[{ paddingBottom: depth }, off && styles.disabled, style]}
     >
       {({ pressed }) => (

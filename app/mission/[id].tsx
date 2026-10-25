@@ -36,6 +36,9 @@ import {
   SCREEN_GRADIENTS, accent, chips, fonts, ink, moodFor, panel, radius, shadow, space, type, ui, type Mood,
 } from '@/shared/theme';
 
+// A broken screen shows Sage's "Something went awry — tap to recover" instead of crashing (B1).
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/shell/ErrorBoundary';
+
 const TEXT_MAX = 280;
 
 type Phase =

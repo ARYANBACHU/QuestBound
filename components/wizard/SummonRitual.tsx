@@ -1,14 +1,17 @@
 // Owner: AB. Full-screen "Sage writes your book" ritual: an ink quill scribbles across a blank page while
 // Sage (thinking) narrates what's happening (interests → SerpApi maps/events → chapters).
+// No exit animations in here: it is unmounted from inside Modals/overlays, and exiting layout animations on a
+// disappearing host are a known native crash (B1). Optional `onHide` shows "Keep exploring" after a while.
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
-  Easing, FadeIn, FadeOut, cancelAnimation, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
+  Easing, FadeIn, cancelAnimation, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SAGE_CREDIT, SCREEN_GRADIENTS, ink, shadow, space } from '@/shared/theme';
+import { Button } from '@/components/shell/Button';
 import { T } from '@/components/shell/T';
 import { Sage } from './Sage';
 
@@ -32,7 +35,13 @@ function scribble(y: number, seed: number) {
 }
 const PATHS = Array.from({ length: LINES }, (_, i) => scribble(lineY(i), i));
 
-export function SummonRitual({ lines, title = 'Sage is writing…' }: { lines: string[]; title?: string }) {
+export function SummonRitual({ lines, title = 'Sage is writing…', onHide }: { lines: string[]; title?: string; onHide?: () => void }) {
+  const [canHide, setCanHide] = useState(false);
+  useEffect(() => {
+    if (!onHide) return;
+    const id = setTimeout(() => setCanHide(true), 9000);
+    return () => clearTimeout(id);
+  }, [onHide]);
   const progress = useSharedValue(0);
   const [lineIdx, setLineIdx] = useState(0);
   const { width, height } = useWindowDimensions();
@@ -78,9 +87,14 @@ export function SummonRitual({ lines, title = 'Sage is writing…' }: { lines: s
           <T style={styles.quillEmoji}>🪶</T>
         </Animated.View>
       </View>
-      <Animated.View key={lineIdx} entering={FadeIn.duration(350)} exiting={FadeOut.duration(200)} style={styles.lineBox}>
+      <Animated.View key={lineIdx} entering={FadeIn.duration(350)} style={styles.lineBox}>
         <T variant="story" center>{lines[lineIdx]}</T>
       </Animated.View>
+      {onHide ? (
+        <View style={[styles.hide, !canHide && styles.invisible]} pointerEvents={canHide ? 'auto' : 'none'}>
+          <Button label="Keep exploring — I’ll keep writing" variant="ghost" small sfx="close" onPress={onHide} />
+        </View>
+      ) : null}
     </LinearGradient>
   );
 }
@@ -105,5 +119,7 @@ const styles = StyleSheet.create({
   },
   quill: { position: 'absolute', left: 0, top: 0 },
   quillEmoji: { fontSize: 34, lineHeight: 42 },
+  hide: { minHeight: 40 },
+  invisible: { opacity: 0 },
   lineBox: { minHeight: 52, justifyContent: 'center', paddingHorizontal: space.lg },
 });

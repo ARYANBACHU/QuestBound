@@ -17,7 +17,7 @@ import { CrayonPicker, CrayonPreview, crayonName } from '@/components/shell/Cray
 import { CrestPicker } from '@/components/shell/CrestPicker';
 import { INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
 import { useMusicToggle } from '@/components/shell/music';
-import { NewStorylineSheet } from '@/components/shell/NewStorylineSheet';
+import { useNewBook } from '@/components/shell/NewBook';
 import { Sheet } from '@/components/shell/Sheet';
 import { setSoundSetting, useSoundSettings } from '@/components/shell/soundSettings';
 import { T } from '@/components/shell/T';
@@ -44,7 +44,7 @@ export default function SettingsScreen() {
   const { openDemoTools } = useWizard();
   const [editing, setEditing] = useState<Editing>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [newBookOpen, setNewBookOpen] = useState(false);
+  const { openNewBook } = useNewBook();
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [notify, setNotify] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
@@ -125,7 +125,7 @@ export default function SettingsScreen() {
             <Section title="Fellowship">
               <Row label="Invite code" value={fs.fellowship.invite_code} mono onPress={() => setInviteOpen(true)} />
               <Row label="Members" value={`${fs.members.length} hero${fs.members.length === 1 ? '' : 'es'}`} />
-              <Row label="New storyline" value="Pick a difficulty" onPress={() => setNewBookOpen(true)} last />
+              <Row label="New storyline" value="Pick a difficulty" onPress={() => openNewBook()} last />
             </Section>
           ) : null}
 
@@ -169,7 +169,6 @@ export default function SettingsScreen() {
             setLeaveOpen(false);
             router.replace({ pathname: '/onboarding', params: { step: 'fellowship' } });
           }} />
-        <NewStorylineSheet visible={newBookOpen} onClose={() => setNewBookOpen(false)} />
         <InviteSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} fellowship={fs.fellowship} />
       </SafeAreaView>
     </LinearGradient>

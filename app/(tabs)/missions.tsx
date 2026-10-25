@@ -12,7 +12,7 @@ import { MissionCard } from '@/components/shell/MissionCard';
 import {
   GROUP_TITLES, completerColor, missionGroup, orderedPageMissions, pointsByMember, roman, type MissionGroup,
 } from '@/components/shell/missionUtils';
-import { NewStorylineSheet } from '@/components/shell/NewStorylineSheet';
+import { useNewBook } from '@/components/shell/NewBook';
 import { ParchmentLoading } from '@/components/shell/ParchmentLoading';
 import { T } from '@/components/shell/T';
 import { TAB_CONTENT_BOTTOM_PAD } from '@/components/shell/TabBar';
@@ -39,7 +39,7 @@ export default function MissionsScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [chapterId, setChapterId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [newBookOpen, setNewBookOpen] = useState(false);
+  const { openNewBook } = useNewBook();
 
   // Follow the active chapter unless the player picked another one (reset when the active page changes).
   useEffect(() => { setChapterId(null); }, [activePage?.id]);
@@ -63,7 +63,7 @@ export default function MissionsScreen() {
 
   const menu = [
     { label: 'Ask Sage what to do next', icon: '🧙', onPress: () => wizard.open('What should we do next?') },
-    { label: 'New storyline…', icon: '📖', onPress: () => setNewBookOpen(true) },
+    { label: 'New storyline…', icon: '📖', onPress: () => openNewBook() },
   ];
 
   if ((storyLoading || missionsLoading || fs.loading) && !storyline) return <ParchmentLoading line="Unrolling the quest board…" />;
@@ -81,9 +81,8 @@ export default function MissionsScreen() {
               text={writing ? 'Hush — I’m still writing your book. The missions appear the moment the ink dries.'
                 : 'No missions yet. Summon a story and I’ll write you some.'}
             />
-            {!writing ? <Button label="Summon our story" tone="gold" onPress={() => setNewBookOpen(true)} /> : null}
+            {!writing ? <Button label="Summon our story" tone="gold" onPress={() => openNewBook()} /> : null}
           </View>
-          <NewStorylineSheet visible={newBookOpen} onClose={() => setNewBookOpen(false)} />
         </SafeAreaView>
       </LinearGradient>
     );
@@ -199,7 +198,6 @@ export default function MissionsScreen() {
             ) : null)
           )}
         </ScrollView>
-        <NewStorylineSheet visible={newBookOpen} onClose={() => setNewBookOpen(false)} />
       </SafeAreaView>
     </LinearGradient>
   );

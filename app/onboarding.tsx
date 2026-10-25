@@ -34,6 +34,9 @@ import {
   type CrayonColor, type CrestId, type SageExpression,
 } from '@/shared/theme';
 
+// A broken screen shows Sage's "Something went awry — tap to recover" instead of crashing (B1).
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/shell/ErrorBoundary';
+
 const STEPS = ['welcome', 'bards', 'name', 'crayon', 'interests', 'budget', 'fellowship', 'summon'] as const;
 type Step = (typeof STEPS)[number];
 const FIRST_LOCKED = STEPS.indexOf('fellowship'); // no going back past the saved profile
