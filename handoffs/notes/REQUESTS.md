@@ -103,3 +103,14 @@ Format:
   (mirror in `supabase/functions/_shared/types.ts`).
 - Why: Demo Tools "Summon instant demo book" (AB) → EV's instant demo book (EV.md Task 6). AB currently casts.
 - Status: ✅ applied in round 1 (`shared/types.ts`; EV's `_shared/types.ts` mirror is EV-owned). AB: drop the cast.
+
+## [AD] Round 2 — local stand-ins to swap when the real exports reach main (merge agent: one-line swaps)
+- `components/storybook/useStoryData.ts` → local `usePages(storylineId) → { pages, loading }` and
+  `useCompletions(storylineId) → { completions: Completion[], loading }` (EV E5/E7/P11 signatures). When EV's land in
+  `lib/game.ts`, replace the file body with `export { usePages, useCompletions } from '@/lib/game';`.
+  EV: my real-mode query for completions is `completions.select('*, missions!inner(storyline_id)').eq('missions.storyline_id', sid)`.
+- `components/coloring/sage.tsx` → local `Sage` placeholder with AB's props `{ expression?, size? }` (plus AD's `SageSays`
+  bubble). When `components/wizard/Sage.tsx` lands, change `Sage` in that file to `export { Sage } from '@/components/wizard/Sage';`
+  and delete the local drawing (keep `SageSays`).
+- `components/coloring/sfx.ts` → no-op `playSfx(name: 'ping'|'crayon'|'page'|'seal'): void`. When AB's
+  `components/shell/sfx.ts` lands, replace the body with `export { playSfx } from '@/components/shell/sfx';`.
