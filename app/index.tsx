@@ -46,7 +46,8 @@ export default function Index() {
       router.replace({ pathname: '/onboarding', params: { step: 'fellowship' } });
     } else if (story.loading) {
       return;
-    } else if (!story.storyline) {
+    } else if (!story.storyline || story.storyline.status === 'generating') {
+      // No book yet (or still being written): the summon step waits for it over realtime — anyone may summon.
       routed.current = true;
       router.replace({ pathname: '/onboarding', params: { step: 'summon' } });
     } else {
@@ -60,7 +61,7 @@ export default function Index() {
       <View style={{ flex: 1, backgroundColor: ink.paper, justifyContent: 'center', padding: space.xl, gap: space.lg }}>
         <T variant="title" center>The gate is stuck</T>
         <T variant="body" center color={ink.inkSoft}>
-          Muse couldn't reach the kingdom. Check your connection and try again.
+          Sage couldn't reach the kingdom. Check your connection and try again.
         </T>
         <T variant="small" center color={ink.muted}>{error}</T>
         <Button label="Try again" onPress={() => setAttempt((n) => n + 1)} />

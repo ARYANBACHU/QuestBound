@@ -1,7 +1,7 @@
 // Owner: AB. Interest chips grouped by INTERESTS[].group, with min/max. Used by onboarding + settings.
 import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { INTERESTS, ink, radius, space } from '@/shared/theme';
+import { INTERESTS, accent, ink, radius, space } from '@/shared/theme';
 import { T } from './T';
 
 export const INTEREST_MIN = 3;
@@ -45,7 +45,7 @@ export function InterestPicker({ value, onChange, onPick }: {
                   onPress={() => toggle(i.id)}
                   style={[styles.chip, on && styles.on]}
                 >
-                  <T variant={on ? 'smallBold' : 'small'} color={on ? ink.page : ink.ink}>{on ? '✓ ' : ''}{i.label}</T>
+                  <T variant={on ? 'smallBold' : 'small'} color={on ? accent.onPrimary : ink.ink}>{on ? '✓ ' : ''}{i.label}</T>
                 </Pressable>
               );
             })}
@@ -59,5 +59,5 @@ export function InterestPicker({ value, onChange, onPick }: {
 const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   chip: { borderWidth: 2, borderColor: ink.ink, borderRadius: radius.pill, paddingVertical: space.sm, paddingHorizontal: space.md, backgroundColor: ink.page },
-  on: { backgroundColor: ink.ink },
+  on: { backgroundColor: accent.primary, borderColor: ink.ink },
 });

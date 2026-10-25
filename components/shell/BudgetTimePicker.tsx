@@ -2,7 +2,7 @@
 import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, View } from 'react-native';
 import type { Budget } from '@/shared/types';
-import { ink, radius, space } from '@/shared/theme';
+import { accent, ink, radius, space } from '@/shared/theme';
 import { T } from './T';
 
 const BUDGETS: { id: Budget; label: string }[] = [
@@ -27,7 +27,7 @@ export function BudgetPicker({ value, onChange }: { value: Budget; onChange: (b:
             onPress={() => { Haptics.selectionAsync().catch(() => {}); onChange(b.id); }}
             style={[styles.seg, i > 0 && styles.segDivider, on && styles.segOn]}
           >
-            <T variant="bodyBold" color={on ? ink.page : ink.ink}>{b.label}</T>
+            <T variant="bodyBold" color={on ? accent.onPrimary : ink.ink}>{b.label}</T>
           </Pressable>
         );
       })}
@@ -65,13 +65,13 @@ const styles = StyleSheet.create({
   segment: { flexDirection: 'row', borderWidth: 2.5, borderColor: ink.ink, borderRadius: radius.md, overflow: 'hidden', backgroundColor: ink.page },
   seg: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: space.md },
   segDivider: { borderLeftWidth: 2, borderLeftColor: ink.ink },
-  segOn: { backgroundColor: ink.ink },
+  segOn: { backgroundColor: accent.primary },
   toggle: {
     flexDirection: 'row', alignItems: 'center', gap: space.md, borderWidth: 2, borderColor: ink.ink, borderRadius: radius.md,
     paddingVertical: space.md, paddingHorizontal: space.lg, backgroundColor: ink.page,
   },
-  toggleOn: { backgroundColor: ink.lavenderMist },
+  toggleOn: { backgroundColor: accent.primarySoft },
   icon: { fontSize: 20, lineHeight: 26 },
   box: { width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: ink.ink, alignItems: 'center', justifyContent: 'center' },
-  boxOn: { backgroundColor: ink.ink },
+  boxOn: { backgroundColor: accent.primary },
 });
