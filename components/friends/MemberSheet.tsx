@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CRESTS, INTERESTS, chips, fonts, ink, radius, scrim, space, type, ui, type CrestId } from '@/shared/theme';
+import { CRESTS, INTERESTS, accent, chips, fonts, ink, radius, scrim, space, type, ui, type CrestId } from '@/shared/theme';
 import { regionDef } from '@/shared/templates';
 import type { FellowshipMember, Mission, Page, Profile } from '@/shared/types';
 import type { ChatState } from '@/lib/chat';
@@ -11,6 +11,7 @@ import { heroName, profileOf } from '@/lib/fellowship';
 import Crest from './Crest';
 import { crayonHex, withAlpha } from './color';
 import { haptic } from './haptics';
+import { openInMaps } from '@/lib/maps';
 import GameButton from './GameButton';
 import { pointsFor } from './points';
 
@@ -134,6 +135,21 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
                 </Text>
                 <Text style={styles.regionMission}>{m.title}</Text>
                 {m.story_line ? <Text style={styles.storyLine}>{m.story_line}</Text> : null}
+                {m.place ? (
+                  <Pressable
+                    onPress={() => {
+                      haptic.tap();
+                      void openInMaps(m.place);
+                    }}
+                    hitSlop={6}
+                    accessibilityRole="link"
+                    accessibilityLabel={`Open ${m.place.title} in Maps`}
+                  >
+                    <Text style={styles.place} numberOfLines={1}>
+                      📍 {m.place.title} · <Text style={styles.maps}>Open in Maps</Text>
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             ))
           ) : (
@@ -201,6 +217,8 @@ const styles = StyleSheet.create({
   regionTitle: { fontFamily: fonts.display, fontSize: type.body, color: ink.ink },
   regionChapter: { fontFamily: fonts.body, fontSize: type.small, color: ink.inkSoft },
   regionMission: { fontFamily: fonts.body, fontSize: type.small, color: ink.inkSoft, marginTop: 2 },
+  place: { fontFamily: fonts.bodyBold, fontSize: 12, color: ink.inkSoft, marginTop: space.xs },
+  maps: { color: accent.secondary },
   storyLine: { fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.ink, marginTop: space.xs },
   empty: { alignSelf: 'stretch', fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.inkSoft },
   nudgeBox: { alignSelf: 'stretch', marginTop: space.xl, alignItems: 'center' },
