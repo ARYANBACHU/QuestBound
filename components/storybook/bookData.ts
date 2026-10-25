@@ -77,7 +77,11 @@ export function montageSlides(book: Storyline, pages: Page[], missions: Mission[
     for (const a of art) if (a.image_url !== p.illustration_url) slides.push({ kind: 'photo', key: a.id, uri: a.image_url, caption: a.caption });
     for (const e of entries) slides.push({ kind: 'photo', key: e.photo!.id, uri: e.photo!.image_url, caption: e.mission.story_line ?? e.photo!.caption });
   }
-  slides.push({ kind: 'title', key: 'end', eyebrow: 'The End… for now', title: book.title, line: recap?.next_book_hint ?? recap?.summary });
+  const setAside = bookProgress(book, pages, missions).kind === 'setAside';
+  slides.push({
+    kind: 'title', key: 'end', eyebrow: setAside ? 'A bookmark, for now' : 'The End… for now', title: book.title,
+    line: setAside ? recap?.summary : recap?.next_book_hint ?? recap?.summary,
+  });
   return slides;
 }
 
