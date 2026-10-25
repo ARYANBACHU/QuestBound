@@ -111,7 +111,7 @@ Format:
   marked `abandoned: true` ("…was set aside with 3 of 24 regions colored"). AD's Storybook can show it as "set aside"
   instead of "complete". Until it lands, read it as `(recap as BookRecap & { abandoned?: boolean }).abandoned`.
 - Optional secret: `GEO_RADIUS_M` (default 400) tunes the GPS gate in submit-proof. Not set on the project = 400 m.
-- Status: ✅ applied in round 2 (`shared/types.ts` BookRecap.abandoned; Deno mirror already on feat/engine). GEO_RADIUS_M confirmed = 400 on the project.
+- Status: ✅ applied in round 2 (`shared/types.ts` BookRecap.abandoned; Deno mirror already on feat/engine). GEO_RADIUS_M: unset on the project = 400 m default (per EV); not re-verified in round 2 — merge session had no Supabase access.
 
 ## [MP] → EV: `pointsFor` / `leaderboard` in lib/game.ts (Round 2 · E4)
 - What: MP codes against `pointsFor(userId: string, missions: Mission[]): number` and
