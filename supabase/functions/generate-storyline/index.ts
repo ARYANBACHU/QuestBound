@@ -80,9 +80,20 @@ Deno.serve(async (req) => {
   const generating = (books ?? []).find((b) => b.status === 'generating' && Date.now() - new Date(b.created_at).getTime() < 90_000);
   if (generating) return json({ storyline_id: generating.id, reused: true });
   const active = (books ?? []).find((b) => b.status === 'active');
-  if (mode === 'first' && !demo && !replaceActive && active) return json({ storyline_id: active.id, reused: true });
+  // B2: only an explicit replace (or a demo book) may shelve an unfinished book. A sequel is for AFTER a finished
+  // book, so a sequel request while a book is still active just returns that book (a stale "Write the sequel"
+  // button used to shelve a brand-new, unplayed book).
+  if (!demo && !replaceActive && active) return json({ storyline_id: active.id, reused: true });
   // Sequels keep the last book's difficulty unless the fellowship picks a new one.
   const difficulty: PointsDifficulty = asDifficulty(body.difficulty, mode === 'sequel' ? asDifficulty(books?.[0]?.difficulty) : 'normal');
+  // B2: a double-fired "New storyline" (double tap, or the app restarted mid-ritual and the user tapped again) must
+  // not shelve the book it just wrote. Same difficulty + written in the last 2 minutes + nothing colored = reuse it.
+  if (replaceActive && !demo && active && active.difficulty === difficulty &&
+    Date.now() - new Date(active.created_at).getTime() < 120_000) {
+    const { count } = await admin.from('missions').select('id', { count: 'exact', head: true })
+      .eq('storyline_id', active.id).eq('status', 'complete');
+    if ((count ?? 0) === 0) return json({ storyline_id: active.id, reused: true });
+  }
 
   const lat = fellowship.lat ?? DEFAULT_LOCATION.lat;
   const lng = fellowship.lng ?? DEFAULT_LOCATION.lng;

@@ -59,6 +59,16 @@ export async function generateStoryline(req: GenerateStorylineRequest): Promise<
     if (req.demo === 'ut') return { storyline_id: mockUTBook(asDifficulty(req.difficulty)) };
     if (!mock.storyline) return { storyline_id: mockFirstBook() }; // join race: nobody had summoned yet
     const difficulty = asDifficulty(req.difficulty, req.mode === 'sequel' ? asDifficulty(mock.storyline.difficulty) : 'normal');
+    const cur = mock.storyline;
+    const unfinished = cur.status !== 'complete';
+    // B2 (same rules as the server): only replace_active or a demo shelves an unfinished book; a sequel request
+    // while a book is still being read returns that book. A double-fired replace reuses the book it just wrote.
+    if (unfinished && !req.replace_active && !req.demo) return { storyline_id: cur.id, reused: true };
+    if (unfinished && req.replace_active && !req.demo && asDifficulty(cur.difficulty) === difficulty &&
+      Date.now() - new Date(cur.created_at).getTime() < 120_000 &&
+      !mock.missions.some((m) => m.storyline_id === cur.id && m.status === 'complete')) {
+      return { storyline_id: cur.id, reused: true };
+    }
     if (req.mode === 'sequel' || req.replace_active || req.demo) {
       return { storyline_id: mockSequel(difficulty, mock.storyline.status !== 'complete'), difficulty } as GenerateStorylineResponse;
     }

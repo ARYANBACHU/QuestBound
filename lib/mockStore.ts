@@ -120,6 +120,8 @@ export function advanceIfPageDone(pageId: string): { pageCompleted: boolean; boo
       payload: { event: 'page_complete', page_id: page.id, storyline_id: page.storyline_id } });
     return { pageCompleted: true, bookCompleted: false };
   }
+  // B2: the book closes only when EVERY page is colored (never because a next page is missing from the store).
+  if (mock.pages.some((p) => p.storyline_id === page.storyline_id && p.status !== 'complete')) return { pageCompleted: true, bookCompleted: false };
   const book = patchStoryline(page.storyline_id, { status: 'complete', recap: MOCK_RECAP });
   addMessage({ fellowship_id: mock.fellowship.id, user_id: null, kind: 'proclamation',
     body: `Hear ye! "${book?.title ?? 'The book'}" is complete! ${MOCK_RECAP.summary}`,
