@@ -8,7 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { useFellowship } from '@/lib/fellowship';
 import { useBooks, useMemories, useMissions, useStoryline } from '@/lib/game';
 import { generateStoryline } from '@/lib/api';
-import { ink, radius, space } from '@/shared/theme';
+import { ink, moodFor, radius, space } from '@/shared/theme';
 import type { FellowshipMember, Mission, Page, Storyline } from '@/shared/types';
 import { ColoringPage } from '@/components/coloring/ColoringPage';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
@@ -114,7 +114,7 @@ function BookCard({ book, pages, missions, members, done, onPress }: {
   const chaptersDone = pages.filter((p) => p.status === 'complete').length;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: 0.98 }] }]} accessibilityRole="button" accessibilityLabel={`Open ${book.title}`}>
-      <View style={styles.spine} />
+      <View style={[styles.spine, { backgroundColor: moodFor(first?.template_id).deep }]} />
       <View style={styles.cover}>
         {first ? (
           <ColoringPage templateId={first.template_id} missions={pageMissions(missions, first)} members={members} interactive={false} animate={false} width={coverW} />
@@ -123,7 +123,7 @@ function BookCard({ book, pages, missions, members, done, onPress }: {
         )}
       </View>
       <View style={styles.cardText}>
-        <Txt v="smallBold" color={ink.gold}>BOOK {roman(book.book_number)}</Txt>
+        <Txt v="smallBold" color={moodFor(first?.template_id).deep}>BOOK {roman(book.book_number)}</Txt>
         <Txt v="heading" numberOfLines={3}>{book.title}</Txt>
         <Txt v="small" numberOfLines={3}>{book.synopsis}</Txt>
         <View style={[styles.badge, done && styles.badgeDone]}>

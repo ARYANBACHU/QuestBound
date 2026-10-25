@@ -4,17 +4,18 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { TEMPLATES } from '@/shared/templates';
-import { ink, space } from '@/shared/theme';
+import { ink, moodFor, space } from '@/shared/theme';
 import type { FellowshipMember, Mission, Page } from '@/shared/types';
 import { crayonHex, missionColors, roman } from './pageUtils';
 import { Txt } from './ui';
 
 export function ChapterHeader({ bookTitle, page, missions, members }: { bookTitle?: string; page: Page; missions: Mission[]; members: FellowshipMember[] }) {
   const [open, setOpen] = useState(false);
+  const mood = moodFor(page.template_id);
   return (
     <View style={styles.wrap}>
       {bookTitle ? <Txt v="smallBold" color={ink.muted} numberOfLines={1}>{bookTitle.toUpperCase()}</Txt> : null}
-      <Txt v="small" color={ink.muted}>Chapter {roman(page.chapter_number)}</Txt>
+      <Txt v="smallBold" color={mood.deep}>Chapter {roman(page.chapter_number)}</Txt>
       <Txt v="title" style={styles.title}>{page.title}</Txt>
       <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityHint="Tap to read the whole passage">
         <Txt v="story" numberOfLines={open ? undefined : 3}>{page.narrative}</Txt>

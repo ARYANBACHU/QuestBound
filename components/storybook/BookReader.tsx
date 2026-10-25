@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
-import { ink, radius, space } from '@/shared/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SCREEN_GRADIENTS, ink, moodFor, radius, shadow, space } from '@/shared/theme';
 import type { BookRecap, FellowshipMember, Memory, Mission, Page, Storyline } from '@/shared/types';
 import { ColoringPage } from '@/components/coloring/ColoringPage';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
@@ -43,8 +44,11 @@ export function BookReader({ book, pages, missions, memories, members, recap, on
     setIndex(i);
   };
 
+  const cur = items[index];
+  const mood = moodFor(cur?.kind === 'page' ? cur.page.template_id : 'royal_feast');
   return (
     <View style={styles.wrap}>
+      <LinearGradient colors={SCREEN_GRADIENTS[mood.id]} style={StyleSheet.absoluteFill} />
       <View style={styles.top}>
         <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back to the shelf">
           <Txt v="bodyBold">‹ Shelf</Txt>
@@ -153,10 +157,7 @@ const styles = StyleSheet.create({
   toggle: { flexDirection: 'row', alignSelf: 'flex-start', borderWidth: 2, borderColor: ink.ink, borderRadius: radius.pill, overflow: 'hidden' },
   toggleBtn: { paddingHorizontal: space.lg, paddingVertical: space.xs },
   toggleOn: { backgroundColor: ink.ink },
-  pageCard: {
-    alignSelf: 'center', backgroundColor: ink.page, borderRadius: radius.sm,
-    shadowColor: ink.ink, shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
-  },
+  pageCard: { alignSelf: 'center', backgroundColor: ink.page, borderRadius: radius.sm, ...shadow.md },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.xl, paddingVertical: space.sm },
   dots: { flexDirection: 'row', gap: space.sm },
   dot: { width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: ink.ink },

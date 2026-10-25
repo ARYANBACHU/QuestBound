@@ -3,12 +3,13 @@
 // <ColoringPage templateId missions members onRegionPress highlightRegionId? interactive? locked? width? />
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, G, Line, Path, Pattern, Rect } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, Line, LinearGradient, Path, Pattern, Rect, Stop } from 'react-native-svg';
 import Animated, { Easing, useAnimatedProps, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { PAGE_ART, VIEW_H, VIEW_W } from '@/assets/pages';
+import { frameBand } from '@/assets/pages/shapes';
 import { TEMPLATES, type TemplateId } from '@/shared/templates';
-import { INK_STROKE, ink, space, type CrayonColor } from '@/shared/theme';
+import { INK_STROKE, ink, moodFor, space, type CrayonColor } from '@/shared/theme';
 import type { FellowshipMember, Mission } from '@/shared/types';
 import { HourglassGlyph, MissionTypeGlyph } from './MissionTypeIcon';
 import { STATUS_LABEL, crayonHex, missionColors, pathBounds, shade } from './pageUtils';
@@ -20,7 +21,8 @@ export const FILL_MS = 900;
 const SPARKLE_MS = 500;
 const STRIPE = 12; // teammate stripe width in viewBox units (~4 px on a phone)
 const GLYPH = 60;
-const NATIVE = Platform.OS !== 'web'; // type glyph size in viewBox units
+const NATIVE = Platform.OS !== 'web';
+const FRAME_BAND = frameBand();
 
 export interface ColoringPageProps {
   templateId: TemplateId;
@@ -38,6 +40,7 @@ function ColoringPageImpl({
   templateId, missions, members, onRegionPress, highlightRegionId, interactive = true, locked = false, width, animate = true,
 }: ColoringPageProps) {
   const art = PAGE_ART[templateId];
+  const mood = moodFor(templateId);
   const template = TEMPLATES[templateId];
   const { width: screenW } = useWindowDimensions();
   const w = width ?? Math.min(screenW - 2 * space.lg, 560);
@@ -88,6 +91,10 @@ function ColoringPageImpl({
   return (
     <Svg width={w} height={h} viewBox={art.viewBox}>
       <Defs>
+        <LinearGradient id={id('frame')} x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor={mood.gradient[0]} />
+          <Stop offset="1" stopColor={mood.gradient[1]} />
+        </LinearGradient>
         {colorsUsed.map((c) => {
           const dark = shade(crayonHex(c), -0.35);
           return (
@@ -107,6 +114,7 @@ function ColoringPageImpl({
       </Defs>
 
       <Rect x={0} y={0} width={VIEW_W} height={VIEW_H} fill={ink.page} />
+      <Path d={FRAME_BAND} fill={`url(#${id('frame')})`} opacity={locked ? 0.45 : 1} />
       {art.background?.map((d, i) => (
         <Path key={`bg${i}`} d={d} fill="none" stroke={ink.muted} strokeOpacity={0.45} strokeWidth={5} strokeLinecap="round" />
       ))}

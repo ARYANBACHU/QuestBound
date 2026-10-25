@@ -5,11 +5,12 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensio
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFellowship } from '@/lib/fellowship';
 import { useMissions, useStoryline } from '@/lib/game';
 import { generateStoryline, submitProof } from '@/lib/api';
 import { USE_MOCKS } from '@/lib/env';
-import { ink, radius, space } from '@/shared/theme';
+import { SCREEN_GRADIENTS, ink, moodFor, radius, shadow, space } from '@/shared/theme';
 import type { Mission, Page } from '@/shared/types';
 import { ColoringPage, FILL_MS } from '@/components/coloring/ColoringPage';
 import { ChapterHeader } from '@/components/coloring/ChapterHeader';
@@ -171,8 +172,10 @@ export default function ColoringScreen() {
     );
   }
 
+  const mood = moodFor(shown?.template_id);
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <LinearGradient colors={SCREEN_GRADIENTS[mood.id]} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={{ paddingBottom: space.xxl * 2, flexGrow: 1 }}>{body}</ScrollView>
       <MissionSheet mission={sheetMission} page={pages.find((p) => p.id === sheetMission?.page_id) ?? null} members={members} onClose={() => setSheetId(null)} />
     </View>
@@ -220,10 +223,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: ink.paper },
   fill: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.xxl, minHeight: 400 },
   pageWrap: { alignItems: 'center' },
-  paperShadow: {
-    borderRadius: radius.sm, overflow: 'visible', backgroundColor: ink.page,
-    shadowColor: ink.ink, shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
-  },
+  paperShadow: { borderRadius: radius.sm, overflow: 'visible', backgroundColor: ink.page, ...shadow.md },
   lockedNote: { alignItems: 'center', justifyContent: 'center', padding: space.xl },
   lockedPill: { backgroundColor: ink.page, borderWidth: 2.5, borderColor: ink.ink, borderRadius: radius.md, padding: space.md },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, marginTop: space.lg },

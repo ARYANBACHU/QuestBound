@@ -77,6 +77,12 @@ export function wave(x1: number, x2: number, y: number, amp = 10, len = 60): str
   return out;
 }
 
+/** The band between the frame's outer and inner borders (filled with the chapter mood gradient). */
+export function frameBand(): string {
+  const W = 1000, H = 1400, o = 24, i = 50;
+  return `${rr(o, o, W - 2 * o, H - 2 * o, 34)} ${rr(i, i, W - 2 * i, H - 2 * i, 16, true)}`;
+}
+
 /** The storybook frame every page shares: double rounded border + corner flourishes. */
 export function storybookFrame(): string[] {
   const W = 1000, H = 1400, o = 24, i = 50;

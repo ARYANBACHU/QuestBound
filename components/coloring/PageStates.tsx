@@ -1,12 +1,12 @@
 // Owner: AD. Page-turn overlay, chapter ribbon, blank book, "Sage is writing", and "The End" banner.
 import { useEffect, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { G, Path, Rect } from 'react-native-svg';
+import Svg, { Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import Animated, {
   Easing, FadeOut, SlideInUp, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
-import { INK_STROKE, ink, radius, space } from '@/shared/theme';
-import { storybookFrame } from '@/assets/pages/shapes';
+import { INK_STROKE, MOODS, ink, radius, space } from '@/shared/theme';
+import { frameBand, storybookFrame } from '@/assets/pages/shapes';
 import { MissionTypeGlyph } from './MissionTypeIcon';
 import { InkButton, Txt } from './ui';
 
@@ -48,7 +48,14 @@ export function ChapterRibbon({ text }: { text: string }) {
 function BlankFrame({ width, children }: { width: number; children?: ReactNode }) {
   return (
     <Svg width={width} height={(width * 1400) / 1000} viewBox="0 0 1000 1400">
+      <Defs>
+        <LinearGradient id="blankFrame" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor={MOODS.castle.gradient[0]} />
+          <Stop offset="1" stopColor={MOODS.castle.gradient[1]} />
+        </LinearGradient>
+      </Defs>
       <Rect x={0} y={0} width={1000} height={1400} fill={ink.page} />
+      <Path d={frameBand()} fill="url(#blankFrame)" />
       {storybookFrame().map((d, i) => (
         <Path key={i} d={d} fill="none" stroke={ink.ink} strokeWidth={INK_STROKE * 0.66} strokeLinecap="round" strokeLinejoin="round" />
       ))}
