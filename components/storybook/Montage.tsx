@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   chrome: { position: 'absolute', left: space.md, right: space.md, flexDirection: 'row', alignItems: 'center', gap: space.md },
   bars: { flex: 1, flexDirection: 'row', gap: 4 },
   bar: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
-  barTrack: { ...StyleSheet.absoluteFillObject, backgroundColor: ink.page, opacity: 0.35 },
+  barTrack: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: ink.page, opacity: 0.35 },
   barFill: { height: 3, borderRadius: 2, backgroundColor: ink.page },
   close: { padding: space.xs },
   caption: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: space.xxl * 2, paddingHorizontal: space.xl },
