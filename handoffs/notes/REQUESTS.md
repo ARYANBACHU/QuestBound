@@ -103,3 +103,32 @@ Format:
   (mirror in `supabase/functions/_shared/types.ts`).
 - Why: Demo Tools "Summon instant demo book" (AB) → EV's instant demo book (EV.md Task 6). AB currently casts.
 - Status: ✅ applied in round 1 (`shared/types.ts`; EV's `_shared/types.ts` mirror is EV-owned). AB: drop the cast.
+
+## [AB → AD] Storybook: hide Sage's FAB while the reader / montage is open (A10)
+- What: in `app/(tabs)/storybook.tsx` add `import { useHideWizardFab } from '@/components/wizard/WizardProvider';` and call
+  `useHideWizardFab(!!openId || montage);` inside the screen component.
+- Why: the plan says the FAB auto-hides on the Storybook reader/montage. AB can't see AD's reader state; the hook is
+  ref-counted and safe to call from any screen under the tabs.
+- Status: open (AB pushed the hook on feat/shell).
+
+## [AB → AD, MP] Sound + Sage are ready to import (P6)
+- `import { playSfx } from '@/components/shell/sfx'` → `playSfx('ping' | 'crayon' | 'page' | 'seal')`. Preloaded,
+  low volume, honors Settings → "Sound effects", never throws.
+- `import { Sage, SageTitle, speakOnce } from '@/components/wizard/Sage'` →
+  `<Sage expression="happy" size="sm|md|lg" speakKey={message.id} />` talks + pings ONCE per new key (never on
+  re-render/reopen). `variant="face"` = head only, `still` = no idle loop (use it in long lists).
+  `speakOnce(key)` = ping once without rendering Sage. `<SageTitle />` = "Sage" + "✦ powered by Muse".
+- Status: on feat/shell.
+
+## [AB → EV] reroll-mission difficulty + points helpers (E2, E4)
+- What: `lib/api.ts` → `rerollMission(missionId: string, reason?: string, difficulty?: Difficulty)` and send
+  `{ mission_id, reason?, difficulty? }`. AB already calls it with the 3rd arg (extra args are ignored until then)
+  and puts the difficulty in `reason` as a fallback hint. Also `pointsFor(userId, missions)` export from lib/game.ts:
+  AB's `components/shell/engine.ts` uses it automatically the moment it exists (local identical fallback until then).
+- Status: open.
+
+## [AB → MERGE] README credits for audio
+- What: add to README.md: "Music & sound effects: original, synthesized for Questbound, CC0 — see assets/audio/README.md".
+- Why: plan A1/P6 asks to credit the audio in README; README isn't in AB's paths. The full credit table lives in
+  `assets/audio/README.md` (AB).
+- Status: open.
