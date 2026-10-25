@@ -216,3 +216,125 @@ export const INK_STROKE = 9;
 
 /** Fallback coordinates: UT Austin (HackTX venue) */
 export const DEFAULT_LOCATION = { lat: 30.2849, lng: -97.7341, label: 'Austin, TX' } as const;
+
+// ---------------------------------------------------------------------------------------------
+// ROUND 2 — UI UPGRADE: "a shipped storybook game". Additive. See handoffs/notes/ROUND-2-PLAN.md.
+// ---------------------------------------------------------------------------------------------
+
+/** Richer realm palette for chrome (headers, frames, silhouettes, icons). Text pairings noted per line. */
+export const realm = {
+  enchantedGreen: '#1F6B45', // white text 6.5:1
+  swampTeal: '#11655F', // white text 6.9:1
+  royalPurple: '#4B2E9A', // white text 9.7:1
+  warmGold: '#E0A82E', // ink text 7.7:1 (never white text)
+  lanternOrange: '#E8792B', // ink text 5.7:1 (never white text)
+  nightIndigo: '#1C1840', // night-sky panels; white text 16.8:1
+  mossLight: '#DCEFD9', // light washes below: ink text ≥12.7:1
+  swampMist: '#D6EEEA',
+  royalMist: '#E6DEFA',
+  goldMist: '#FBEFCB',
+  lanternMist: '#FFE6D2',
+} as const;
+
+/** Full-screen background gradients per chapter mood (top → bottom). Light enough for ink text (≥12:1). */
+export const SCREEN_GRADIENTS: Record<MoodId, readonly [string, string, string]> = {
+  castle: ['#F4EFFF', '#FBEFF5', ink.paper],
+  forest: ['#E4F5EC', '#EAF8F2', ink.paper],
+  dragon: ['#FFF0E3', '#FFF6E6', ink.paper],
+  feast: ['#FDF4DA', '#FCF2F8', ink.paper],
+};
+
+/** One radius / shadow / spacing scale for the game look (radius/space above still apply). */
+export const ui = {
+  buttonRadius: 18,
+  cardRadius: radius.lg, // 22 — cards, sheets, modals (outer + edge-touching children share it, overflow hidden)
+  chipRadius: radius.pill,
+  buttonDepth: 4, // px of darker bottom edge at rest
+  buttonDepthPressed: 1, // compresses on press (translateY by buttonDepth - buttonDepthPressed)
+  buttonHeight: 54,
+  buttonHeightSm: 42,
+  borderWidth: 2.5, // ink border on cards/buttons
+  pressScale: 0.98,
+} as const;
+
+/** Chunky game buttons: face color, darker bottom edge, label color (label on face is AA). */
+export const gameButton = {
+  primary: { face: accent.primary, edge: '#3B2894', label: '#FFFFFF' },
+  forest: { face: '#1F7A4D', edge: '#13502F', label: '#FFFFFF' },
+  swamp: { face: '#11726A', edge: '#0A4842', label: '#FFFFFF' },
+  gold: { face: CRAYONS.marigold, edge: '#B07A12', label: ink.ink },
+  lantern: { face: realm.lanternOrange, edge: '#A84E12', label: ink.ink },
+  danger: { face: ink.danger, edge: '#86231F', label: '#FFFFFF' },
+  ghost: { face: ink.page, edge: ink.ink, label: ink.ink },
+} as const;
+export type GameButtonTone = keyof typeof gameButton;
+
+/** Parchment / storybook panels. */
+export const panel = {
+  parchment: '#FFF9EC', // warm paper (ink 15.7:1, inkSoft 8.7:1)
+  parchmentEdge: '#EADFC4', // inner rule / texture lines
+  page: ink.page,
+  border: ink.ink,
+  borderWidth: ui.borderWidth,
+  radius: ui.cardRadius,
+} as const;
+
+/** Shadow scale (iOS shadow* + Android elevation). Spread into a style: { ...shadow.md }. */
+export const shadow = {
+  none: { shadowColor: ink.ink, shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, elevation: 0 },
+  sm: { shadowColor: ink.ink, shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  md: { shadowColor: ink.ink, shadowOpacity: 0.16, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
+  lg: { shadowColor: ink.ink, shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
+} as const;
+
+/** Decorative SVG layer (stars, fireflies, vines, silhouettes). Subtle; never behind text. */
+export const decor = {
+  star: '#E0A82E',
+  firefly: '#F6D365',
+  vine: '#2E7D57',
+  silhouette: '#2A2350',
+  opacity: 0.18, // silhouettes / vines
+  sparkleOpacity: 0.6, // stars / fireflies
+} as const;
+
+/** Celebrations: crayon-shaving confetti + gold sparkles (mission complete, page turn, book complete). */
+export const celebration = {
+  confetti: Object.values(CRAYONS) as string[],
+  sparkle: ['#C9A227', '#E0A82E', '#F6D365', '#FFF4C2'] as string[],
+  counts: { mission: 36, page: 70, book: 120 },
+  durationMs: { mission: 1400, page: 2000, book: 2800 },
+} as const;
+
+/** Motion timings. Respond to events; only Sage's idle loops (and it stops under reduced motion). */
+export const motion = {
+  press: 90,
+  fill: 650,
+  pageTurn: 900,
+  sealStamp: 450,
+  sheet: 280,
+  sageBlinkEveryMs: 4200,
+  sageBobMs: 2600,
+} as const;
+
+/** SAGE — our original wizard mascot (components/wizard/Sage.tsx, owner AB). Shared so placeholders match. */
+export type SageExpression = 'idle' | 'happy' | 'thinking' | 'surprised' | 'proud' | 'sleepy';
+export const SAGE_EXPRESSIONS: SageExpression[] = ['idle', 'happy', 'thinking', 'surprised', 'proud', 'sleepy'];
+export type SageSize = 'sm' | 'md' | 'lg';
+export const SAGE_SIZES: Record<SageSize, number> = { sm: 44, md: 88, lg: 160 };
+/** Sage's colors: robe/hat royal purple, starry gold trim, cloud-white beard, glowing staff tip. */
+export const sageColors = {
+  robe: '#5B3FD1',
+  robeShade: '#3B2894',
+  hat: '#4B2E9A',
+  hatStar: '#F6D365',
+  trim: '#E0A82E',
+  beard: '#FFFFFF',
+  beardShade: '#E6E1F5',
+  skin: '#FFD9B8',
+  cheek: '#F6A5B8',
+  staff: '#8A5A2B',
+  staffGlow: '#FFF4C2',
+  outline: ink.ink,
+} as const;
+/** Credit line shown under Sage's name everywhere it speaks. */
+export const SAGE_CREDIT = '✦ powered by Muse';
