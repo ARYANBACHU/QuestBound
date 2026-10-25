@@ -50,8 +50,34 @@ export function joinNames(names: string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
-export function fallbackStoryLine(mission: Pick<Mission, 'title' | 'place' | 'type'>, heroes: MemberCtx[]): string {
+/** E5: the first line of a bard's verse (what the story line quotes). Null for empty text. */
+export function firstVerseLine(text: string | null | undefined): string | null {
+  const t = (text ?? '').trim();
+  if (!t) return null;
+  let line = t.split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? t;
+  line = line.replace(/^["“”'‘’]+|["“”'‘’]+$/g, '').trim();
+  if (line.length > 110) {
+    const cut = line.slice(0, 110);
+    const stop = Math.max(cut.lastIndexOf(','), cut.lastIndexOf(';'), cut.lastIndexOf('.'), cut.lastIndexOf(' '));
+    line = `${cut.slice(0, stop > 50 ? stop : 110).trim()}…`;
+  }
+  return line || null;
+}
+
+/** Bard story lines must quote the verse's first line; true if `line` already does. */
+export function quotesVerse(line: string, first: string): boolean {
+  const n = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return n(line).includes(n(first.replace(/…$/, '')).slice(0, 30));
+}
+
+export function bardStoryLine(mission: Pick<Mission, 'title'>, heroes: MemberCtx[], first: string): string {
+  return `${joinNames(heroes.map(heroName))} sang for "${mission.title}": “${first}”`;
+}
+
+export function fallbackStoryLine(mission: Pick<Mission, 'title' | 'place' | 'type'>, heroes: MemberCtx[], proofText?: string): string {
   const who = joinNames(heroes.map(heroName));
+  const verse = mission.type === 'bard' ? firstVerseLine(proofText) : null;
+  if (verse) return bardStoryLine(mission, heroes, verse);
   const where = mission.place ? ` at ${mission.place.title}` : '';
   switch (mission.type) {
     case 'gathering': return `${who} gathered${where} for "${mission.title}", and the whole page leaned in to listen.`;

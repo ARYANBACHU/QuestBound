@@ -154,7 +154,10 @@ async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse>
     addMessage({ fellowship_id: mission.fellowship_id, user_id: null, kind: 'system', body: `${me.display_name} sent a gift to ${name(recipient)}! Awaiting their seal.`, payload: null });
     emitMock();
     setTimeout(() => { // the recipient "confirms" on their phone
-      complete(mission, [ME, recipient], `${me.display_name} the ${me.crest} surprised ${name(recipient)} with a gift, and the banner glowed with it.`);
+      const gl = `${me.display_name} the ${me.crest} surprised ${name(recipient)} with a gift, and the banner glowed with it.`;
+      addCompletion({ mission_id: mission.id, user_id: recipient, participant_ids: [ME, recipient], proof_url: null, proof_text: null,
+        verdict: { pass: true, confidence: 1, reason: 'gift_confirmed', flavor_text: 'Sealed with gratitude!' }, story_line: gl });
+      complete(mission, [ME, recipient], gl);
       emitMock();
     }, 3000);
     return respond({ pass: true, confidence: 1, reason: 'gift_pending', flavor_text: `Your gift is on its way! The region colors the moment ${name(recipient)} adds their seal.` }, pending);
@@ -194,16 +197,17 @@ async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse>
   if (geo.ok && geo.distance_m != null) verdict = { ...verdict, distance_m: geo.distance_m };
   const heroes = participants.map((id) => mock.profiles.find((p) => p.id === id)).filter(Boolean).map((p) => `${p!.display_name} the ${p!.crest}`);
   const who = heroes.length > 1 ? `${heroes.slice(0, -1).join(', ')} and ${heroes[heroes.length - 1]}` : heroes[0];
-  const line = `${who} completed "${mission.title}"${mission.place ? ` at ${mission.place.title}` : ''}, and the page drank in the color.`;
+  const firstLine = mission.type === 'bard' ? (req.proof_text ?? '').split('\n').map((l) => l.trim()).find(Boolean) : undefined;
+  const line = firstLine
+    ? `${who} sang for "${mission.title}": “${firstLine.slice(0, 110)}”`
+    : `${who} completed "${mission.title}"${mission.place ? ` at ${mission.place.title}` : ''}, and the page drank in the color.`;
   if (req.proof_url) {
     addMemory({ fellowship_id: mission.fellowship_id, storyline_id: mission.storyline_id, page_id: mission.page_id, mission_id: mission.id, user_id: ME, image_url: req.proof_url, caption: line, kind: 'photo' });
   }
+  const completion = addCompletion({ mission_id: mission.id, user_id: ME, participant_ids: participants, proof_url: req.proof_url ?? null, proof_text: req.proof_text ?? null, verdict, story_line: line });
   const { done, pageCompleted, bookCompleted } = complete(mission, participants, line);
   emitMock();
-  return respond(verdict, done, {
-    page_completed: pageCompleted, book_completed: bookCompleted,
-    completion: { id: `c-${Date.now()}`, mission_id: mission.id, user_id: ME, participant_ids: participants, proof_url: req.proof_url ?? null, proof_text: req.proof_text ?? null, verdict, story_line: line, created_at: new Date().toISOString() },
-  });
+  return respond(verdict, done, { page_completed: pageCompleted, book_completed: bookCompleted, completion });
 }
 
 function complete(mission: Mission, credited: string[], line: string) {

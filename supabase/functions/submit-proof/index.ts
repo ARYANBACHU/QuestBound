@@ -14,7 +14,7 @@ import { lensTitles, resetSerpStats } from '../_shared/serp.ts';
 import { checkGeo, GEO_DEFAULT_RADIUS_M } from '../_shared/geo.ts';
 import { answerJudgeUser, storyLineFor, verifierSystem, verifierUser } from '../_shared/prompts.ts';
 import {
-  announceBook, answerMatches, background, buildRecap, effectiveRequired, fallbackStoryLine, paintChapter,
+  announceBook, answerMatches, background, bardStoryLine, buildRecap, effectiveRequired, fallbackStoryLine, firstVerseLine, paintChapter, quotesVerse,
   paintMontage, roman,
 } from '../_shared/progress.ts';
 import {
@@ -283,15 +283,19 @@ async function verifyText(mission: Mission, text: string, left: () => number): P
 }
 
 async function writeStoryLine(mission: Mission, heroes: MemberCtx[], page: Page, proofText: string, lens: string[] | undefined, left: () => number): Promise<string> {
-  const fallback = fallbackStoryLine(mission, heroes);
+  const fallback = fallbackStoryLine(mission, heroes, proofText);
   if (!HAS_LLM) return fallback;
+  const verse = mission.type === 'bard' ? firstVerseLine(proofText) : null;
   const ms = Math.max(2_000, Math.min(5_000, left() - 2_500));
   const r = await withTimeout(
-    chatJSON<{ story_line?: string }>([{ role: 'user', content: storyLineFor({ mission, heroes, proof_text: proofText, lens_titles: lens, chapterTitle: page.title }) }], { temperature: 0.9, timeoutMs: ms }),
+    chatJSON<{ story_line?: string }>([{ role: 'user', content: storyLineFor({ mission, heroes, proof_text: proofText, lens_titles: lens, chapterTitle: page.title, verse_first_line: verse }) }], { temperature: 0.9, timeoutMs: ms }),
     ms + 300, null, 'story-line',
   );
   const s = typeof r?.story_line === 'string' ? r.story_line.trim().replace(/^"|"$/g, '') : '';
-  return s.length >= 10 ? s.slice(0, 300) : fallback;
+  if (s.length < 10) return fallback;
+  // E5: a bard's line always quotes the first line of their verse (the full verse lives in completions.proof_text).
+  if (verse && !quotesVerse(s, verse)) return bardStoryLine(mission, heroes, verse);
+  return s.slice(0, verse ? 360 : 300);
 }
 
 function clamp01(v: unknown, d: number): number {

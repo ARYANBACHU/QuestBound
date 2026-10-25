@@ -287,8 +287,10 @@ export function storyLineFor(args: {
   proof_text?: string;
   lens_titles?: string[];
   chapterTitle?: string;
+  verse_first_line?: string | null; // bard: the sentence MUST quote this
 }): string {
-  return `Write ONE sentence (max 30 words), past tense, for the storybook: what these heroes just did, as a fairy tale.
+  return `Write ONE sentence (max 30 words${args.verse_first_line ? ', not counting the quote' : ''}), past tense, for the storybook: what these heroes just did, as a fairy tale.
+${args.verse_first_line ? `They wrote a verse. Your sentence MUST end by quoting its first line exactly, in curly quotes: “${args.verse_first_line}”` : ''}
 Use their names with their crests as titles (e.g. "Bram the Dragon"). Mention the real place if there is one, transformed
 into fairy-tale language but still recognizable. No quotes around the sentence.
 Chapter: ${args.chapterTitle ?? ''}

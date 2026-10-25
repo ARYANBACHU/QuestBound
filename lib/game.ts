@@ -11,7 +11,7 @@ import { supabase } from './supabase';
 import { mock, subscribeMock } from './mockStore';
 import { MOCK_GENERATION_INFO } from '@/fixtures/demo';
 import { TEMPLATES } from '@/shared/templates';
-import type { Memory, Mission, Page, Storyline } from '@/shared/types';
+import type { Completion, Memory, Mission, Page, Storyline } from '@/shared/types';
 
 function useMockTick() {
   const [, force] = useState(0);
@@ -263,6 +263,49 @@ export function useMemories(fellowshipId: string | null, storylineId?: string | 
     return { memories: storylineId ? all.filter((m) => m.storyline_id === storylineId) : all, loading: false };
   }
   return { memories: live.data, loading: live.loading };
+}
+
+// ---------------------------------------------------------------- completions (E5: poems in the book)
+
+/** A proof that colored a region, with its mission. For bard missions `verse` is the full poem the hero wrote. */
+export interface CompletionEntry extends Completion {
+  mission: Pick<Mission, 'id' | 'title' | 'type' | 'region_id' | 'page_id' | 'proof_type'>;
+  verse: string | null; // proof_text of a bard mission (the whole verse; mission.story_line quotes its first line)
+}
+const NO_COMPLETIONS: CompletionEntry[] = [];
+const MISSION_COLS = 'id, title, type, region_id, page_id, proof_type';
+
+function toEntry(c: Completion, m: CompletionEntry['mission']): CompletionEntry {
+  return { ...c, mission: m, verse: m.type === 'bard' && c.proof_text ? c.proof_text : null };
+}
+
+/**
+ * Every completion of a storyline, oldest first: proof_text (bard verses), participant_ids, verdict (lens_titles,
+ * distance_m), story_line. Refreshes whenever a mission of the book changes (completions ride on mission updates).
+ */
+export function useCompletions(storylineId: string | null): { completions: CompletionEntry[]; loading: boolean } {
+  useMockTick();
+  const live = useLive<CompletionEntry[]>(
+    storylineId,
+    NO_COMPLETIONS,
+    async (sid) => {
+      const data = await rows<Completion & { mission: CompletionEntry['mission'] | CompletionEntry['mission'][] }>(
+        supabase.from('completions').select(`*, mission:missions!inner(${MISSION_COLS})`).eq('mission.storyline_id', sid).order('created_at'),
+      );
+      return data.map(({ mission, ...c }) => toEntry(c, Array.isArray(mission) ? mission[0] : mission));
+    },
+    (sid) => [{ table: 'missions', filter: `storyline_id=eq.${sid}` }],
+  );
+  if (USE_MOCKS) {
+    if (!storylineId) return { completions: NO_COMPLETIONS, loading: false };
+    const byId = new Map(mock.missions.filter((m) => m.storyline_id === storylineId).map((m) => [m.id, m]));
+    const out = mock.completions.filter((c) => byId.has(c.mission_id)).map((c) => {
+      const m = byId.get(c.mission_id)!;
+      return toEntry(c, { id: m.id, title: m.title, type: m.type, region_id: m.region_id, page_id: m.page_id, proof_type: m.proof_type });
+    });
+    return { completions: out, loading: false };
+  }
+  return { completions: live.data, loading: live.loading };
 }
 
 // ---------------------------------------------------------------- points (E4: the ONE source of truth)
