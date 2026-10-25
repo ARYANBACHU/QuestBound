@@ -45,3 +45,15 @@
   top) instead of cutting holes, except where a hole reads better.
 - **Charm lives in the ink layer** (faces, sparkles, ripples, books, roses) so the crayon fill stays the only color.
 - **`SET_MP` barrel** so AD wires 8 pages with one import and no knowledge of file names.
+
+## V1 (final polish)
+- **V7 toast motion:** `FadeInUp` 220 ms with a decelerate bezier (0.2, 0, 0, 1) in, `FadeOutUp` 160 ms accelerate
+  (0.4, 0, 1, 1) out. No spring. Bezier easings map to CSS cubic-bezier on web, so it looks the same everywhere.
+- **Sage moves into the composer on the chat.** The draggable floating FAB covered the newest messages by default.
+  The composer's left slot is ⌄ while typing, otherwise Sage (long-press keeps demo tools). The FAB still shows on the
+  roster view.
+- **Up next steps aside while typing.** With the keyboard up on a small phone the chat had about 110–200 px. The strip
+  comes back when the keyboard closes.
+- **Header name fits by width** (0.545 em per Fraunces Bold character, 26 → 15 px, then "…"). Same rule on native, so
+  long names look the same everywhere. `minHeight` keeps the crests row from jumping.
+- **Web composer:** Enter sends, Shift+Enter is a new line (chat-app convention), one row tall, grows to 120 px.
