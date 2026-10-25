@@ -114,3 +114,6 @@ Format:
   and delete the local drawing (keep `SageSays`).
 - `components/coloring/sfx.ts` → no-op `playSfx(name: 'ping'|'crayon'|'page'|'seal'): void`. When AB's
   `components/shell/sfx.ts` lands, replace the body with `export { playSfx } from '@/components/shell/sfx';`.
+- Checked against origin/feat/engine + origin/feat/shell (end of AD round 2): EV's `usePages`/`useCompletions` and AB's
+  `Sage`/`playSfx` are drop-in compatible (EV's `CompletionEntry extends Completion`; AD reads mission_id/proof_text/user_id).
+  Status: ⏳ waiting for those branches to reach main.
