@@ -9,9 +9,11 @@ import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { preloadSfx } from '@/components/shell/sfx';
 import { ink } from '@/shared/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+preloadSfx();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({ Fraunces_400Regular_Italic, Fraunces_700Bold, Nunito_400Regular, Nunito_700Bold });
