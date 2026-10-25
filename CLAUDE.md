@@ -58,11 +58,14 @@ happens ("Submit proof", "Turn the page"). Errors explain what to do next.
 | Owner | Branch | Owns (create/edit freely) |
 |---|---|---|
 | **EV** Story Engine | `feat/engine` | `supabase/functions/**` (except `wizard-chat/`), `lib/api.ts`, `lib/game.ts`, `lib/mockStore.ts`, `fixtures/**` |
-| **MP** Fellowship | `feat/friends` | `lib/session.ts`, `lib/fellowship.ts`, `lib/chat.ts`, `app/(tabs)/friends.tsx`, `app/join/**`, `components/friends/**` |
-| **AD** Artist | `feat/coloring` | `app/(tabs)/coloring.tsx`, `app/(tabs)/storybook.tsx`, `components/coloring/**`, `components/storybook/**`, `assets/pages/**` |
+| **MP** Fellowship | `feat/friends` | `lib/session.ts`, `lib/fellowship.ts`, `lib/chat.ts`, `app/(tabs)/friends.tsx`, `app/join/**`, `components/friends/**`, **Round 3:** `assets/pages/set-mp/**` |
+| **AD** Artist | `feat/coloring` | `app/(tabs)/coloring.tsx`, `app/(tabs)/storybook.tsx`, `components/coloring/**`, `components/storybook/**`, `assets/pages/**` (except `assets/pages/set-mp/**` in Round 3) |
 | **AB** Wizard & Shell | `feat/shell` | `app/_layout.tsx`, `app/index.tsx`, `app/(tabs)/_layout.tsx`, `app/(tabs)/missions.tsx`, `app/(tabs)/settings.tsx`, `app/onboarding.tsx`, `app/mission/**`, `components/shell/**`, `components/wizard/**`, `supabase/functions/wizard-chat/**` |
 | **Merge Agent** | `main` | `shared/**`, `supabase/migrations/**`, `lib/env.ts`, `lib/supabase.ts`, `lib/maps.ts`, `app.json`, `package.json`, `tsconfig.json`, `CLAUDE.md`, `scripts/**` |
 
+- **Round 3 art split:** MP owns `assets/pages/set-mp/**` (8 pages, AD's `PageArt` format, see
+  `handoffs/notes/ROUND-3-PLAN.md` U2). AD keeps the rest of `assets/pages/**`, including `index.ts`, and adds the
+  imports for MP's pages. Round 3 plan: `handoffs/notes/ROUND-3-PLAN.md`.
 - **FROZEN for feature branches:** `shared/**`, `supabase/migrations/**`, `CLAUDE.md`, `lib/env.ts`, `lib/supabase.ts`.
   Need a change? Append it to `handoffs/notes/REQUESTS.md` (who / what / why / exact proposed diff), push, and
   code against your proposal behind a local adapter until the merge agent lands it.
