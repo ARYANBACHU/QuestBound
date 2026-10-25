@@ -94,10 +94,10 @@ export const UT_PLACES: Record<string, UTPlace> = {
     verified: { by: 'serpapi_google_maps', title: 'LBJ Presidential Library', place_id: 'ChIJ-WVL_5C1RIYRfDHlppbnLYE', delta_m: 8, at: '2026-10-25' },
   },
   coop: {
-    // V2: "The Harvest Horns" (seasonal pumpkin display across Guadalupe from the Co-op). Pin = our estimate until the
-    // live SerpApi check confirms it (generate-storyline prefers SerpApi's pin within UT_VERIFY_MAX_M).
+    // V2: "The Harvest Horns" (the seasonal pumpkin display across Guadalupe from the Co-op).
     key: 'coop', title: 'University Co-op', address: '2246 Guadalupe St, Austin, TX 78705', category: 'Bookstore',
-    lat: 30.28563, lng: -97.74213, query: 'University Co-op Guadalupe St Austin',
+    lat: 30.286165, lng: -97.74192, query: 'University Co-op Guadalupe St Austin',
+    verified: { by: 'serpapi_google_maps', title: 'University Co-op', place_id: 'ChIJX1EK33e1RIYRz_P10McnlPM', delta_m: 63, at: '2026-10-25' },
   },
   union: {
     key: 'union', title: 'Texas Union', address: '2308 Whitis Ave, Austin, TX 78712', category: 'Student union',
