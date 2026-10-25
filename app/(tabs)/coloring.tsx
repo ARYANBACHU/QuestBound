@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, PanResponder, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFellowship } from '@/lib/fellowship';
@@ -12,7 +12,7 @@ import { generateStoryline, submitProof } from '@/lib/api';
 import { USE_MOCKS } from '@/lib/env';
 import { SCREEN_GRADIENTS, ink, moodFor, radius, shadow, space } from '@/shared/theme';
 import type { Page } from '@/shared/types';
-import { ColoringPage, FILL_MS } from '@/components/coloring/ColoringPage';
+import { ColoringPage, REVEAL_MS } from '@/components/coloring/ColoringPage';
 import { ChapterHeader } from '@/components/coloring/ChapterHeader';
 import { MissionSheet } from '@/components/coloring/MissionSheet';
 import { BlankBook, ChapterRibbon, SageWriting, TheEndBanner } from '@/components/coloring/PageStates';
@@ -24,7 +24,8 @@ import { Celebration } from '@/components/coloring/Celebration';
 import { UpNext, nextMission } from '@/components/coloring/UpNext';
 import { ChapterTale } from '@/components/coloring/ChapterTale';
 
-const HOLD_MS = FILL_MS + 700; // let the last region's fill + sparkle play before the page turns
+const HOLD_MS = REVEAL_MS + 250; // let the last region's fill + shimmer + sparkle play before the page turns
+const RETURN_MS = 400; // extra beat when the fill waited for you to come back to this tab
 
 export default function ColoringScreen() {
   const insets = useSafeAreaInsets();
@@ -46,6 +47,10 @@ export default function ColoringScreen() {
   const [ribbon, setRibbon] = useState<string | null>(null);
   const [party, setParty] = useState<{ kind: 'page' | 'book'; at: number } | null>(null);
   const prevActive = useRef<Page | null>(null);
+  // U1/U4: when a mission is finished on another screen, this tab isn't visible — the fill (and a page turn) wait
+  // until you land back here, so you SEE your color go in.
+  const focused = useIsFocused();
+  const [turn, setTurn] = useState<{ over: Page; under: Page; late: boolean } | null>(null);
 
   useEffect(() => {
     const prev = prevActive.current;
@@ -53,16 +58,21 @@ export default function ColoringScreen() {
     if (!prev || !activePage || prev.id === activePage.id) return;
     const prevNow = pages.find((p) => p.id === prev.id);
     if (prevNow?.status !== 'complete') return;
-    const next = activePage;
     setViewId(null);
     setHold(prevNow);
-    const t = setTimeout(() => {
-      setHold(null);
-      setFlip({ key: Date.now(), mode: 'next', over: prevNow, under: next, auto: true });
-    }, HOLD_MS);
-    return () => clearTimeout(t);
+    setTurn({ over: prevNow, under: activePage, late: !focused });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePage?.id]);
+
+  useEffect(() => {
+    if (!turn || !focused) return;
+    const t = setTimeout(() => {
+      setHold(null);
+      setTurn(null);
+      setFlip({ key: Date.now(), mode: 'next', over: turn.over, under: turn.under, auto: true });
+    }, HOLD_MS + (turn.late ? RETURN_MS : 0));
+    return () => clearTimeout(t);
+  }, [turn, focused]);
 
   const flipRef = useRef(flip);
   flipRef.current = flip;
@@ -115,14 +125,18 @@ export default function ColoringScreen() {
 
   // the book just finished while we watched → confetti for the whole fellowship (after the last fill plays)
   const wasDone = useRef<boolean | null>(null);
+  const [bookParty, setBookParty] = useState<{ late: boolean } | null>(null);
   useEffect(() => {
     const before = wasDone.current;
     wasDone.current = bookDone;
-    if (before === false && bookDone) {
-      const t = setTimeout(() => setParty({ kind: 'book', at: Date.now() }), HOLD_MS);
-      return () => clearTimeout(t);
-    }
+    if (before === false && bookDone) setBookParty({ late: !focused });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookDone]);
+  useEffect(() => {
+    if (!bookParty || !focused) return;
+    const t = setTimeout(() => { setBookParty(null); setParty({ kind: 'book', at: Date.now() }); }, HOLD_MS + (bookParty.late ? RETURN_MS : 0));
+    return () => clearTimeout(t);
+  }, [bookParty, focused]);
 
   const summon = async (mode: 'first' | 'sequel') => {
     if (!fellowship) return;
@@ -200,6 +214,7 @@ export default function ColoringScreen() {
                   width={pageW}
                   highlightRegionId={sheetMission?.region_id ?? null}
                   onRegionPress={(missionId) => setSheetId(missionId)}
+                  paused={!focused}
                 />
                 {isLocked && (
                   <View style={[StyleSheet.absoluteFill, styles.lockedNote]} pointerEvents="none">
