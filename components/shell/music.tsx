@@ -1,12 +1,13 @@
 // Owner: AB. "Shall the bards play?" — a gentle looping lute tune (original, CC0; see assets/audio/README.md).
 // <MusicController /> lives once in the root layout: plays while Music is on and the app is in the foreground.
+// useMusicDuck(active) — lowers the same track (montage); there is only ever ONE bards player (V8).
 // U6: the music toggle lives at the TOP of screens:
 //   <HeaderMusicToggle />   — 40 px header icon, same look as the "…" button; put it header-right (left of "…").
 //   <FloatingMusicToggle /> — top-right fallback the tabs layout shows on tabs whose header doesn't have one yet;
 //                             it hides itself while the focused screen renders a <HeaderMusicToggle />.
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useIsFocused } from 'expo-router';
 import { AppState, Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +21,54 @@ import { ensureAudioMode } from './sfx';
 import { hasStoredMusicChoice, loadSoundSettings, setSoundSetting, useSoundSettings } from './soundSettings';
 
 const VOLUME = 0.16;
+const DUCKED = 0.35; // V8: montage & friends lower the bards to 35 % — same track, never a second one
+
+// ONE bards player for the whole app (V8): module-level, so a remount (error-boundary reset, fast refresh, a screen
+// that thinks it needs music) can never start a second, overlapping track.
+let bards: AudioPlayer | null = null;
+function getBards(): AudioPlayer | null {
+  try {
+    if (!bards) {
+      bards = createAudioPlayer(require('@/assets/audio/bards-loop.mp3'));
+      bards.loop = true;
+      bards.volume = targetVolume();
+    }
+    return bards;
+  } catch {
+    return null; // no audio on this device — the tale goes on in silence
+  }
+}
+
+let duckers = 0;
+let fadeTimer: ReturnType<typeof setInterval> | null = null;
+const targetVolume = () => (duckers > 0 ? VOLUME * DUCKED : VOLUME);
+/** Glide the bards' volume to the current target over ~300 ms (no jump, no restart). */
+function glideVolume() {
+  if (fadeTimer) clearInterval(fadeTimer);
+  const p = bards;
+  if (!p) return;
+  const from = p.volume;
+  const to = targetVolume();
+  let step = 0;
+  fadeTimer = setInterval(() => {
+    step++;
+    try { p.volume = from + ((to - from) * step) / 6; } catch {}
+    if (step >= 6 && fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
+  }, 50);
+}
+
+/**
+ * V8: lower the bards while `active` (e.g. the Storybook montage) and restore them after. Same track keeps playing —
+ *   useMusicDuck(montageOpen);
+ */
+export function useMusicDuck(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    duckers++;
+    glideVolume();
+    return () => { duckers = Math.max(0, duckers - 1); glideVolume(); };
+  }, [active]);
+}
 
 /** Turn the bards on/off everywhere: local setting (instant) + profile.music_enabled (best effort). */
 export function useMusicToggle() {
@@ -38,7 +87,6 @@ export function MusicController() {
   const { music, ready } = useSoundSettings();
   const { profile } = useSession();
   const [active, setActive] = useState(AppState.currentState === 'active');
-  const player = useRef<AudioPlayer | null>(null);
 
   // A fresh install adopts the profile's choice (e.g. reinstall, second device).
   useEffect(() => {
@@ -58,14 +106,10 @@ export function MusicController() {
     try {
       if (music && active) {
         ensureAudioMode();
-        if (!player.current) {
-          player.current = createAudioPlayer(require('@/assets/audio/bards-loop.mp3'));
-          player.current.loop = true;
-        }
-        player.current.volume = VOLUME;
-        player.current.play();
+        const p = getBards();
+        if (p && !p.playing) p.play(); // already playing → leave it alone (no restart, no second track)
       } else {
-        player.current?.pause();
+        bards?.pause();
       }
     } catch {
       // no audio on this device — the tale goes on in silence
@@ -78,13 +122,9 @@ export function MusicController() {
     if (Platform.OS !== 'web' || typeof document === 'undefined' || !ready || !music || !active) return;
     const kick = () => {
       try {
-        if (!player.current) {
-          player.current = createAudioPlayer(require('@/assets/audio/bards-loop.mp3'));
-          player.current.loop = true;
-          player.current.volume = VOLUME;
-        }
+        const p = getBards();
         // `playing` flips true as soon as play() is called, even if the browser then refuses it, so ask the media.
-        if (!player.current.currentStatus?.playing) player.current.play();
+        if (p && !p.currentStatus?.playing) p.play();
       } catch {
         // no audio in this browser
       }
@@ -98,7 +138,8 @@ export function MusicController() {
     };
   }, [music, active, ready]);
 
-  useEffect(() => () => { try { player.current?.remove(); } catch {} player.current = null; }, []);
+  // Unmount (app teardown / error-boundary reset): pause only. The one player stays, so a remount resumes it.
+  useEffect(() => () => { try { bards?.pause(); } catch {} }, []);
   return null;
 }
 
