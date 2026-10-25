@@ -27,13 +27,14 @@ export interface BookReaderProps {
   completions: Completion[];
   members: FellowshipMember[];
   recap: BookRecap | null; // non-null → recap page appended
+  setAside?: boolean; // shelved unfinished: the last page is Sage's bookmark note, not "The End"
   onClose: () => void;
   onMontage: () => void;
   onSequel: () => void;
   summoning: boolean;
 }
 
-export function BookReader({ book, pages, missions, memories, completions, members, recap, onClose, onMontage, onSequel, summoning }: BookReaderProps) {
+export function BookReader({ book, pages, missions, memories, completions, members, recap, setAside = false, onClose, onMontage, onSequel, summoning }: BookReaderProps) {
   const { width } = useWindowDimensions();
   const items: Item[] = [...pages.map((page) => ({ kind: 'page' as const, page })), ...(recap ? [{ kind: 'recap' as const }] : [])];
   const [index, setIndex] = useState(0);
@@ -72,7 +73,7 @@ export function BookReader({ book, pages, missions, memories, completions, membe
     const content = it.kind === 'page' ? (
       <ChapterSpread page={it.page} missions={missions} memories={memories} completions={completions} members={members} width={width - 2 * space.lg} />
     ) : (
-      <RecapPage book={book} recap={recap!} members={members} onSequel={onSequel} onMontage={onMontage} summoning={summoning} />
+      <RecapPage book={book} recap={recap!} setAside={setAside} members={members} onSequel={onSequel} onMontage={onMontage} summoning={summoning} />
     );
     return (
       <View style={{ width, height: areaH || undefined, overflow: 'hidden' }}>

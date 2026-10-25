@@ -110,7 +110,8 @@ export default function ColoringScreen() {
   );
   const shownMissions = pageMissions(missions, shown);
   const sheetMission = missions.find((m) => m.id === sheetId) ?? null;
-  const bookDone = !!storyline && (storyline.status === 'complete' || (pages.length > 0 && pages.every((p) => p.status === 'complete')));
+  // B2: finished = every page colored (status 'complete' alone can mean "set aside")
+  const bookDone = !!storyline && pages.length > 0 && pages.every((p) => p.status === 'complete');
 
   // the book just finished while we watched → confetti for the whole fellowship (after the last fill plays)
   const wasDone = useRef<boolean | null>(null);
