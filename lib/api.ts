@@ -43,7 +43,7 @@ async function invoke<T>(fn: string, body: object): Promise<T> {
 }
 
 /** Summon a book. `demo: true` = instant handcrafted book (no LLM) for the judging table. */
-export async function generateStoryline(req: GenerateStorylineRequest & { demo?: boolean }): Promise<GenerateStorylineResponse> {
+export async function generateStoryline(req: GenerateStorylineRequest): Promise<GenerateStorylineResponse> {
   if (USE_MOCKS) {
     await wait(req.demo ? 600 : 2500);
     if (req.mode === 'sequel') return { storyline_id: mockSequel() };

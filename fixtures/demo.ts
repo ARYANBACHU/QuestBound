@@ -8,10 +8,10 @@ const now = new Date().toISOString();
 export const ME = 'u-aria';
 
 export const PROFILES: Profile[] = [
-  { id: 'u-aria', display_name: 'Aria', crest: 'fox', color: 'rose', interests: ['coffee', 'live_music', 'hiking'], budget: '$', availability: ['weekends'], home_area: 'West Campus', onboarded: true, created_at: now },
-  { id: 'u-bram', display_name: 'Bram', crest: 'dragon', color: 'lagoon', interests: ['board_games', 'coffee', 'pickup_sports'], budget: '$', availability: ['weekday_evenings', 'weekends'], home_area: 'Riverside', onboarded: true, created_at: now },
-  { id: 'u-cleo', display_name: 'Cleo', crest: 'swan', color: 'marigold', interests: ['museums', 'photography', 'desserts'], budget: '$$', availability: ['weekends'], home_area: 'Hyde Park', onboarded: true, created_at: now },
-  { id: 'u-dax', display_name: 'Dax', crest: 'wolf', color: 'fern', interests: ['hiking', 'food_trucks', 'live_music'], budget: 'free', availability: ['weekday_evenings'], home_area: 'North Campus', onboarded: true, created_at: now },
+  { id: 'u-aria', display_name: 'Aria', crest: 'fox', color: 'rose', interests: ['coffee', 'live_music', 'hiking'], budget: '$', availability: ['weekends'], home_area: 'West Campus', onboarded: true, music_enabled: true, created_at: now },
+  { id: 'u-bram', display_name: 'Bram', crest: 'dragon', color: 'lagoon', interests: ['board_games', 'coffee', 'pickup_sports'], budget: '$', availability: ['weekday_evenings', 'weekends'], home_area: 'Riverside', onboarded: true, music_enabled: true, created_at: now },
+  { id: 'u-cleo', display_name: 'Cleo', crest: 'swan', color: 'marigold', interests: ['museums', 'photography', 'desserts'], budget: '$$', availability: ['weekends'], home_area: 'Hyde Park', onboarded: true, music_enabled: true, created_at: now },
+  { id: 'u-dax', display_name: 'Dax', crest: 'wolf', color: 'fern', interests: ['hiking', 'food_trucks', 'live_music'], budget: 'free', availability: ['weekday_evenings'], home_area: 'North Campus', onboarded: true, music_enabled: true, created_at: now },
 ];
 
 export const FELLOWSHIP: Fellowship = {
