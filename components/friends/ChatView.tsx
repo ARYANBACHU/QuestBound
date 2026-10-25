@@ -1,11 +1,10 @@
 // Owner: MP. The fellowship group chat: texts, proclamations (scroll cards), system lines, Sage, day separators.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -21,6 +20,7 @@ import Crest from './Crest';
 import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
 import { ReactionChips, ReactionPicker } from './Reactions';
+import { useKeyboardLift, type ViewRef } from './useKeyboardLift';
 
 type Row =
   | { key: string; type: 'day'; label: string }
@@ -79,6 +79,19 @@ export interface ChatViewProps {
 
 export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember }: ChatViewProps) {
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
+  const rootRef = useRef<ViewRef>(null);
+  const listRef = useRef<FlatList<Row>>(null);
+  const keyboard = useKeyboardLift(rootRef);
+  const scrollToNewest = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  // Keyboard opens → jump to the newest message so you see what you're replying to.
+  useEffect(() => {
+    if (keyboard.visible) scrollToNewest();
+  }, [keyboard.visible]);
+  // My own message lands → follow it down.
+  const newest = chat.messages[chat.messages.length - 1];
+  useEffect(() => {
+    if (newest && newest.user_id === myId) scrollToNewest();
+  }, [newest?.id, newest?.user_id, myId]);
   // Proclamations that arrive after the chat opened get the seal-stamp animation.
   const openedAt = useRef(new Date().toISOString()).current;
   const [pickerFor, setPickerFor] = useState<string | null>(null);
@@ -150,8 +163,8 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
   const typing = chat.typingUserIds.map((id) => profileOf(members, id)).filter(Boolean);
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.flex}>
+    <View ref={rootRef} onLayout={keyboard.remeasure} style={[styles.flex, { paddingBottom: keyboard.lift }]}>
+      <Pressable style={styles.flex} onPress={Keyboard.dismiss} accessible={false}>
         {chat.loading && chat.messages.length === 0 ? (
           <View style={styles.center}>
             <ActivityIndicator color={ink.ink} />
@@ -165,6 +178,7 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
           </View>
         ) : (
           <FlatList
+            ref={listRef}
             inverted
             data={rows}
             keyExtractor={(r) => r.key}
@@ -177,18 +191,18 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
             ListFooterComponent={chat.error ? <Text style={styles.error}>{chat.error}</Text> : undefined}
           />
         )}
-      </View>
+      </Pressable>
       {typing.length ? (
         <Text style={styles.typing} numberOfLines={1}>
           {typing.length === 1 ? `${heroName(typing[0])} is writing…` : `${typing.length} heroes are writing…`}
         </Text>
       ) : null}
-      <Composer chat={chat} />
-    </KeyboardAvoidingView>
+      <Composer chat={chat} keyboardOpen={keyboard.visible} onSent={scrollToNewest} />
+    </View>
   );
 }
 
-function Composer({ chat }: { chat: ChatState }) {
+function Composer({ chat, keyboardOpen, onSent }: { chat: ChatState; keyboardOpen: boolean; onSent: () => void }) {
   const [text, setText] = useState('');
   const canSend = text.trim().length > 0;
   const submit = () => {
@@ -196,10 +210,16 @@ function Composer({ chat }: { chat: ChatState }) {
     const body = text;
     setText('');
     void chat.send(body);
+    onSent();
     haptic.tap();
   };
   return (
     <View style={styles.composer}>
+      {keyboardOpen ? (
+        <Pressable onPress={Keyboard.dismiss} hitSlop={8} style={({ pressed }) => [styles.hideKb, pressed && styles.pressed]} accessibilityLabel="Hide keyboard">
+          <Text style={styles.hideKbText}>⌄</Text>
+        </Pressable>
+      ) : null}
       <TextInput
         value={text}
         onChangeText={(t) => {
@@ -373,6 +393,8 @@ const styles = StyleSheet.create({
     color: ink.ink,
     backgroundColor: ink.page,
   },
+  hideKb: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
+  hideKbText: { fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 30, color: ink.inkSoft, marginTop: -8 },
   sendBtn: { height: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, backgroundColor: ink.ink, alignItems: 'center', justifyContent: 'center' },
   sendDisabled: { opacity: 0.35 },
   sendText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.page },
