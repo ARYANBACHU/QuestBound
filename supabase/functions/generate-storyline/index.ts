@@ -9,7 +9,7 @@
 import { preflight, json, fail } from '../_shared/cors.ts';
 import { admin, callerId, proclaim } from '../_shared/db.ts';
 import { chat, HAS_LLM, parseJSON, withTimeout, type ChatMsg } from '../_shared/llm.ts';
-import { eventsSearch, mapsSearch, resetSerpStats, snapshotSerpStats } from '../_shared/serp.ts';
+import { eventsSearch, geocodeEvent, mapsSearch, resetSerpStats, snapshotSerpStats } from '../_shared/serp.ts';
 import { asDifficulty, type PointsDifficulty } from '../_shared/points.ts';
 import { archiveBook } from '../_shared/progress.ts';
 import { analyzeInterests, INTEREST_INFO } from '../_shared/interests.ts';
@@ -221,6 +221,11 @@ Deno.serve(async (req) => {
 
 // ---------------------------------------------------------------- helpers
 
+function stripVenue(p: Place): Place {
+  const { venue: _v, ...clean } = p as Place & { venue?: string };
+  return clean;
+}
+
 /** The oldest fresh 'generating' storyline of this fellowship (ties broken by id). */
 async function raceWinner(fellowshipId: string, mine: string): Promise<string> {
   const since = new Date(Date.now() - 90_000).toISOString();
@@ -304,7 +309,12 @@ async function ground(lat: number, lng: number, area: string, themes: string[], 
   const tasks: Promise<Place[]>[] = themes.map((t) =>
     withTimeout(mapsSearch(INTEREST_INFO[t]?.query ?? t.replace(/_/g, ' '), lat, lng, 4, zoom), timeoutMs, [], `maps:${t}`)
   );
-  tasks.push(withTimeout(eventsSearch(`events in ${area}`, 6), timeoutMs, [], 'events'));
+  // Events are geocoded (venue lookup on Google Maps) so GPS-gated missions work for them too.
+  tasks.push(
+    withTimeout(eventsSearch(`events in ${area}`, 6), timeoutMs, [], 'events').then((evs) =>
+      Promise.all(evs.map((e) => withTimeout(geocodeEvent(e, lat, lng), 4_000, stripVenue(e), `geocode:${e.title}`)))
+    ),
+  );
   const lists = await Promise.all(tasks);
   const out: Place[] = [];
   const seen = new Set<string>();

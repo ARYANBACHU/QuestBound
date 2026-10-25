@@ -11,6 +11,7 @@ import { preflight, json, fail } from '../_shared/cors.ts';
 import { admin, callerId, DEMO_FORCE_PASS, proclaim } from '../_shared/db.ts';
 import { chatJSON, HAS_LLM, withTimeout } from '../_shared/llm.ts';
 import { lensTitles, resetSerpStats } from '../_shared/serp.ts';
+import { checkGeo, GEO_DEFAULT_RADIUS_M } from '../_shared/geo.ts';
 import { answerJudgeUser, storyLineFor, verifierSystem, verifierUser } from '../_shared/prompts.ts';
 import {
   announceBook, answerMatches, background, buildRecap, effectiveRequired, fallbackStoryLine, paintChapter,
@@ -22,6 +23,9 @@ import {
 } from '../_shared/types.ts';
 
 const BUDGET_MS = 14_000;
+// E3 GPS gate: a mission whose place has coordinates needs the submitter within this many meters
+// (+ their reported GPS accuracy, up to 150 m of slack). Secret GEO_RADIUS_M, default 400.
+const GEO_RADIUS_M = Math.max(50, Number(Deno.env.get('GEO_RADIUS_M') ?? '') || GEO_DEFAULT_RADIUS_M);
 
 Deno.serve(async (req) => {
   const pre = preflight(req); if (pre) return pre;
@@ -50,6 +54,12 @@ Deno.serve(async (req) => {
   const me = members.find((m) => m.user_id === uid);
   if (!me) return fail('Only members of this fellowship can submit proof.', 403);
   if (!page || !storyline) return fail('This page is missing. Pull to refresh.', 404);
+  if (storyline.status !== 'active') {
+    return json({
+      verdict: { pass: false, confidence: 1, reason: 'book_shelved', flavor_text: 'This book is on the shelf now. Its missions rest. Open the current book to keep coloring!' },
+      mission, completion: null, page_completed: false, book_completed: false,
+    });
+  }
 
   const respond = (verdict: Verdict, m: Mission, completion: Completion | null = null, page_completed = false, book_completed = false) =>
     json({ verdict, mission: m, completion, page_completed, book_completed });
@@ -109,6 +119,10 @@ Deno.serve(async (req) => {
     );
   }
 
+  // ---------------------------------------------------------------- GPS (place missions)
+  const geo = checkGeo(mission.place, body, GEO_RADIUS_M, DEMO_FORCE_PASS);
+  if (!geo.ok) return nope(geo.flavor, geo.reason, geo.distance_m != null ? { distance_m: geo.distance_m } : {});
+
   // ---------------------------------------------------------------- verify
   let verdict: Verdict;
   switch (mission.proof_type) {
@@ -124,6 +138,7 @@ Deno.serve(async (req) => {
       if (!proof_text) return nope('The page is blank! Write a few words and try again.', 'no_text');
       verdict = await verifyText(mission, proof_text, left);
   }
+  if (geo.distance_m != null) verdict = { ...verdict, distance_m: geo.distance_m };
   if (!verdict.pass) return respond(verdict, mission);
   return await complete(verdict, participants, uid);
 

@@ -4,6 +4,8 @@
 // Resilience: fresh cache (<12 h) -> live call (timeout) -> stale cache of any age -> throw.
 import { admin } from './db.ts';
 import type { Place } from './types.ts';
+import { haversineM, isCoord } from './geo.ts';
+export { haversineM, isCoord };
 
 const KEY = Deno.env.get('SERPAPI_KEY') ?? '';
 const SERP_BASE = Deno.env.get('SERPAPI_BASE_URL') ?? 'https://serpapi.com'; // override only for local tests
@@ -79,39 +81,86 @@ export async function serp(params: Record<string, string>, opts: { cache?: boole
   }
 }
 
-/** Google Maps local results near a point. */
+/** Google Maps link for a place: the exact place when we have its place_id, else its coordinates, else a search. */
+export function googleMapsLink(p: Pick<Place, 'title' | 'address' | 'lat' | 'lng' | 'source_id'>): string {
+  const base = 'https://www.google.com/maps/search/?api=1';
+  if (p.source_id) return `${base}&query=${encodeURIComponent(p.title)}&query_place_id=${encodeURIComponent(p.source_id)}`;
+  if (isCoord(p.lat, p.lng)) return `${base}&query=${p.lat},${p.lng}`;
+  return `${base}&query=${encodeURIComponent([p.title, p.address].filter(Boolean).join(', '))}`;
+}
+
+/**
+ * One SerpApi google_maps result -> Place. MAPS LINKS rule: the business website goes to `website`, never `link`;
+ * `maps_url` (and `link`, for older clients) is always a Google Maps link. lat/lng whenever gps_coordinates exist.
+ */
+// deno-lint-ignore no-explicit-any
+function toPlace(r: any): Place {
+  const lat = r.gps_coordinates?.latitude;
+  const lng = r.gps_coordinates?.longitude;
+  const p: Place = {
+    title: r.title,
+    address: r.address,
+    ...(isCoord(lat, lng) ? { lat, lng } : {}),
+    rating: r.rating,
+    category: r.type ?? (Array.isArray(r.types) ? r.types[0] : undefined),
+    thumbnail: r.thumbnail,
+    website: typeof r.website === 'string' ? r.website : undefined,
+    source: 'google_maps',
+    source_id: r.place_id,
+  };
+  p.maps_url = googleMapsLink(p);
+  p.link = p.maps_url;
+  return p;
+}
+
+/** Google Maps local results near a point. A very specific query returns one `place_results` instead of a list. */
 export async function mapsSearch(q: string, lat: number, lng: number, limit = 6, zoom = 14): Promise<Place[]> {
   // Round coords so nearby fellowships share cache entries (~1 km).
   const ll = `@${lat.toFixed(3)},${lng.toFixed(3)},${zoom}z`;
   const j = await serp({ engine: 'google_maps', type: 'search', q, ll });
   // deno-lint-ignore no-explicit-any
-  return (j.local_results ?? []).slice(0, limit).map((r: any): Place => ({
-    title: r.title,
-    address: r.address,
-    lat: r.gps_coordinates?.latitude,
-    lng: r.gps_coordinates?.longitude,
-    rating: r.rating,
-    category: r.type ?? (Array.isArray(r.types) ? r.types[0] : undefined),
-    thumbnail: r.thumbnail,
-    link: r.website,
-    source: 'google_maps',
-    source_id: r.place_id,
-  })).filter((p: Place) => !!p.title);
+  const list: any[] = Array.isArray(j.local_results) ? j.local_results : j.place_results ? [j.place_results] : [];
+  return list.slice(0, limit).map(toPlace).filter((p: Place) => !!p.title);
 }
 
-/** Google Events (this week) for an area. */
+/** Google Events (this week) for an area. Not geocoded yet: see geocodeEvent(). */
 export async function eventsSearch(q: string, limit = 6): Promise<Place[]> {
   const j = await serp({ engine: 'google_events', q, htichips: 'date:week' });
   // deno-lint-ignore no-explicit-any
-  return (j.events_results ?? []).slice(0, limit).map((e: any): Place => ({
-    title: e.title,
-    address: Array.isArray(e.address) ? e.address.join(', ') : e.address,
-    when: e.date?.when ?? e.date?.start_date,
-    thumbnail: e.thumbnail ?? e.image,
-    link: e.link,
-    category: 'event',
-    source: 'google_events',
-  })).filter((p: Place) => !!p.title);
+  return (j.events_results ?? []).slice(0, limit).map((e: any): Place => {
+    const addr: string[] = Array.isArray(e.address) ? e.address : e.address ? [e.address] : [];
+    const p: Place = {
+      title: e.title,
+      address: addr.join(', ') || undefined,
+      when: e.date?.when ?? e.date?.start_date,
+      thumbnail: e.thumbnail ?? e.image,
+      website: typeof e.link === 'string' ? e.link : undefined, // the event page (tickets/info), shown as "Website"
+      category: 'event',
+      source: 'google_events',
+    };
+    // Venue name (first address line) helps the geocoder more than the event title.
+    (p as Place & { venue?: string }).venue = e.venue?.name ?? addr[0];
+    p.maps_url = googleMapsLink(p);
+    p.link = p.maps_url;
+    return p;
+  }).filter((p: Place) => !!p.title);
+}
+
+/**
+ * E3: give an event real coordinates by looking its venue up on Google Maps (cached like every SerpApi call).
+ * Results farther than `maxKm` from the fellowship are ignored (a same-named venue in another city).
+ */
+export async function geocodeEvent(p: Place, nearLat: number, nearLng: number, maxKm = 60): Promise<Place> {
+  if (isCoord(p.lat, p.lng)) return p;
+  const venue = (p as Place & { venue?: string }).venue;
+  const q = [venue ?? p.title, p.address && p.address !== venue ? p.address.replace(`${venue}, `, '') : ''].filter(Boolean).join(', ');
+  const [hit] = await mapsSearch(q, nearLat, nearLng, 1, 13);
+  const { venue: _v, ...clean } = p as Place & { venue?: string };
+  if (!hit || !isCoord(hit.lat, hit.lng) || haversineM(nearLat, nearLng, hit.lat, hit.lng!) > maxKm * 1000) return clean;
+  const out: Place = { ...clean, lat: hit.lat, lng: hit.lng, source_id: hit.source_id };
+  out.maps_url = googleMapsLink(out);
+  out.link = out.maps_url;
+  return out;
 }
 
 /** Google Lens on a PUBLIC image URL. Returns visual-match titles (used as verification evidence). */

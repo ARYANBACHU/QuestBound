@@ -14,6 +14,7 @@ import { supabase } from './supabase';
 import { addBook, addCompletion, addMemory, addMessage, advanceIfPageDone, emitMock, mock, patchMission, restoreDemoBook } from './mockStore';
 import { ME, MOCK_RECAP } from '@/fixtures/demo';
 import { asDifficulty, missionPoints } from '@/supabase/functions/_shared/points';
+import { checkGeo, type GeoResult } from '@/supabase/functions/_shared/geo';
 import { TEMPLATES } from '@/shared/templates';
 import type {
   BookRecap, Difficulty, GenerateStorylineRequest, GenerateStorylineResponse, Mission, Page, Storyline, SubmitProofRequest,
@@ -167,6 +168,10 @@ async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse>
     return nope(`This one needs ${need} heroes. Tap the crests of the friends who did it with you (${participants.length}/${need}).`, 'not_enough_members');
   }
 
+  // GPS gate, same rule as the server (missions whose place has lat/lng need you within ~400 m). 'dev' skips it.
+  const geo: GeoResult = req.proof_text === 'dev' ? { ok: true } : checkGeo(mission.place, req);
+  if (!geo.ok) return respond({ pass: false, confidence: 1, reason: geo.reason, flavor_text: geo.flavor, ...(geo.distance_m != null ? { distance_m: geo.distance_m } : {}) }, mission);
+
   let verdict: Verdict;
   if (req.proof_text === 'dev') {
     // Mock-only escape hatch for dev buttons: always passes, whatever the proof type.
@@ -186,6 +191,7 @@ async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse>
     verdict = { pass: true, confidence: 0.8, reason: 'mock', flavor_text: 'The ink accepts your words. Beautifully put!' };
   }
 
+  if (geo.ok && geo.distance_m != null) verdict = { ...verdict, distance_m: geo.distance_m };
   const heroes = participants.map((id) => mock.profiles.find((p) => p.id === id)).filter(Boolean).map((p) => `${p!.display_name} the ${p!.crest}`);
   const who = heroes.length > 1 ? `${heroes.slice(0, -1).join(', ')} and ${heroes[heroes.length - 1]}` : heroes[0];
   const line = `${who} completed "${mission.title}"${mission.place ? ` at ${mission.place.title}` : ''}, and the page drank in the color.`;
