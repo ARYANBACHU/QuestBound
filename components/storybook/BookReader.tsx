@@ -15,6 +15,7 @@ import { RecapPage } from './RecapPage';
 import { CoverSwing } from './BookCover';
 import { PageFlip } from '@/components/coloring/PageFlip';
 import { TaleEntry } from './TaleEntry';
+import { ExpandableStory } from '@/components/coloring/ExpandableStory';
 
 type Item = { kind: 'page'; page: Page } | { kind: 'recap' };
 
@@ -141,15 +142,17 @@ function ChapterSpread({ page, missions, memories, completions, members, width }
   const locked = page.status === 'locked';
   return (
     <View style={{ gap: space.md }}>
-      <Txt v="small" color={ink.muted}>Chapter {roman(page.chapter_number)}</Txt>
-      <Txt v="title">{page.title}</Txt>
-      <Txt v="story">{page.narrative}</Txt>
+      <View style={{ gap: space.xs }}>
+        <Txt v="smallBold" color={mood.deep}>Chapter {roman(page.chapter_number)}</Txt>
+        <Txt v="title">{page.title}</Txt>
+        <ExpandableStory text={page.narrative} lines={3} mood={mood} fadeColor={SCREEN_GRADIENTS[mood.id][0]} />
+      </View>
 
       {page.illustration_url ? (
-        <View style={styles.toggle}>
+        <View style={[styles.toggle, { borderColor: mood.deep }]}>
           {(['coloring', 'illustration'] as const).map((m) => (
-            <Pressable key={m} onPress={() => setMode(m)} style={[styles.toggleBtn, mode === m && styles.toggleOn]} accessibilityRole="button">
-              <Txt v="smallBold" color={mode === m ? ink.page : ink.ink}>{m === 'coloring' ? 'Coloring' : 'Illustration'}</Txt>
+            <Pressable key={m} onPress={() => setMode(m)} style={[styles.toggleBtn, mode === m && { backgroundColor: mood.deep }]} accessibilityRole="button" accessibilityState={{ selected: mode === m }}>
+              <Txt v="smallBold" color={mode === m ? mood.onDeep : mood.deep}>{m === 'coloring' ? 'Coloring' : 'Illustration'}</Txt>
             </Pressable>
           ))}
         </View>
@@ -164,12 +167,12 @@ function ChapterSpread({ page, missions, memories, completions, members, width }
       </View>
 
       {locked ? (
-        <Txt v="story" center>This chapter is still unwritten. Color the one before it to turn the page.</Txt>
+        <Txt v="story" color={ink.inkSoft} center>This chapter is still unwritten. Color the one before it to turn the page.</Txt>
       ) : entries.length === 0 ? (
-        <Txt v="story" center>No tales on this page yet. Every colored region writes a line here, with your photos.</Txt>
+        <Txt v="story" color={ink.inkSoft} center>No tales on this page yet. Every colored region writes a line here, with your photos.</Txt>
       ) : (
         <View>
-          <Txt v="heading" style={{ marginTop: space.md }}>The tale so far</Txt>
+          <Txt v="smallBold" color={mood.deep} style={{ marginTop: space.md }}>THE TALE SO FAR</Txt>
           {entries.map((e, i) => <TaleEntry key={e.mission.id} entry={e} members={members} index={i} width={width} mood={mood} />)}
         </View>
       )}
@@ -183,7 +186,6 @@ const styles = StyleSheet.create({
   spread: { padding: space.lg, paddingBottom: space.xxl * 2 },
   toggle: { flexDirection: 'row', alignSelf: 'flex-start', borderWidth: 2, borderColor: ink.ink, borderRadius: radius.pill, overflow: 'hidden' },
   toggleBtn: { paddingHorizontal: space.lg, paddingVertical: space.xs },
-  toggleOn: { backgroundColor: ink.ink },
   pageCard: { alignSelf: 'center', backgroundColor: ink.page, borderRadius: radius.sm, ...shadow.md },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.xl, paddingVertical: space.sm },
   dots: { flexDirection: 'row', gap: space.sm },
