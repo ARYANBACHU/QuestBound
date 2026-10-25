@@ -4,6 +4,7 @@ import { fonts, ink, space, type } from '@/shared/theme';
 import type { Fellowship, FellowshipMember } from '@/shared/types';
 import CrestRow from './CrestRow';
 import GameButton from './GameButton';
+import { HeaderMusicToggle } from '@/components/shell/music';
 
 export interface FellowshipHeaderProps {
   fellowship: Fellowship;
@@ -35,6 +36,7 @@ export default function FellowshipHeader({ fellowship, members, online, onInvite
           </Text>
         </Pressable>
       </View>
+      <HeaderMusicToggle />
       <GameButton label="Invite" size="sm" onPress={onInvite} accessibilityLabel="Invite friends" />
     </View>
   );
