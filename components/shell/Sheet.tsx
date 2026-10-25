@@ -4,6 +4,7 @@ import { Modal, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ink, panel, scrim, space, ui } from '@/shared/theme';
 import { KeyboardSafe } from './KeyboardSafe';
+import { playSfx } from './sfx';
 
 export const SHEET_RADIUS = ui.cardRadius + 6;
 
@@ -13,7 +14,7 @@ export function Sheet({ visible, onClose, children, style, dismissable = true }:
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={dismissable ? onClose : () => {}}>
-      <Pressable style={styles.backdrop} onPress={dismissable ? onClose : undefined} accessibilityLabel="Close" />
+      <Pressable style={styles.backdrop} onPress={dismissable ? () => { playSfx('close'); onClose(); } : undefined} accessibilityLabel="Close" />
       <KeyboardSafe style={styles.wrap} pointerEvents="box-none" dismissOnTap={false}>
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.lg) }, style]}>
           <View style={styles.grabber} />

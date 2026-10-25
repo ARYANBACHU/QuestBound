@@ -15,6 +15,7 @@ import { ink, panel, scrim, shadow, space, ui } from '@/shared/theme';
 import { Button } from './Button';
 import { useNewBook } from './NewBook';
 import { T } from './T';
+import { playSfx } from './sfx';
 
 export function DemoTools() {
   const { demoOpen, closeDemoTools } = useWizard();
@@ -32,9 +33,9 @@ export function DemoTools() {
     setNote(null);
     try {
       await fn();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setNote(`${label} failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(null);

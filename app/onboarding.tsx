@@ -33,6 +33,7 @@ import {
   CRESTS, SAGE_CREDIT, SCREEN_GRADIENTS, fonts, ink, panel, radius, shadow, space, type, ui,
   type CrayonColor, type CrestId, type SageExpression,
 } from '@/shared/theme';
+import { playSfx } from '@/components/shell/sfx';
 
 // A broken screen shows Sage's "Something went awry — tap to recover" instead of crashing (B1).
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/shell/ErrorBoundary';
@@ -117,7 +118,7 @@ export default function Onboarding() {
     if (step !== 'summon' || params.replay === '1' || skipped.current || summoning) return;
     if (!story.loading && story.storyline && story.storyline.status !== 'generating') {
       skipped.current = true;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       router.replace('/(tabs)/coloring');
     }
   }, [step, story.loading, story.storyline, params.replay, summoning, router]);
@@ -136,10 +137,10 @@ export default function Onboarding() {
       await updateProfile({
         display_name: name.trim(), crest, color, interests, budget, availability, music_enabled: music, onboarded: true,
       });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       afterProfile();
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`Sage couldn't save your page: ${msg(e)}. Check your connection and tap again.`);
     } finally {
       setSaving(false);
@@ -151,10 +152,10 @@ export default function Onboarding() {
     setError(null);
     try {
       await fs.createFellowship(fName.trim() || 'The Lantern Fellowship');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       setFMode('invite');
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`The fellowship couldn't be founded: ${msg(e)}. Try again.`);
     } finally {
       setSaving(false);
@@ -170,10 +171,10 @@ export default function Onboarding() {
     setError(null);
     try {
       await fs.joinByCode(c);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       go('summon'); // auto-skips to the tabs if the fellowship already has a book; else waits for the founder
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`No fellowship answered to "${c}". Check the code with your friend and try again. (${msg(e)})`);
     } finally {
       setSaving(false);
@@ -187,11 +188,11 @@ export default function Onboarding() {
     try {
       const req: GenerateStorylineRequest = { fellowship_id: fs.fellowship.id, mode: 'first', ...(demo ? { demo: true } : {}) };
       await generateStoryline(req);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       skipped.current = true;
       router.replace('/(tabs)/coloring');
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`The ink ran dry: ${msg(e)}. Try again, or let me write a quick demo book.`);
       setSummoning(false);
     }
@@ -482,7 +483,7 @@ function ChoiceCard({ emoji, title, sub, onPress }: { emoji: string; title: stri
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }}
+      onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('tap'); onPress(); }}
       style={({ pressed }) => [styles.choice, pressed && { transform: [{ scale: ui.pressScale }] }]}
     >
       <T style={styles.choiceEmoji}>{emoji}</T>

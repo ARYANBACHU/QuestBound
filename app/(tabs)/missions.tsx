@@ -26,6 +26,7 @@ import { useMissions, useStoryline } from '@/lib/game';
 import { useSession } from '@/lib/session';
 import type { Mission, Page } from '@/shared/types';
 import { SCREEN_GRADIENTS, accent, ink, moodFor, panel, radius, shadow, space } from '@/shared/theme';
+import { playSfx } from '@/components/shell/sfx';
 
 type Filter = 'all' | 'mine' | 'open' | 'done';
 const FILTERS: { id: Filter; label: string }[] = [
@@ -121,7 +122,7 @@ export default function MissionsScreen() {
                 <Pressable
                   key={p.id}
                   disabled={locked}
-                  onPress={() => { Haptics.selectionAsync().catch(() => {}); setChapterId(p.id === activePage?.id ? null : p.id); }}
+                  onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('tap'); setChapterId(p.id === activePage?.id ? null : p.id); }}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: on, disabled: locked }}
                   accessibilityLabel={`Chapter ${p.chapter_number}${locked ? ', sealed' : p.status === 'complete' ? ', complete' : ''}`}

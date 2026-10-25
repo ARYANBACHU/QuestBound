@@ -134,7 +134,7 @@ export default function MissionDetail() {
       Haptics.notificationAsync(res.verdict.pass ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => {});
       setPhase({ kind: 'result', res });
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(readable(e));
       setPhase({ kind: 'form' });
     }
@@ -272,8 +272,8 @@ export default function MissionDetail() {
                     <T variant="small">{mission.verification_hint || 'Snap a photo that shows you did it.'}</T>
                   )}
                   <View style={styles.row}>
-                    <Button label={photo ? 'Retake' : 'Take photo'} icon="📷" variant="secondary" onPress={() => pick('camera')} style={styles.fill} small />
-                    <Button label="Choose photo" icon="🖼️" variant="secondary" onPress={() => pick('library')} style={styles.fill} small />
+                    <Button label={photo ? 'Retake' : 'Take photo'} icon="📷" variant="secondary" onPress={() => pick('camera')} style={styles.fill} small sfx="open" />
+                    <Button label="Choose photo" icon="🖼️" variant="secondary" onPress={() => pick('library')} style={styles.fill} small sfx="open" />
                   </View>
                 </View>
               ) : null}
@@ -343,7 +343,7 @@ export default function MissionDetail() {
           ) : mission.status === 'locked' || waitingOnGift ? (
             <Button label="Back to missions" variant="secondary" onPress={() => router.back()} />
           ) : (
-            <Button label={primaryLabel} onPress={submit} disabled={!canSubmit} />
+            <Button label={primaryLabel} onPress={submit} disabled={!canSubmit} sfx="send" />
           )}
         </Footer>
       </KeyboardSafe>
@@ -368,7 +368,7 @@ function PlaceCard({ place, prox }: { place: Place; prox: Proximity | null }) {
     <View style={styles.place}>
       <Pressable
         style={styles.placeMain}
-        onPress={() => { Haptics.selectionAsync().catch(() => {}); openInMaps(place); }}
+        onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('open'); openInMaps(place); }}
         accessibilityRole="link"
         accessibilityLabel={`${place.title}. Open in Maps`}
       >
@@ -385,7 +385,7 @@ function PlaceCard({ place, prox }: { place: Place; prox: Proximity | null }) {
       </Pressable>
       <View style={styles.placeActions}>
         <Pressable
-          onPress={() => { Haptics.selectionAsync().catch(() => {}); openInMaps(place); }}
+          onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('open'); openInMaps(place); }}
           style={styles.mapsBtn}
           accessibilityRole="button"
           accessibilityLabel="Open in Maps"
@@ -525,7 +525,7 @@ function Shell({ children, onClose, menu, mood }: { children: React.ReactNode; o
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <View style={styles.topBar}>
           {onClose ? (
-            <Pressable onPress={onClose} hitSlop={14} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
+            <Pressable onPress={() => { playSfx('close'); onClose(); }} hitSlop={14} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
               <T variant="heading">✕</T>
             </Pressable>
           ) : <View style={styles.close} />}

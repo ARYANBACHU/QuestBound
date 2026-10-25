@@ -10,6 +10,7 @@ import { CoachTarget } from '@/components/wizard/coachTargets';
 import { T } from './T';
 import { CrayonSquiggle, TabIcon, type TabName } from './TabIcons';
 import { useUnreadProclamations } from './useUnreadProclamations';
+import { playSfx } from './sfx';
 
 export const TAB_BAR_HEIGHT = 64;
 /** Screens pad their scroll content with this so nothing hides behind Sage's FAB. */
@@ -47,7 +48,7 @@ export function TabBar({ state, navigateToTab, emitter, insets }: BottomTabBarPr
             onPress={() => {
               const ev = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
               if (!active && !ev.defaultPrevented) {
-                Haptics.selectionAsync().catch(() => {});
+                Haptics.selectionAsync().catch(() => {}); playSfx('tap');
                 navigateToTab(route.key);
               }
             }}

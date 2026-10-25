@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { Budget } from '@/shared/types';
 import { accent, ink, radius, space } from '@/shared/theme';
 import { T } from './T';
+import { playSfx } from './sfx';
 
 const BUDGETS: { id: Budget; label: string }[] = [
   { id: 'free', label: 'Free' }, { id: '$', label: '$' }, { id: '$$', label: '$$' }, { id: '$$$', label: '$$$' },
@@ -24,7 +25,7 @@ export function BudgetPicker({ value, onChange }: { value: Budget; onChange: (b:
             key={b.id}
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
-            onPress={() => { Haptics.selectionAsync().catch(() => {}); onChange(b.id); }}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('toggle'); onChange(b.id); }}
             style={[styles.seg, i > 0 && styles.segDivider, on && styles.segOn]}
           >
             <T variant="bodyBold" color={on ? accent.onPrimary : ink.ink}>{b.label}</T>
@@ -46,7 +47,7 @@ export function AvailabilityPicker({ value, onChange }: { value: string[]; onCha
             accessibilityRole="switch"
             accessibilityState={{ checked: on }}
             onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
+              Haptics.selectionAsync().catch(() => {}); playSfx('toggle');
               onChange(on ? value.filter((v) => v !== a.id) : [...value, a.id]);
             }}
             style={[styles.toggle, on && styles.toggleOn]}

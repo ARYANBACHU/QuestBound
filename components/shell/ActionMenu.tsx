@@ -5,6 +5,7 @@ import { Modal, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ink, panel, scrim, shadow, space, ui } from '@/shared/theme';
 import { T } from './T';
+import { playSfx } from './sfx';
 
 export interface MenuItem {
   label: string;
@@ -25,20 +26,20 @@ export function ActionMenu({ items, style, label = 'More actions', top = 52 }: {
         accessibilityRole="button"
         accessibilityLabel={label}
         hitSlop={10}
-        onPress={() => { Haptics.selectionAsync().catch(() => {}); setOpen(true); }}
+        onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('open'); setOpen(true); }}
         style={({ pressed }) => [styles.trigger, pressed && styles.pressed, style]}
       >
         <T variant="heading" style={styles.dots}>•••</T>
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Close menu" />
+        <Pressable style={styles.backdrop} onPress={() => { playSfx('close'); setOpen(false); }} accessibilityLabel="Close menu" />
         <View style={[styles.menuShadow, { top: insets.top + top }]}>
         <View style={styles.menu}>
           {items.map((it, i) => (
             <Pressable
               key={it.label}
               accessibilityRole="menuitem"
-              onPress={() => { setOpen(false); Haptics.selectionAsync().catch(() => {}); setTimeout(it.onPress, 120); }}
+              onPress={() => { setOpen(false); Haptics.selectionAsync().catch(() => {}); playSfx('tap'); setTimeout(it.onPress, 120); }}
               style={({ pressed }) => [styles.item, i > 0 && styles.divider, pressed && styles.itemPressed]}
             >
               {it.icon ? <T style={styles.icon}>{it.icon}</T> : null}

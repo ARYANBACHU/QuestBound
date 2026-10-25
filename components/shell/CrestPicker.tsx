@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring } from 'react-native-reanimated';
 import { CREST_LIST, CRESTS, CRAYONS, ink, radius, space, type CrayonColor, type CrestId } from '@/shared/theme';
 import { T } from './T';
+import { playSfx } from './sfx';
 
 export function CrestPicker({ value, onChange, color }: { value: CrestId | null; onChange: (c: CrestId) => void; color?: CrayonColor }) {
   return (
@@ -27,7 +28,7 @@ function CrestCell({ id, selected, ring, onPress }: { id: CrestId; selected: boo
       accessibilityRole="radio"
       accessibilityState={{ selected }}
       accessibilityLabel={CRESTS[id].title}
-      onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }}
+      onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('tap'); onPress(); }}
       style={styles.cell}
     >
       <Animated.View style={[styles.disc, selected && { borderColor: ring, borderWidth: 4, backgroundColor: ink.lavenderMist }, anim]}>

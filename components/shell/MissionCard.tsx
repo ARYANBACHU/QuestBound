@@ -9,6 +9,7 @@ import { completerColor, needsLabel } from './missionUtils';
 import { StatusPill } from './StatusPill';
 import { T } from './T';
 import { CrestRow, MissionTypeIcon, MISSION_TYPE_LABEL } from './teammates';
+import { playSfx } from './sfx';
 
 export function MissionCard({ mission, members, mood, locked }: {
   mission: Mission;
@@ -28,7 +29,7 @@ export function MissionCard({ mission, members, mood, locked }: {
       accessibilityLabel={`${mission.title}, ${MISSION_TYPE_LABEL[mission.type]}, ${mission.status}`}
       disabled={locked}
       onPress={() => {
-        Haptics.selectionAsync().catch(() => {});
+        Haptics.selectionAsync().catch(() => {}); playSfx('open');
         router.push({ pathname: '/mission/[id]', params: { id: mission.id } });
       }}
       style={({ pressed }) => [styles.card, locked && styles.locked, pressed && styles.pressed]}
@@ -44,7 +45,7 @@ export function MissionCard({ mission, members, mood, locked }: {
         <T variant="bodyBold" numberOfLines={2} color={locked ? ink.muted : ink.ink}>{locked ? 'A sealed mission' : mission.title}</T>
         {!locked && mission.place ? (
           <Pressable
-            onPress={() => { Haptics.selectionAsync().catch(() => {}); openInMaps(mission.place); }}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('open'); openInMaps(mission.place); }}
             hitSlop={6}
             accessibilityRole="link"
             accessibilityLabel={`${mission.place.title}. Open in Maps`}

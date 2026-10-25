@@ -8,6 +8,7 @@ import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from '
 import Svg, { Path, Rect } from 'react-native-svg';
 import { CRAYON_LIST, CRAYONS, CRESTS, ink, panel, radius, shadow, space, ui, type CrayonColor, type CrestId } from '@/shared/theme';
 import { T } from './T';
+import { playSfx } from './sfx';
 
 export function crayonName(c: CrayonColor) {
   return c.charAt(0).toUpperCase() + c.slice(1);
@@ -63,8 +64,8 @@ function Swatch({ color, selected, taken, onPress }: { color: CrayonColor; selec
       accessibilityState={{ selected }}
       accessibilityLabel={`${crayonName(color)} crayon${taken ? `, already ${CRESTS[taken].title}'s crayon` : ''}`}
       onPress={() => {
-        if (taken) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-        else Haptics.selectionAsync().catch(() => {});
+        if (taken) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error'); }
+        else { Haptics.selectionAsync().catch(() => {}); playSfx('tap'); }
         onPress();
       }}
       style={styles.cellWrap}

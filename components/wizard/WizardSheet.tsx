@@ -27,6 +27,7 @@ import { Sage, SageTitle } from './Sage';
 import { SCREEN_SUGGESTIONS, screenFromPath } from './screens';
 import { useTypewriter } from './useTypewriter';
 import { useWizard, type WizardMsg } from './WizardProvider';
+import { playSfx } from '@/components/shell/sfx';
 
 const RADIUS = ui.cardRadius + 6;
 
@@ -74,7 +75,7 @@ export function WizardSheet() {
         if (g.vy < -0.6 || end > (HALF + FULL) / 2) next = 'full';
         else if (g.vy > 0.8 || end < HALF * 0.7) next = cur === 'full' && end > HALF * 0.7 ? 'half' : 'pill';
         else next = 'half';
-        Haptics.selectionAsync().catch(() => {});
+        Haptics.selectionAsync().catch(() => {}); playSfx('tap');
         if (next === cur) h.value = withTiming(cur === 'full' ? FULL : HALF, { duration: motion.sheet });
         if (next === 'pill') Keyboard.dismiss();
         setMode(next);
@@ -89,6 +90,7 @@ export function WizardSheet() {
   const ask = useCallback(async (question: string) => {
     const q = question.trim();
     if (!q || thinking) return;
+    playSfx('send');
     const userMsg: WizardMsg = { id: `u-${Date.now()}`, role: 'user', content: q };
     const history = [...messages, userMsg];
     setMessages(history);
@@ -146,7 +148,7 @@ export function WizardSheet() {
         style={[styles.pillWrap, { bottom: TAB_BAR_HEIGHT + Math.max(insets.bottom, space.sm) + space.md }]} pointerEvents="box-none">
         <Pressable
           style={styles.pill}
-          onPress={() => { Haptics.selectionAsync().catch(() => {}); wiz.setMode('half'); }}
+          onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('open'); wiz.setMode('half'); }}
           accessibilityRole="button"
           accessibilityLabel="Open Sage"
         >
@@ -155,7 +157,7 @@ export function WizardSheet() {
             <T variant="smallBold">Sage</T>
             <T variant="small" numberOfLines={1}>{thinking ? 'Thinking…' : lastAssistant?.content ?? 'Ask me anything'}</T>
           </View>
-          <Pressable onPress={wiz.close} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close Sage" style={styles.pillClose}>
+          <Pressable onPress={() => { playSfx('close'); wiz.close(); }} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close Sage" style={styles.pillClose}>
             <T variant="bodyBold" color={ink.inkSoft}>✕</T>
           </Pressable>
         </Pressable>
@@ -168,7 +170,7 @@ export function WizardSheet() {
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Pressable
         style={styles.backdrop}
-        onPress={() => (kbOpen ? Keyboard.dismiss() : wiz.minimize())}
+        onPress={() => { if (kbOpen) Keyboard.dismiss(); else { playSfx('close'); wiz.minimize(); } }}
         accessibilityLabel={kbOpen ? 'Hide keyboard' : 'Minimize Sage'}
       />
       <Animated.View entering={FadeInDown.duration(motion.sheet)} style={[styles.sheet, sheetStyle]}>
@@ -181,8 +183,8 @@ export function WizardSheet() {
               <SageTitle style={styles.fill} />
               <HeaderButton label={mode === 'full' ? 'Half screen' : 'Full screen'} glyph={mode === 'full' ? '⌄' : '⌃'}
                 onPress={() => wiz.setMode(mode === 'full' ? 'half' : 'full')} />
-              <HeaderButton label="Minimize" glyph="–" onPress={() => { Keyboard.dismiss(); wiz.minimize(); }} />
-              <HeaderButton label="Close" glyph="✕" onPress={() => { Keyboard.dismiss(); wiz.close(); }} />
+              <HeaderButton label="Minimize" glyph="–" onPress={() => { Keyboard.dismiss(); playSfx('close'); wiz.minimize(); }} />
+              <HeaderButton label="Close" glyph="✕" onPress={() => { Keyboard.dismiss(); playSfx('close'); wiz.close(); }} />
             </View>
           </View>
 
@@ -206,7 +208,7 @@ export function WizardSheet() {
                         setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, post: undefined } : x)));
                         try {
                           await chat.send(body);
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
                           setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant',
                             content: 'Posted to the fellowship chat! I’ll be listening for thumbs.',
                             actions: [{ type: 'navigate', target: 'friends' }] }]);
@@ -228,7 +230,7 @@ export function WizardSheet() {
                         style={styles.actionChip}
                         accessibilityRole="button"
                         onPress={() => {
-                          Haptics.selectionAsync().catch(() => {});
+                          Haptics.selectionAsync().catch(() => {}); playSfx('tap');
                           Keyboard.dismiss();
                           wiz.minimize();
                           runAction(router, a);
@@ -292,7 +294,7 @@ export function WizardSheet() {
 
 function HeaderButton({ label, glyph, onPress }: { label: string; glyph: string; onPress: () => void }) {
   return (
-    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} hitSlop={8} style={styles.hBtn}
+    <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('tap'); onPress(); }} hitSlop={8} style={styles.hBtn}
       accessibilityRole="button" accessibilityLabel={label}>
       <T variant="bodyBold" style={styles.hGlyph}>{glyph}</T>
     </Pressable>

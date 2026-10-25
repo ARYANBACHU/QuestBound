@@ -34,6 +34,7 @@ import {
   CRAYONS, CRESTS, INTERESTS, SCREEN_GRADIENTS, accent, fonts, ink, panel, radius, shadow, space, type, ui,
   type CrayonColor, type CrestId,
 } from '@/shared/theme';
+import { playSfx } from '@/components/shell/sfx';
 
 type Editing = null | 'identity' | 'crayon' | 'interests' | 'time';
 const NOTIFY_KEY = 'qb.notify';
@@ -193,7 +194,7 @@ function LeaveSheet({ visible, onClose, onLeave, name }: { visible: boolean; onC
         <Button label="Leave the fellowship" variant="danger" loading={busy} onPress={async () => {
           setBusy(true);
           try { await onLeave(); } catch (e) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
             setError(`Couldn't leave: ${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
           } finally { setBusy(false); }
         }} />
@@ -240,10 +241,10 @@ function ProfileEditor({ editing, onClose, onSaved, profile, save, takenBy }: {
       if (editing === 'crayon') await save({ color });
       if (editing === 'interests') await save({ interests });
       if (editing === 'time') await save({ budget, availability });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       onSaved();
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`Couldn't save: ${e instanceof Error ? e.message : String(e)}. Try again.`);
     } finally {
       setSaving(false);
@@ -310,7 +311,7 @@ function ToggleRow({ label, sub, value, onChange, last }: {
         <T variant="bodyBold">{label}</T>
         <T variant="small">{sub}</T>
       </View>
-      <Switch value={value} onValueChange={onChange} accessibilityLabel={label}
+      <Switch value={value} onValueChange={(v) => { playSfx('toggle'); onChange(v); }} accessibilityLabel={label}
         trackColor={{ true: accent.primary, false: ink.lavenderMist }} thumbColor={ink.page} />
     </View>
   );
@@ -322,7 +323,7 @@ function Row({ label, value, onPress, swatch, mono, last }: {
   return (
     <Pressable
       disabled={!onPress}
-      onPress={onPress}
+      onPress={onPress ? () => { playSfx('open'); onPress(); } : undefined}
       accessibilityRole={onPress ? 'button' : undefined}
       style={({ pressed }) => [styles.row, last && styles.rowLast, pressed && styles.rowPressed]}
     >
