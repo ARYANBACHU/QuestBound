@@ -5,11 +5,17 @@ import { castle_gate } from './castle_gate';
 import { enchanted_forest } from './enchanted_forest';
 import { dragon_peak } from './dragon_peak';
 import { royal_feast } from './royal_feast';
+import { placeholderArt } from './placeholder';
 
 export type { PageArt, RegionArt } from './types';
 export { VIEW_W, VIEW_H } from './types';
 
-export const PAGE_ART: Record<TemplateId, PageArt> = { castle_gate, enchanted_forest, dragon_peak, royal_feast };
+const DRAWN: Partial<Record<TemplateId, PageArt>> = { castle_gate, enchanted_forest, dragon_peak, royal_feast };
+
+/** Every template id has art: drawn pages first, a placeholder frame for any id not drawn yet. */
+export const PAGE_ART = Object.fromEntries(
+  (Object.keys(TEMPLATES) as TemplateId[]).map((id) => [id, DRAWN[id] ?? placeholderArt(id)]),
+) as Record<TemplateId, PageArt>;
 
 /** Region ids in the art must exactly match shared/templates.ts — the engine only assigns those. */
 export function validatePageArt(): string[] {
