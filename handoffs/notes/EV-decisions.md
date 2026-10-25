@@ -59,3 +59,19 @@
 - **paint-chapter only paints completed pages**: an unfinished chapter isn't a story yet, and it keeps the cost bounded.
 - **JPEG re-encode on the server** (G3): the image API ignores `output_format`; storage image transforms are not on
   this plan (403). imagescript decode+resize+encode ≈ 250 ms CPU, well under the edge CPU budget.
+
+## V1 final round (Oct 25)
+- **Coded errors, not text matching** (V1): `{ error, code }` with `no_fellowship | not_member | retry | auth`. The app
+  routes on `code` (lib/api `EngineError`, `isNoFellowshipError`). Disbanded vs. left are both "go to create/join".
+- **No bare 500s**: every EV function is wrapped in `safe()`; unexpected throws → 503 `retry` with Sage's text. 503 (not
+  200) so supabase-js still surfaces it as an error the overlay can Retry.
+- **geo_enforced is per book** (V2): written at insert (`!utDemo`), read by submit-proof. Not enforced = we still compute
+  and return `distance_m` (the demo shows "290 km away") but pass `force` to `checkGeo`. Mock engine mirrors it.
+- **UT Chapter I has 0 solos**: Turtle Pond riddle + Littlefield walk became duets (plan: "prefer 0"). Chapters II–IV
+  keep exactly one solo each (a verse or a single photo) for pacing. New riddle answer: red-eared slider (+ alternates;
+  the LLM judge forgives near misses). Co-op pin = SerpApi's (63 m from my estimate).
+- **Photo verifier expects a crew only for people photos** (gathering/duet). A duet relic ("photograph your sketch with
+  the museum behind it", "the moon") is an object photo; demanding 2 faces would fail honest proofs.
+- **V6: small = duet by default**, `crew: 1` is the only way to get a solo (max one per template, none used in fallbacks).
+  Copy is fixed centrally by `withCrew()` (imperative → "Two of you photograph…") instead of rewriting 40 strings; a
+  test checks every fallback reads "Two of you…/Three of you…".
