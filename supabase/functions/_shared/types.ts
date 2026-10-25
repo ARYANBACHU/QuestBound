@@ -7,7 +7,7 @@ export type TemplateId = 'castle_gate' | 'enchanted_forest' | 'dragon_peak' | 'r
 
 export interface Place {
   title: string; address?: string; lat?: number; lng?: number; rating?: number; category?: string;
-  thumbnail?: string; when?: string; link?: string; source: 'google_maps' | 'google_events' | 'manual'; source_id?: string;
+  thumbnail?: string; when?: string; link?: string; maps_url?: string; website?: string; source: 'google_maps' | 'google_events' | 'manual'; source_id?: string;
 }
 
 export interface Verdict { pass: boolean; confidence: number; reason: string; flavor_text: string; lens_titles?: string[] }

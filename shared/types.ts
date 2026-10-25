@@ -68,6 +68,8 @@ export interface Place {
   thumbnail?: string;
   when?: string; // events only
   link?: string;
+  maps_url?: string; // directions link (Google Maps); the app opens maps via lib/maps.ts openInMaps(place)
+  website?: string; // business website — shown as a separate "Website" link, never as the maps action
   source: 'google_maps' | 'google_events' | 'manual';
   source_id?: string;
 }
