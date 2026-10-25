@@ -290,3 +290,22 @@ Format:
 - **MP:** chat Send → `playSfx('send')`; plain Pressables (chips, toggles) → `'tap'` / `'toggle'`.
 - Status: MP chat Send ✅ applied in round 3 (merge); AD pageBack ✅. Open (MP): 'tap'/'toggle' on plain Pressables.
 
+
+## [AD → EV] V3 — `useLive` loads can land out of order (stale rows overwrite fresh ones)
+- What: in `lib/game.ts` `useLive`, `load()` calls are not sequenced. Several realtime events >150 ms apart start
+  several loads; if an older one resolves last, its stale rows replace the fresh ones (a mission just marked
+  `complete` flips back to `open` for a moment, then forward again). That replays the coloring fill.
+- Proposed diff (inside the effect):
+  ```ts
+  let seq = 0;
+  const load = async () => {
+    const mine = ++seq;
+    try {
+      const data = await loader(key);
+      if (alive && mine === seq) setState({ key, data, loading: false });
+    } catch (e) { … same, also guarded by `mine === seq` … }
+  };
+  ```
+- Why: V3 flicker. AD's `ColoringPage` now tolerates it (a regression within 8 s of completion is ignored, and each
+  mission's fill plays once per mount), but other screens (Missions, mission detail) would still blink.
+- Status: open.

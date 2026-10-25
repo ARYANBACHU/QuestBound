@@ -36,6 +36,7 @@ const SPARKLE_MS = 650;
 const SHIMMER_AT = 1150;
 const SHIMMER_MS = 650;
 const FOCUS_DELAY_MS = 380; // when fills were waiting for the page to be on screen, let the screen settle first
+const STICKY_MS = 8000; // a fresh 'complete' that flips back within this window is a stale refetch, not an undo
 const STRIPE = 12; // teammate stripe width in viewBox units (~4 px on a phone)
 const GLYPH = 60;
 const NATIVE = Platform.OS !== 'web';
@@ -76,57 +77,101 @@ function ColoringPageImpl({
   const w = width ?? Math.min(screenW - 2 * space.lg, 560);
   const h = (w * VIEW_H) / VIEW_W;
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
-  const byRegion = useMemo(() => {
-    const map: Record<string, Mission> = {};
-    for (const m of missions) map[m.region_id] = m;
-    return map;
-  }, [missions]);
+  // V3: a fill plays ONCE per mission per mount. Two things used to replay it (blank→color→blank→color):
+  //  - a refetch landing out of order briefly reverts a fresh 'complete' back to open → treat a regression within
+  //    STICKY_MS of completion as noise and keep showing the colored region;
+  //  - focus flickering (paused true→false→true→false) scheduled two plays → one cancellable focus timer.
+  const doneAt = useRef<Record<string, number>>({}); // missionId -> first seen complete (this mount)
+  const lastDone = useRef<Record<string, Mission>>({}); // missionId -> latest complete row (for its crayon colors)
+  const played = useRef<Set<string>>(new Set()); // missionIds whose fill already played or was already colored
+  const byRegion: Record<string, Mission> = {};
+  for (const m of missions) {
+    const t = doneAt.current[m.id];
+    const sticky = m.status !== 'complete' && t !== undefined && Date.now() - t < STICKY_MS && lastDone.current[m.id];
+    byRegion[m.region_id] = sticky ? lastDone.current[m.id] : m;
+  }
 
   // --- detect open/pending → complete transitions while mounted ---
   const reduced = useReducedMotion();
   const prev = useRef<Record<string, string> | null>(null);
   const [filling, setFilling] = useState<Record<string, number>>({}); // regionId -> start stamp
+  const fillingRef = useRef(filling);
+  fillingRef.current = filling;
   const [queued, setQueued] = useState<string[]>([]); // colored while paused: shown blank until played
+  const queuedRef = useRef(queued);
+  queuedRef.current = queued;
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    timers.current.forEach(clearTimeout);
+    if (focusTimer.current) clearTimeout(focusTimer.current);
+  }, []);
 
-  const play = (regions: string[], delay = 0) => {
-    const go = () => {
-      setQueued((q) => q.filter((r) => !regions.includes(r)));
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      playSfx('crayon');
-      if (reduced) return; // colors appear instantly
-      const stamp = Date.now();
-      setFilling((f) => ({ ...f, ...Object.fromEntries(regions.map((r) => [r, stamp])) }));
-      timers.current.push(setTimeout(() => {
-        setFilling((f) => {
-          const next = { ...f };
-          for (const r of regions) if (next[r] === stamp) delete next[r];
-          return next;
-        });
-      }, REVEAL_MS + 150));
-    };
-    if (delay) timers.current.push(setTimeout(go, delay)); else go();
+  const play = (all: string[]) => {
+    setQueued((q) => q.filter((r) => !all.includes(r)));
+    const regions = all.filter((r) => !fillingRef.current[r]); // already filling → never restart it
+    if (!regions.length) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    playSfx('crayon');
+    if (reduced) return; // colors appear instantly
+    const stamp = Date.now();
+    setFilling((f) => ({ ...f, ...Object.fromEntries(regions.map((r) => [r, stamp])) }));
+    timers.current.push(setTimeout(() => {
+      setFilling((f) => {
+        const next = { ...f };
+        for (const r of regions) if (next[r] === stamp) delete next[r];
+        return next;
+      });
+    }, REVEAL_MS + 150));
   };
   const playRef = useRef(play);
   playRef.current = play;
 
+  /** Regions that just turned complete and haven't started their fill yet. Computed DURING render so the region
+   *  stays blank in the very render the new data lands — otherwise it flashed full color for a frame before the
+   *  effect below started the scribble (the V3 blank→color→blank→color). */
+  const freshRegions = (): string[] => {
+    const before = prev.current;
+    if (!before || !animate) return [];
+    return Object.keys(byRegion).filter(
+      (r) => byRegion[r].status === 'complete' && before[r] && before[r] !== 'complete' && !played.current.has(byRegion[r].id),
+    );
+  };
+  const freshNow = freshRegions();
+
   useEffect(() => {
     const now: Record<string, string> = {};
-    for (const m of missions) now[m.region_id] = m.status;
-    const before = prev.current;
+    for (const r of Object.keys(byRegion)) now[r] = byRegion[r].status;
+    for (const m of missions) {
+      if (m.status !== 'complete') continue;
+      if (doneAt.current[m.id] === undefined) doneAt.current[m.id] = Date.now();
+      lastDone.current[m.id] = m;
+    }
+    const fresh = freshRegions();
+    const first = !prev.current;
     prev.current = now;
-    if (!before || !animate) return;
-    const fresh = Object.keys(now).filter((r) => now[r] === 'complete' && before[r] && before[r] !== 'complete');
+    if (first || !animate) {
+      for (const r of Object.keys(now)) if (now[r] === 'complete') played.current.add(byRegion[r].id);
+      return;
+    }
     if (!fresh.length) return;
+    for (const r of fresh) played.current.add(byRegion[r].id);
     if (paused) setQueued((q) => [...new Set([...q, ...fresh])]);
     else playRef.current(fresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missions, animate, paused]);
 
   useEffect(() => {
-    if (paused || !queued.length) return;
-    playRef.current(queued, FOCUS_DELAY_MS);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (paused) {
+      if (focusTimer.current) clearTimeout(focusTimer.current);
+      focusTimer.current = null;
+      return;
+    }
+    if (!queuedRef.current.length || focusTimer.current) return;
+    focusTimer.current = setTimeout(() => {
+      focusTimer.current = null;
+      if (queuedRef.current.length) playRef.current(queuedRef.current);
+    }, FOCUS_DELAY_MS);
   }, [paused]);
 
   const [pressed, setPressed] = useState<string | null>(null);
@@ -135,7 +180,7 @@ function ColoringPageImpl({
   const id = (k: string) => `${uid}${k}`;
 
   // 100% coloring: the sky/ground behind the regions takes the chapter mood as regions are colored (full at 6/6)
-  const doneCount = locked ? 0 : regionIds.filter((r) => byRegion[r]?.status === 'complete' && !queued.includes(r)).length;
+  const doneCount = locked ? 0 : regionIds.filter((r) => byRegion[r]?.status === 'complete' && !queued.includes(r) && !freshNow.includes(r)).length;
   const washTarget = regionIds.length ? doneCount / regionIds.length : 0;
   const wash = useSharedValue(washTarget);
   useEffect(() => {
@@ -192,7 +237,7 @@ function ColoringPageImpl({
         {regionIds.map((r) => {
           const ra = art.regions[r];
           const m = locked ? undefined : byRegion[r];
-          const waiting = queued.includes(r);
+          const waiting = queued.includes(r) || freshNow.includes(r);
           const status = locked ? 'locked' : waiting ? 'open' : m?.status ?? 'open';
           const tappable = interactive && !locked && !!m && !!onRegionPress;
           const isPressed = pressed === r;
@@ -359,6 +404,8 @@ function scribblePath(d: string, seed: number): Scribble {
 /**
  * Beat 1–2: a crayon scribbles back and forth across the region (you SEE it being colored), then the waxy fill
  * settles in on top. Beat 4: a soft light shimmer sweeps across the fresh color.
+ * Every animated layer also gets STATIC props equal to its start value: on web the animated props land a frame
+ * after mount, and without these the finished color flashed in first (V3).
  */
 function ScribbleReveal({ d, origin, clipId, shineId, color, children }: { d: string; origin: [number, number]; clipId: string; shineId: string; color: string; children: React.ReactNode }) {
   const { path, length } = useMemo(() => scribblePath(d, Math.round(origin[0] + origin[1])), [d, origin]);
@@ -394,13 +441,14 @@ function ScribbleReveal({ d, origin, clipId, shineId, color, children }: { d: st
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeDasharray={`${length} ${length}`}
+          strokeDashoffset={length}
           animatedProps={strokeProps}
         />
       </G>
-      <AnimatedG animatedProps={fillProps}>{children}</AnimatedG>
+      <AnimatedG opacity={0} animatedProps={fillProps}>{children}</AnimatedG>
       <G clipPath={`url(#${clipId})`} pointerEvents="none">
         <G transform={`rotate(-22 ${cx} ${cy})`}>
-          <AnimatedRect y={cy - tall / 2} width={bandW} height={tall} fill={`url(#${shineId})`} animatedProps={shineProps} />
+          <AnimatedRect y={cy - tall / 2} width={bandW} height={tall} fill={`url(#${shineId})`} opacity={0} animatedProps={shineProps} />
         </G>
       </G>
     </G>
@@ -459,10 +507,10 @@ function RevealOverlay({ d, origin, color }: { d: string; origin: [number, numbe
   });
   return (
     <G pointerEvents="none">
-      <AnimatedCircle cx={origin[0]} cy={origin[1]} fill="none" stroke={ink.gold} animatedProps={ring} />
+      <AnimatedCircle cx={origin[0]} cy={origin[1]} r={20} fill="none" stroke={ink.gold} strokeOpacity={0} animatedProps={ring} />
       {Array.from({ length: SPARKS }, (_, i) => <Spark key={i} i={i} t={burst} origin={origin} reach={ringR} />)}
-      <AnimatedPath animatedProps={tip} fill={color} stroke={ink.ink} strokeWidth={5} strokeLinejoin="round" />
-      <AnimatedPath animatedProps={band} fill={ink.page} fillOpacity={0.55} stroke={ink.ink} strokeWidth={3} />
+      <AnimatedPath opacity={0} animatedProps={tip} fill={color} stroke={ink.ink} strokeWidth={5} strokeLinejoin="round" />
+      <AnimatedPath opacity={0} animatedProps={band} fill={ink.page} fillOpacity={0.55} stroke={ink.ink} strokeWidth={3} />
     </G>
   );
 }
@@ -486,7 +534,7 @@ function Spark({ i, t, origin, reach }: { i: number; t: SharedValue<number>; ori
     const r = p <= 0 ? 0.01 : size * (p < 0.35 ? p / 0.35 : 1 - (p - 0.35) * 0.7);
     return { d: sparkPath(x, y, r), opacity: p <= 0 ? 0 : 1 - p * p };
   });
-  return <AnimatedPath animatedProps={props} fill={ink.gold} stroke={ink.ink} strokeWidth={3.5} strokeLinejoin="round" />;
+  return <AnimatedPath opacity={0} animatedProps={props} fill={ink.gold} stroke={ink.ink} strokeWidth={3.5} strokeLinejoin="round" />;
 }
 
 export const ColoringPage = memo(ColoringPageImpl);
