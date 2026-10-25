@@ -102,6 +102,14 @@ Deno.serve(async (req) => {
   if (insErr || !row) return fail(`Could not start the book: ${insErr?.message}`, 500);
   const storyline_id: string = row.id;
 
+  // Join race: two friends can tap "Summon" in the same second. The check above is read-then-insert, so re-check
+  // AFTER inserting: the oldest fresh 'generating' row wins and every other caller deletes its own row and reuses it.
+  const winner = await raceWinner(fellowship_id, storyline_id);
+  if (winner !== storyline_id) {
+    await admin.from('storylines').delete().eq('id', storyline_id);
+    return json({ storyline_id: winner, reused: true });
+  }
+
   try {
     const ctx: StoryCtx = {
       mode, fellowshipName: fellowship.name, areaLabel, members, shared: interests.shared, themes: interests.themes,
@@ -206,6 +214,15 @@ Deno.serve(async (req) => {
 });
 
 // ---------------------------------------------------------------- helpers
+
+/** The oldest fresh 'generating' storyline of this fellowship (ties broken by id). */
+async function raceWinner(fellowshipId: string, mine: string): Promise<string> {
+  const since = new Date(Date.now() - 90_000).toISOString();
+  const { data } = await admin.from('storylines').select('id, created_at').eq('fellowship_id', fellowshipId)
+    .eq('status', 'generating').gte('created_at', since)
+    .order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1);
+  return data?.[0]?.id ?? mine;
+}
 
 function hashSeed(s: string): number {
   let h = 0;

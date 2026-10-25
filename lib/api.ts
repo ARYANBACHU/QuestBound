@@ -11,7 +11,7 @@
 // - Photo verdicts may carry verdict.lens_titles (SerpApi Google Lens) → show as "The Mirror sees: …".
 import { USE_MOCKS } from './env';
 import { supabase } from './supabase';
-import { addBook, addMemory, addMessage, advanceIfPageDone, emitMock, mock, patchMission } from './mockStore';
+import { addBook, addCompletion, addMemory, addMessage, advanceIfPageDone, emitMock, mock, patchMission, restoreDemoBook } from './mockStore';
 import { ME } from '@/fixtures/demo';
 import type {
   GenerateStorylineRequest, GenerateStorylineResponse, Mission, Page, Storyline, SubmitProofRequest, SubmitProofResponse,
@@ -46,8 +46,9 @@ async function invoke<T>(fn: string, body: object): Promise<T> {
 export async function generateStoryline(req: GenerateStorylineRequest): Promise<GenerateStorylineResponse> {
   if (USE_MOCKS) {
     await wait(req.demo ? 600 : 2500);
+    if (!mock.storyline) return { storyline_id: mockFirstBook() }; // join race: nobody had summoned yet
     if (req.mode === 'sequel') return { storyline_id: mockSequel() };
-    return { storyline_id: mock.storyline.id };
+    return { storyline_id: mock.storyline.id, reused: true };
   }
   return invoke('generate-storyline', req);
 }
@@ -192,9 +193,19 @@ function complete(mission: Mission, credited: string[], line: string) {
   return { done, pageCompleted, bookCompleted };
 }
 
+/** Mock first summon (from the empty state): the fixture book, as if any member had just summoned it. */
+function mockFirstBook(): string {
+  restoreDemoBook();
+  const book = mock.storyline!;
+  addMessage({ fellowship_id: mock.fellowship.id, user_id: null, kind: 'proclamation',
+    body: `Hear ye! Sage has written a new tale: "${book.title}". Chapter I awaits.`, payload: { event: 'storyline_ready', storyline_id: book.id } });
+  emitMock();
+  return book.id;
+}
+
 /** Mock sequel: a fresh copy of the current book's pages/missions, all reset, as Book N+1. */
 function mockSequel(): string {
-  const prev = mock.storyline;
+  const prev = mock.storyline!;
   const n = prev.book_number + 1;
   const sid = `s-${n}`;
   const book: Storyline = { ...prev, id: sid, book_number: n, status: 'active', recap: null, created_at: new Date().toISOString(),

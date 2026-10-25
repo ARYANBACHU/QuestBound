@@ -2,7 +2,7 @@
  * DEMO FIXTURES — used when EXPO_PUBLIC_USE_MOCKS=1 so every branch can build UI with zero backend.
  * Owner: EV (add more if your screen needs them; keep ids stable).
  */
-import type { BookRecap, Fellowship, FellowshipMember, Memory, Message, Mission, Page, Profile, Storyline } from '@/shared/types';
+import type { BookRecap, Completion, Fellowship, FellowshipMember, Memory, Message, Mission, Page, Profile, Storyline } from '@/shared/types';
 
 const now = new Date().toISOString();
 export const ME = 'u-aria';
@@ -129,6 +129,16 @@ export const MEMORIES: Memory[] = [
   { id: 'mem-3', fellowship_id: FELLOWSHIP.id, storyline_id: 's-1', page_id: 'p-1', mission_id: 'm-2', user_id: 'u-cleo',
     image_url: 'https://picsum.photos/seed/questbound-sunset/1200/900', caption: 'The river glowed gold beneath the bridge.',
     kind: 'photo', created_at: now },
+];
+
+/** One completion per completed fixture mission (lib/game.ts useCompletions). */
+export const COMPLETIONS: Completion[] = [
+  { id: 'c-1', mission_id: 'm-2', user_id: 'u-bram', participant_ids: ['u-bram', 'u-cleo'], proof_url: 'https://picsum.photos/seed/questbound-bridge/900/1200',
+    proof_text: null, verdict: { pass: true, confidence: 0.92, reason: 'mock', flavor_text: 'The Magic Mirror gleams. Two heroes, one bridge, zero trolls.', lens_titles: ['Lamar pedestrian bridge at dusk'] },
+    story_line: 'Sir Bram and Lady Cleo crossed the drawbridge as the sun sank, and the chains sang.', created_at: now },
+  { id: 'c-2', mission_id: 'm-4', user_id: 'u-aria', participant_ids: ['u-aria'], proof_url: 'https://picsum.photos/seed/questbound-moon/900/1200',
+    proof_text: null, verdict: { pass: true, confidence: 0.9, reason: 'mock', flavor_text: 'You caught the moon! Do not let it escape.', lens_titles: ['Full moon over the Austin skyline'] },
+    story_line: 'Aria the Fox caught the moon in a glass jar of pixels.', created_at: now },
 ];
 
 /** What a finished book's recap looks like (mock mode uses it when the last page is colored). */
