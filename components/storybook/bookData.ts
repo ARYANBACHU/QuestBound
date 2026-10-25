@@ -1,5 +1,6 @@
 // Owner: AD. Derived data for the storybook: tale entries, montage slides, demo photos, fallback recap.
 import { USE_MOCKS } from '@/lib/env';
+import { bookStatus } from '@/lib/game';
 import { profileOf } from '@/lib/fellowship';
 import { regionDef } from '@/shared/templates';
 import { CRESTS } from '@/shared/theme';
@@ -9,6 +10,8 @@ import { roman } from '@/components/coloring/pageUtils';
 /**
  * B2: a book's state comes from its PAGES, never from storyline.status alone (a replaced book is also 'complete',
  * with recap.abandoned). finished = every page colored; setAside = shelved before that.
+ * [MERGE] round 3: the state itself is EV's `bookStatus()` (lib/game) — one source of truth with the engine's
+ * transitions; this only keeps AD's shelf wording and the "· N colored" detail.
  */
 export interface BookProgress {
   kind: 'writing' | 'reading' | 'finished' | 'setAside';
@@ -18,16 +21,21 @@ export interface BookProgress {
 }
 
 export function bookProgress(book: Storyline, pages: Page[], missions: Mission[] = []): BookProgress {
-  const chapters = pages.length;
-  const colored = pages.filter((p) => p.status === 'complete').length;
-  const chapter = Math.min(colored + 1, Math.max(chapters, 1));
+  const s = bookStatus(book, pages);
+  const { chapters } = s;
+  const chapter = Math.max(1, Math.min(s.chapter || 1, Math.max(chapters, 1)));
   const regions = missions.filter((m) => m.status === 'complete').length;
-  if (chapters === 0) return { kind: 'writing', label: book.status === 'generating' ? 'Being written…' : 'Opening the book…', chapter: 1, chapters };
-  if (colored === chapters) return { kind: 'finished', label: 'Finished ✦', chapter: chapters, chapters };
-  if (book.recap?.abandoned || book.status === 'complete') {
-    return { kind: 'setAside', label: `Set aside · Chapter ${chapter} of ${chapters}`, chapter, chapters };
+  switch (s.state) {
+    case 'writing':
+      return { kind: 'writing', label: 'Being written…', chapter: 1, chapters };
+    case 'finished':
+      return { kind: 'finished', label: 'Finished ✦', chapter: chapters, chapters };
+    case 'set_aside':
+      return { kind: 'setAside', label: chapters ? `Set aside · Chapter ${chapter} of ${chapters}` : 'Set aside', chapter, chapters };
+    default:
+      if (chapters === 0) return { kind: 'writing', label: 'Opening the book…', chapter: 1, chapters };
+      return { kind: 'reading', label: `Chapter ${chapter} of ${chapters}${regions ? ` · ${regions} colored` : ''}`, chapter, chapters };
   }
-  return { kind: 'reading', label: `Chapter ${chapter} of ${chapters}${regions ? ` · ${regions} colored` : ''}`, chapter, chapters };
 }
 
 export interface TaleEntry { mission: Mission; photo: Memory | null; verse: Completion | null }
