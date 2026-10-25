@@ -127,3 +127,64 @@ Types: Difficulty, RerollMissionRequest, GPS fields on SubmitProofRequest + Verd
   Profile.music_enabled, Storyline.difficulty?. EV: mirror the new fields in supabase/functions/_shared/types.ts.
 DB: 0003_round2.sql is already applied to the live project.
 === END TOKENS ===
+
+=== UI REVAMP (overrides UI UPGRADE where they conflict) ===
+This round is primarily a UI revamp: fewer, better things; every screen should feel like a polished storybook game.
+
+SIMPLIFY (everyone, own screens): the UI currently feels busy. One focal point per screen. Max one decorative
+layer, low opacity, never competing with content. Max one animation playing at a time, except Sage's subtle idle.
+Fewer chips/badges/lines of text; group secondary actions behind a "…" menu. Fill empty space with useful content
+(e.g. the next mission, a friend's progress) before decoration. Same quality bar.
+
+MAPS LINKS (everyone who shows a place: AD mission sheet, AB mission detail + mission cards, MP proclamations):
+Some place links currently open a business website instead of maps. Every "Open in Maps"/place tap MUST call
+`openInMaps(place)` from lib/maps.ts, which always opens Apple Maps on iOS and Google Maps elsewhere. If
+`place.website` exists, show it as a separate small "Website" link, never as the maps action.
+EV: in serp.ts, put the business website into `place.website` (not `link`), always fill lat/lng when SerpApi returns
+gps_coordinates, and set `maps_url`. Events: geocode so they get lat/lng too.
+
+AD (feat/coloring):
+P1 Book feel: a real page-flip animation when turning chapters (page curls/rotates from the right edge with a
+   shadow, 900–1100 ms, heavy haptic). Use the same flip when browsing chapters with arrows/swipe in the Coloring
+   tab and in the Storybook reader. Opening a book from the shelf = the cover swings open.
+P2 Coloring quality + responsiveness: when a mission completes, the user SEES it being colored. An animated
+   crayon scribble stroke sweeps across the region (stroke-dashoffset style), then settles into the textured
+   fill, ~1.2 s, with a soft crayon sound (playSfx('crayon'), respects the sound setting) and haptic. Crisper
+   art, smoother textures, clean region edges.
+P3 100% coloring: a fully completed page must have NO white areas. Background/sky/ground areas outside the 6
+   regions progressively tint with the chapter mood as regions complete (e.g. wash opacity = completed/6) and
+   reach a full painted wash at 6/6. Fix any art gaps so regions + background cover the whole frame.
+P4 Past chapters: completed chapters stay fully viewable (art + every mission + story lines), read-only.
+P5 Revamp the Coloring + Storybook screens to the SIMPLIFY rules: the page is the hero; header = chapter title
+   + one line + progress; everything else secondary.
+
+AB (feat/shell):
+P6 Sage speaking: whenever Sage says something new (speech bubble, wizard reply, coach mark), Sage does a small
+   "talk" animation (mouth/bob ~600 ms) and plays a soft, short ping (≤150 ms, low volume, like a gentle chime),
+   once per NEW message only, never on re-render or reopen. Add a Settings toggle "Sound effects" (separate from
+   Music, AsyncStorage), default on. Export a tiny `playSfx('ping' | 'crayon' | 'page' | 'seal')` helper from
+   components/shell/sfx.ts (expo-audio, preloaded, fails silently) for everyone to use. Use CC0 sounds in
+   assets/audio/sfx/ and credit them in README. Build this FIRST and push it so AD/MP can import it (until
+   then they use a no-op stub with the same signature).
+P7 Missions tab: a chapter selector (I · II · III…) to view any unlocked/completed chapter's missions read-only,
+   defaulting to the active chapter.
+P8 Revamp onboarding, Missions, mission detail, Settings and the wizard sheet to the SIMPLIFY rules: one clear
+   primary action per screen, calmer layouts, Sage as the single character focal point where present.
+
+MP (feat/friends):
+P9 New Sage messages in chat use the same talk animation + ping (playSfx('ping')), once per new message.
+P10 Revamp the Friends tab to the SIMPLIFY rules: chat is the hero; header = fellowship name + crests + Invite;
+    proclamation cards cleaner (less ornament, same delight).
+
+EV (feat/engine):
+P11 Hooks must return missions for ALL chapters of the storyline (not only the active page), plus usePages, so
+   AD/AB can show past chapters.
+P12 Place data fixes per MAPS LINKS above; redeploy changed functions.
+=== END ===
+
+=== MERGE AGENT NOTES FOR UI REVAMP (on main now) ===
+- shared/types.ts `Place` gained `maps_url?: string` and `website?: string` (additive).
+- EV: the Deno mirror supabase/functions/_shared/types.ts `Place` already has both fields — fill them in serp.ts.
+- lib/maps.ts (merge-agent owned): `mapsUrl(place)`, `openInMaps(place)` (→ Promise<boolean>), plus
+  `appleMapsUrl` / `googleMapsUrl`. Accepts any Place (or { title, address?, lat?, lng? }); null-safe.
+=== END NOTES ===
