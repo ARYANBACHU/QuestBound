@@ -5,10 +5,10 @@ import { FlatList, Pressable, ScrollView, StyleSheet, useWindowDimensions, View 
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SCREEN_GRADIENTS, ink, moodFor, radius, shadow, space } from '@/shared/theme';
-import type { BookRecap, FellowshipMember, Memory, Mission, Page, Storyline } from '@/shared/types';
+import type { BookRecap, Completion, FellowshipMember, Memory, Mission, Page, Storyline } from '@/shared/types';
 import { ColoringPage } from '@/components/coloring/ColoringPage';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
-import { InkButton, Txt } from '@/components/coloring/ui';
+import { Txt } from '@/components/coloring/ui';
 import { taleEntries } from './bookData';
 import { RecapPage } from './RecapPage';
 import { TaleEntry } from './TaleEntry';
@@ -20,6 +20,7 @@ export interface BookReaderProps {
   pages: Page[];
   missions: Mission[];
   memories: Memory[];
+  completions: Completion[];
   members: FellowshipMember[];
   recap: BookRecap | null; // non-null → recap page appended
   onClose: () => void;
@@ -28,7 +29,7 @@ export interface BookReaderProps {
   summoning: boolean;
 }
 
-export function BookReader({ book, pages, missions, memories, members, recap, onClose, onMontage, onSequel, summoning }: BookReaderProps) {
+export function BookReader({ book, pages, missions, memories, completions, members, recap, onClose, onMontage, onSequel, summoning }: BookReaderProps) {
   const { width } = useWindowDimensions();
   const items: Item[] = [...pages.map((page) => ({ kind: 'page' as const, page })), ...(recap ? [{ kind: 'recap' as const }] : [])];
   const [index, setIndex] = useState(0);
@@ -74,7 +75,7 @@ export function BookReader({ book, pages, missions, memories, members, recap, on
         renderItem={({ item }) => (
           <ScrollView style={{ width, height: listH || undefined }} contentContainerStyle={styles.spread}>
             {item.kind === 'page' ? (
-              <ChapterSpread page={item.page} missions={missions} memories={memories} members={members} width={width - 2 * space.lg} />
+              <ChapterSpread page={item.page} missions={missions} memories={memories} completions={completions} members={members} width={width - 2 * space.lg} />
             ) : (
               <RecapPage book={book} recap={recap!} members={members} onSequel={onSequel} onMontage={onMontage} summoning={summoning} />
             )}
@@ -99,9 +100,12 @@ export function BookReader({ book, pages, missions, memories, members, recap, on
   );
 }
 
-function ChapterSpread({ page, missions, memories, members, width }: { page: Page; missions: Mission[]; memories: Memory[]; members: FellowshipMember[]; width: number }) {
+function ChapterSpread({ page, missions, memories, completions, members, width }: {
+  page: Page; missions: Mission[]; memories: Memory[]; completions: Completion[]; members: FellowshipMember[]; width: number;
+}) {
   const [mode, setMode] = useState<'coloring' | 'illustration'>(page.illustration_url ? 'illustration' : 'coloring');
-  const entries = taleEntries(page, missions, memories);
+  const entries = taleEntries(page, missions, memories, completions);
+  const mood = moodFor(page.template_id);
   const locked = page.status === 'locked';
   return (
     <View style={{ gap: space.md }}>
@@ -134,18 +138,9 @@ function ChapterSpread({ page, missions, memories, members, width }: { page: Pag
       ) : (
         <View>
           <Txt v="heading" style={{ marginTop: space.md }}>The tale so far</Txt>
-          {entries.map((e, i) => <TaleEntry key={e.mission.id} entry={e} members={members} index={i} width={width} />)}
+          {entries.map((e, i) => <TaleEntry key={e.mission.id} entry={e} members={members} index={i} width={width} mood={mood} />)}
         </View>
       )}
-    </View>
-  );
-}
-
-export function ReaderEmpty({ onBack }: { onBack: () => void }) {
-  return (
-    <View style={{ padding: space.xxl, gap: space.md, alignItems: 'center' }}>
-      <Txt v="story" center>This book is shelved somewhere Sage can’t reach right now.</Txt>
-      <InkButton label="Back to the shelf" variant="secondary" onPress={onBack} />
     </View>
   );
 }

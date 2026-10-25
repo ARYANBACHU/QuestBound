@@ -6,14 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useFellowship } from '@/lib/fellowship';
-import { useBooks, useMemories, useMissions, useStoryline } from '@/lib/game';
+import { useBooks, useMemories, useMissions } from '@/lib/game';
+import { useCompletions, usePages } from '@/components/storybook/useStoryData';
 import { generateStoryline } from '@/lib/api';
 import { ink, moodFor, radius, space } from '@/shared/theme';
-import type { FellowshipMember, Mission, Page, Storyline } from '@/shared/types';
+import type { FellowshipMember, Page, Storyline } from '@/shared/types';
 import { ColoringPage } from '@/components/coloring/ColoringPage';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { InkButton, Txt } from '@/components/coloring/ui';
-import { BookReader, ReaderEmpty } from '@/components/storybook/BookReader';
+import { BookReader } from '@/components/storybook/BookReader';
 import { Montage } from '@/components/storybook/Montage';
 import { fallbackRecap, montageSlides, withDemoMemories } from '@/components/storybook/bookData';
 
@@ -22,20 +23,20 @@ export default function StorybookScreen() {
   const { fellowship, members } = useFellowship();
   const fid = fellowship?.id ?? null;
   const { books, loading } = useBooks(fid);
-  const { storyline, pages } = useStoryline(fid);
-  const { missions } = useMissions(storyline?.id ?? null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [montage, setMontage] = useState(false);
   const [summoning, setSummoning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Any book on the shelf (current or older) loads its own pages, missions, memories and verses.
   const open = books.find((b) => b.id === openId) ?? null;
-  // Page rows are only exposed for the current book (useStoryline); older books show their cover + a note.
-  const openIsCurrent = !!open && open.id === storyline?.id;
-  const { memories: rawMemories } = useMemories(fid, open?.id ?? storyline?.id ?? null);
+  const { pages, loading: pagesLoading } = usePages(open?.id ?? null);
+  const { missions } = useMissions(open?.id ?? null);
+  const { completions } = useCompletions(open?.id ?? null);
+  const { memories: rawMemories } = useMemories(fid, open?.id ?? null);
   const memories = withDemoMemories(rawMemories, missions);
-  const bookDone = (b: Storyline) => b.status === 'complete' || (b.id === storyline?.id && pages.length > 0 && pages.every((p) => p.status === 'complete'));
-  const recap = open && openIsCurrent && bookDone(open) ? open.recap ?? fallbackRecap(open, pages, missions, memories, members) : null;
+  const done = !!open && isBookDone(open, pages);
+  const recap = open && done ? open.recap ?? fallbackRecap(open, pages, missions, memories, members) : null;
 
   const sequel = async () => {
     if (!fid) return;
@@ -56,13 +57,13 @@ export default function StorybookScreen() {
   if (open) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        {openIsCurrent ? (
+        {pagesLoading && !pages.length ? (
+          <ActivityIndicator color={ink.ink} style={{ marginTop: space.xxl }} />
+        ) : (
           <BookReader
-            book={open} pages={pages} missions={missions} memories={memories} members={members} recap={recap}
+            book={open} pages={pages} missions={missions} memories={memories} completions={completions} members={members} recap={recap}
             onClose={() => setOpenId(null)} onMontage={() => setMontage(true)} onSequel={sequel} summoning={summoning}
           />
-        ) : (
-          <ReaderEmpty onBack={() => setOpenId(null)} />
         )}
         {error ? <Txt v="small" color={ink.danger} center>{error}</Txt> : null}
         <Montage visible={montage} slides={montageSlides(open, pages, missions, memories, recap)} onClose={() => setMontage(false)} />
@@ -86,15 +87,7 @@ export default function StorybookScreen() {
         ) : (
           <View style={styles.shelf}>
             {books.map((b) => (
-              <BookCard
-                key={b.id}
-                book={b}
-                pages={b.id === storyline?.id ? pages : []}
-                missions={b.id === storyline?.id ? missions : []}
-                members={members}
-                done={bookDone(b)}
-                onPress={() => setOpenId(b.id)}
-              />
+              <BookCard key={b.id} book={b} members={members} onPress={() => setOpenId(b.id)} />
             ))}
             <View style={styles.plank} />
           </View>
@@ -104,10 +97,13 @@ export default function StorybookScreen() {
   );
 }
 
-function BookCard({ book, pages, missions, members, done, onPress }: {
-  book: Storyline; pages: Page[]; missions: Mission[]; members: FellowshipMember[]; done: boolean; onPress: () => void;
-}) {
+const isBookDone = (b: Storyline, pages: Page[]) => b.status === 'complete' || (pages.length > 0 && pages.every((p) => p.status === 'complete'));
+
+function BookCard({ book, members, onPress }: { book: Storyline; members: FellowshipMember[]; onPress: () => void }) {
   const { width } = useWindowDimensions();
+  const { pages } = usePages(book.id);
+  const { missions } = useMissions(book.id);
+  const done = isBookDone(book, pages);
   const coverW = Math.min(132, width * 0.32);
   const first = pages[0];
   const colored = missions.filter((m) => m.status === 'complete').length;

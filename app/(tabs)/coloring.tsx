@@ -27,9 +27,7 @@ export default function ColoringScreen() {
   const pageW = Math.min(screenW - 2 * space.lg, 560);
 
   const { fellowship, members } = useFellowship();
-  const { storyline, pages, activePage: hookActive, loading } = useStoryline(fellowship?.id ?? null);
-  // Recompute from statuses every render (mock rows mutate in place; a memoized activePage can go stale).
-  const activePage = pages.find((p) => p.status === 'active') ?? pages.filter((p) => p.status === 'complete').slice(-1)[0] ?? hookActive;
+  const { storyline, pages, activePage, loading } = useStoryline(fellowship?.id ?? null);
   const { missions } = useMissions(storyline?.id ?? null);
 
   const [viewId, setViewId] = useState<string | null>(null); // null = follow the active page
@@ -74,7 +72,7 @@ export default function ColoringScreen() {
   }, [ribbon]);
 
   const shown: Page | null = hold ?? (viewId ? pages.find((p) => p.id === viewId) ?? activePage : activePage);
-  const shownMissions = pageMissions(missions, shown); // fresh array each render on purpose (in-place mock mutations)
+  const shownMissions = pageMissions(missions, shown);
   const sheetMission = missions.find((m) => m.id === sheetId) ?? null;
   const bookDone = !!storyline && (storyline.status === 'complete' || (pages.length > 0 && pages.every((p) => p.status === 'complete')));
 

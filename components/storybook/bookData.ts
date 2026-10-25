@@ -3,28 +3,33 @@ import { USE_MOCKS } from '@/lib/env';
 import { profileOf } from '@/lib/fellowship';
 import { regionDef } from '@/shared/templates';
 import { CRESTS } from '@/shared/theme';
-import type { BookRecap, FellowshipMember, Memory, Mission, Page, Storyline } from '@/shared/types';
+import type { BookRecap, Completion, FellowshipMember, Memory, Mission, Page, Storyline } from '@/shared/types';
 import { roman } from '@/components/coloring/pageUtils';
 
-export interface TaleEntry { mission: Mission; photo: Memory | null }
+export interface TaleEntry { mission: Mission; photo: Memory | null; verse: Completion | null }
 
 const byTime = (a: Mission, b: Mission) => (a.completed_at ?? '').localeCompare(b.completed_at ?? '') || a.id.localeCompare(b.id);
 
-export function taleEntries(page: Page, missions: Mission[], memories: Memory[]): TaleEntry[] {
+export function taleEntries(page: Page, missions: Mission[], memories: Memory[], completions: Completion[] = []): TaleEntry[] {
   return missions
     .filter((m) => m.page_id === page.id && m.status === 'complete')
     .sort(byTime)
-    .map((m) => ({ mission: m, photo: memories.find((x) => x.mission_id === m.id && x.kind === 'photo') ?? null }));
+    .map((m) => ({
+      mission: m,
+      photo: memories.find((x) => x.mission_id === m.id && x.kind === 'photo') ?? null,
+      verse: m.type === 'bard' ? completions.filter((c) => c.mission_id === m.id && c.proof_text?.trim()).slice(-1)[0] ?? null : null,
+    }));
 }
 
 /**
- * Mock mode ships with no memories, so lend every completed photo mission a stock photo.
- * Real data (or EV's fixtures, once added) always wins.
+ * Mock mode only: photo missions colored without a photo (e.g. the dev button) borrow a stock photo so the
+ * scrapbook and montage still have pictures. Real data always wins.
  */
 export function withDemoMemories(memories: Memory[], missions: Mission[]): Memory[] {
-  if (!USE_MOCKS || memories.some((m) => m.kind === 'photo')) return memories;
+  if (!USE_MOCKS) return memories;
+  const has = new Set(memories.filter((m) => m.kind === 'photo').map((m) => m.mission_id));
   const demo: Memory[] = missions
-    .filter((m) => m.status === 'complete' && (m.proof_type === 'photo' || m.proof_type === 'group_photo'))
+    .filter((m) => m.status === 'complete' && (m.proof_type === 'photo' || m.proof_type === 'group_photo') && !has.has(m.id))
     .map((m) => ({
       id: `demo-${m.id}`, fellowship_id: m.fellowship_id, storyline_id: m.storyline_id, page_id: m.page_id, mission_id: m.id,
       user_id: m.completed_by[0] ?? null, image_url: `https://picsum.photos/seed/questbound-${m.region_id}/900/1100`,
