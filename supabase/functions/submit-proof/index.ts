@@ -7,7 +7,7 @@
 //      -> mission 'pending', verdict.pass=true (reason 'gift_pending'), completion null, proclamation "awaiting seal".
 //   2. recipient submits { mission_id, participant_ids:[recipient], confirm_for: <giver id> }
 //      -> mission 'complete', painted in the GIVER's crayon.
-import { preflight, json, fail } from '../_shared/cors.ts';
+import { preflight, json, fail, safe } from '../_shared/cors.ts';
 import { admin, callerId, DEMO_FORCE_PASS, proclaim } from '../_shared/db.ts';
 import { chatJSON, HAS_LLM, withTimeout } from '../_shared/llm.ts';
 import { lensTitles, resetSerpStats } from '../_shared/serp.ts';
@@ -27,7 +27,7 @@ const BUDGET_MS = 14_000;
 // (+ their reported GPS accuracy, up to 150 m of slack). Secret GEO_RADIUS_M, default 400.
 const GEO_RADIUS_M = Math.max(50, Number(Deno.env.get('GEO_RADIUS_M') ?? '') || GEO_DEFAULT_RADIUS_M);
 
-Deno.serve(async (req) => {
+Deno.serve(safe('submit-proof', async (req) => {
   const pre = preflight(req); if (pre) return pre;
   const t0 = Date.now();
   const left = () => BUDGET_MS - (Date.now() - t0);
@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
     console.log('[submit-proof]', JSON.stringify({ mission: mission!.id, type: mission!.type, pass: true, page_completed, book_completed, ms: Date.now() - t0 }));
     return respond(v, done, completion ?? null, page_completed, book_completed);
   }
-});
+}));
 
 // ---------------------------------------------------------------- verifiers
 

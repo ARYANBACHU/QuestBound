@@ -281,6 +281,7 @@ export interface Storyline {
   id: string; fellowship_id: string; book_number: number; title: string; synopsis: string; theme_tags: string[];
   status: 'generating' | 'active' | 'complete'; recap: BookRecap | null; created_at: string;
   difficulty?: Difficulty;
+  geo_enforced?: boolean; // 0005_v1.sql (db default true). false = demo books: show distance, never block on location
   generation_context?: Record<string, unknown> | null;
 }
 

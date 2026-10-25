@@ -4,7 +4,7 @@
 // submit-proof already paints a page in the background when it completes; this fills the gaps (older books, a failed
 // paint, a phone that opened the Storybook before the background paint finished). Concurrent callers share one painting.
 // Only completed pages are painted: an unfinished chapter isn't a story yet. Takes ~10–40 s when it has to paint.
-import { preflight, json, fail } from '../_shared/cors.ts';
+import { preflight, json, fail, safe } from '../_shared/cors.ts';
 import { admin, callerId } from '../_shared/db.ts';
 import { HAS_LLM } from '../_shared/llm.ts';
 import { paintChapter } from '../_shared/progress.ts';
@@ -12,7 +12,7 @@ import { memberCtx, type MemberCtx, type Page, type Profile } from '../_shared/t
 
 interface Painted { page_id: string; illustration_url: string | null; cached: boolean }
 
-Deno.serve(async (req) => {
+Deno.serve(safe('paint-chapter', async (req) => {
   const pre = preflight(req); if (pre) return pre;
   const t0 = Date.now();
   const uid = await callerId(req);
@@ -67,4 +67,4 @@ Deno.serve(async (req) => {
     return json(r);
   }
   return json({ pages: results });
-});
+}));

@@ -27,24 +27,53 @@ import type {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Calls an edge function with the user's JWT. Throws Error(<server's `error` text>) on failure. */
+/**
+ * A readable engine error. `code` (when the server sent one) lets screens route instead of just showing text:
+ * - 'no_fellowship' / 'not_member' → the player has no (or no longer has this) fellowship: send them to create/join.
+ * - 'retry' → transient (Sage's quill slipped); show a Retry button.
+ * - 'auth' → session lost; restart sign-in.
+ */
+export class EngineError extends Error {
+  code?: string;
+  status?: number;
+  constructor(message: string, code?: string, status?: number) {
+    super(message);
+    this.name = 'EngineError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+/** True when an error means "this player has no fellowship to write a book for" (route to create/join). */
+export function isNoFellowshipError(e: unknown): boolean {
+  const code = (e as { code?: unknown } | null)?.code;
+  return code === 'no_fellowship' || code === 'not_member';
+}
+
+/** Calls an edge function with the user's JWT. Throws EngineError(<server's `error` text>, code) on failure. */
 async function invoke<T>(fn: string, body: object): Promise<T> {
   const { data, error } = await supabase.functions.invoke(fn, { body: body as Record<string, unknown> });
   if (error) {
     let message = error.message;
+    let code: string | undefined;
+    let status: number | undefined;
     // FunctionsHttpError carries the Response: surface the server's friendly { error } text.
     const ctx = (error as { context?: unknown }).context;
     if (ctx && typeof (ctx as Response).json === 'function') {
       try {
+        status = (ctx as Response).status;
         const j = await (ctx as Response).clone().json();
         if (j?.error) message = String(j.error);
+        if (typeof j?.code === 'string') code = j.code;
       } catch {
         /* not JSON */
       }
     } else if (/Failed to send|fetch/i.test(message)) {
       message = "Can't reach Sage right now. Check your connection and try again.";
+      code = 'retry';
     }
-    throw new Error(message);
+    if (status && status >= 500 && !code) code = 'retry';
+    throw new EngineError(message, code, status);
   }
   return data as T;
 }
@@ -57,7 +86,14 @@ async function invoke<T>(fn: string, body: object): Promise<T> {
  * - mode 'first' without replace_active returns the active book (`reused: true`) if there is one.
  */
 export async function generateStoryline(req: GenerateStorylineRequest): Promise<GenerateStorylineResponse> {
+  // V1: never write a book without a fellowship (e.g. right after leaving one). Callers route on isNoFellowshipError.
+  if (!req?.fellowship_id) {
+    throw new EngineError("You're not in a fellowship yet. Create one or join your friends, then Sage can write your book.", 'no_fellowship');
+  }
   if (USE_MOCKS) {
+    if (req.fellowship_id !== mock.fellowship.id) {
+      throw new EngineError("You're not in this fellowship anymore. Join it again (or start your own) to summon a story.", 'not_member');
+    }
     await wait(req.demo ? 600 : 2500);
     if (req.demo === 'ut') return { storyline_id: mockUTBook(asDifficulty(req.difficulty)) };
     if (!mock.storyline) return { storyline_id: mockFirstBook() }; // join race: nobody had summoned yet
