@@ -20,6 +20,7 @@ import { Sage } from '@/components/coloring/sage';
 import { CrestRow } from '@/components/coloring/Crests';
 import { MontageButton } from './MontageButton';
 import { useChapterPainting } from './paint';
+import { HeaderMusicToggle } from '@/components/shell/music';
 
 type Item = { kind: 'page'; page: Page } | { kind: 'recap' };
 
@@ -106,6 +107,8 @@ export function BookReader({ book, pages, missions, memories, completions, membe
         </Pressable>
         <Txt v="smallBold" numberOfLines={1} style={{ flex: 1, textAlign: 'center' }}>Book {roman(book.book_number)} · {book.title}</Txt>
         <MontageButton onPress={onMontage} />
+        {/* V5: music sits beside Montage in this row (the floating fallback used to cover the Montage button) */}
+        <HeaderMusicToggle />
       </View>
 
       <View style={{ flex: 1, overflow: 'hidden' }} onLayout={(e) => setAreaH(e.nativeEvent.layout.height)} {...swipe.panHandlers}>
@@ -226,7 +229,7 @@ function ChapterSpread({ page, missions, memories, completions, members, width }
 
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
-  top: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.sm },
+  top: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.sm },
   spread: { padding: space.lg, paddingBottom: space.xxl * 2 },
   hero: { alignSelf: 'center', borderRadius: radius.md, borderWidth: 2.5, borderColor: ink.ink, overflow: 'hidden', backgroundColor: ink.page, ...shadow.md },
   heroTag: {

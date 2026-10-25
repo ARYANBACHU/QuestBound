@@ -8,14 +8,19 @@ import type { FellowshipMember, Mission, Page } from '@/shared/types';
 import { ExpandableStory } from './ExpandableStory';
 import { crayonHex, missionColors, roman } from './pageUtils';
 import { Txt } from './ui';
+import { HeaderMusicToggle } from '@/components/shell/music';
 
 export function ChapterHeader({ bookTitle, page, missions, members }: { bookTitle?: string; page: Page; missions: Mission[]; members: FellowshipMember[] }) {
   const mood = moodFor(page.template_id);
   return (
     <View style={styles.wrap}>
-      <Txt v="smallBold" color={mood.deep} numberOfLines={1}>
-        Chapter {roman(page.chapter_number)}{bookTitle ? ` · ${bookTitle}` : ''}
-      </Txt>
+      {/* V5: the music toggle lives IN this header row, so AB's floating fallback steps aside and covers nothing */}
+      <View style={styles.top}>
+        <Txt v="smallBold" color={mood.deep} numberOfLines={1} style={{ flex: 1 }}>
+          Chapter {roman(page.chapter_number)}{bookTitle ? ` · ${bookTitle}` : ''}
+        </Txt>
+        <HeaderMusicToggle />
+      </View>
       <Txt v="title" numberOfLines={2}>{page.title}</Txt>
       <ExpandableStory text={page.narrative} lines={1} mood={mood} fadeColor={SCREEN_GRADIENTS[mood.id][0]} />
       <CrayonProgress page={page} missions={missions} members={members} />
@@ -61,7 +66,8 @@ function CrayonStub({ color, size }: { color: string | null; size: number }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: space.xs, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.md },
+  top: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  wrap: { gap: space.xs, paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.md },
   progress: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.sm, gap: space.sm },
   stubs: { flexDirection: 'row', gap: 2, flexShrink: 1 },
 });

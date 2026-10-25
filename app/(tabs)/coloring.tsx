@@ -12,7 +12,7 @@ import { generateStoryline, submitProof } from '@/lib/api';
 import { USE_MOCKS } from '@/lib/env';
 import { SCREEN_GRADIENTS, ink, moodFor, panel, radius, shadow, space } from '@/shared/theme';
 import type { Page } from '@/shared/types';
-import { ColoringPage, REVEAL_MS } from '@/components/coloring/ColoringPage';
+import { ColoringPage, REVEAL_MS, RETURN_GLOW_MS } from '@/components/coloring/ColoringPage';
 import { ChapterHeader } from '@/components/coloring/ChapterHeader';
 import { MissionSheet } from '@/components/coloring/MissionSheet';
 import { BlankBook, ChapterRibbon, SageWriting, TheEndBanner } from '@/components/coloring/PageStates';
@@ -25,7 +25,7 @@ import { UpNext, nextMission } from '@/components/coloring/UpNext';
 import { ChapterTale } from '@/components/coloring/ChapterTale';
 
 const HOLD_MS = REVEAL_MS + 250; // let the last region's fill + shimmer + sparkle play before the page turns
-const RETURN_MS = 400; // extra beat when the fill waited for you to come back to this tab
+const LATE_MS = RETURN_GLOW_MS + 450; // colored while you were away: it only glows on return (V3), then the turn
 
 export default function ColoringScreen() {
   const insets = useSafeAreaInsets();
@@ -47,8 +47,8 @@ export default function ColoringScreen() {
   const [ribbon, setRibbon] = useState<string | null>(null);
   const [party, setParty] = useState<{ kind: 'page' | 'book'; at: number } | null>(null);
   const prevActive = useRef<Page | null>(null);
-  // U1/U4: when a mission is finished on another screen, this tab isn't visible — the fill (and a page turn) wait
-  // until you land back here, so you SEE your color go in.
+  // U1/U4/V3: when a mission is finished on another screen, this tab isn't visible — the region's glow (and a page
+  // turn) wait until you land back here. The fill itself already played on the reward card; it never plays twice.
   const focused = useIsFocused();
   const [turn, setTurn] = useState<{ over: Page; under: Page; late: boolean } | null>(null);
 
@@ -70,7 +70,7 @@ export default function ColoringScreen() {
       setHold(null);
       setTurn(null);
       setFlip({ key: Date.now(), mode: 'next', over: turn.over, under: turn.under, auto: true });
-    }, HOLD_MS + (turn.late ? RETURN_MS : 0));
+    }, turn.late ? LATE_MS : HOLD_MS);
     return () => clearTimeout(t);
   }, [turn, focused]);
 
@@ -134,7 +134,7 @@ export default function ColoringScreen() {
   }, [bookDone]);
   useEffect(() => {
     if (!bookParty || !focused) return;
-    const t = setTimeout(() => { setBookParty(null); setParty({ kind: 'book', at: Date.now() }); }, HOLD_MS + (bookParty.late ? RETURN_MS : 0));
+    const t = setTimeout(() => { setBookParty(null); setParty({ kind: 'book', at: Date.now() }); }, bookParty.late ? LATE_MS : HOLD_MS);
     return () => clearTimeout(t);
   }, [bookParty, focused]);
 

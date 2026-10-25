@@ -34,3 +34,21 @@
   colored"). `components/storybook/paint.ts` finds EV's `paintChapter` at runtime, so nothing breaks before G3 lands.
 - U3 montage mark: a little reel unspooling from a book with a gold play notch + spark; label in Fraunces italic
   (14 / 18 pt) — reads as special without being another big button.
+
+## V1 (final round)
+- V3: root cause of blank→color→blank→color was AD's: the region rendered in its finished color in the same render
+  the new status landed, and the scribble only started in the effect after it (one frame of full color, then blank).
+  Fresh completions are now detected during render and stay blank until the scribble takes over. Also: static start
+  values on every animated layer (web applies animated props a frame late), one play per mission per mount, an 8 s
+  grace window that ignores a stale refetch flipping `complete` back to `open`, one cancellable focus timer.
+  Verified frame by frame (30 fps video of the web build): color only ever increases. EV's `useLive` race is in REQUESTS.
+- V4: the region sheet had no close button at all; AB's floating music toggle (speaker + ✕) sat top-right and read as
+  one. The sheet now has its own ✕ (36 px, top-right of the sheet header). Scrim tap + back still close it too.
+- V5: `HeaderMusicToggle` goes in AD's header rows (reader top bar right of Montage, shelf title row, chapter header),
+  which hides AB's floating fallback on those screens. No position hacks.
+- V8: instrumented the web build (every `Audio`/`play()` logged) through open book → montage → taps → play again →
+  close: the montage starts no audio; only `bards-loop.mp3` ever plays. The montage keeps the same track at the same
+  volume; a comment in Montage.tsx forbids adding a soundtrack there. If a second track is heard on a phone, it's not
+  from AD code (REQUESTS → AB to check native for a second player).
+- V9: Storybook resets to the shelf when the tab loses focus (book + montage closed), not on focus, so there's no
+  flash of the old book when you come back.

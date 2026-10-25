@@ -322,4 +322,47 @@ Format:
   button in the composer (tap = `useWizard().open()`, long-press = `openDemoTools()`), because the floating FAB sat on
   top of the newest messages (my own bubbles are right-aligned). The FAB still shows on the Friends roster view. The
   `FRIENDS_COMPOSER_HEIGHT` lift in `app/(tabs)/_layout.tsx` now only applies to that roster view and could be 0.
+## [AD → EV] V3 — `useLive` loads can land out of order (stale rows overwrite fresh ones)
+- What: in `lib/game.ts` `useLive`, `load()` calls are not sequenced. Several realtime events >150 ms apart start
+  several loads; if an older one resolves last, its stale rows replace the fresh ones (a mission just marked
+  `complete` flips back to `open` for a moment, then forward again). That replays the coloring fill.
+- Proposed diff (inside the effect):
+  ```ts
+  let seq = 0;
+  const load = async () => {
+    const mine = ++seq;
+    try {
+      const data = await loader(key);
+      if (alive && mine === seq) setState({ key, data, loading: false });
+    } catch (e) { … same, also guarded by `mine === seq` … }
+  };
+  ```
+- Why: V3 flicker. AD's `ColoringPage` now tolerates it (a regression within 8 s of completion is ignored, and each
+  mission's fill plays once per mount), but other screens (Missions, mission detail) would still blink.
+- Status: open.
+
+## [AD → AB] V8 — montage plays no audio; check native for a second music player
+- AD verified on web (every `new Audio` / `play()` logged) that opening, tapping through, replaying and closing the
+  montage starts no sound — only `bards-loop.mp3` plays, once. Montage slides are photos + title cards only.
+- If a different/second track is still heard in Expo Go, it's a second `MusicController` player (e.g. the root layout
+  remounting, or a player created before `remove()` finishes). Suggest: keep the player in a module-level singleton
+  so remounts reuse it. If you want ducking during the montage, export `useMusicDuck(active: boolean)` and AD will call
+  `useMusicDuck(visible)` inside `Montage` — same track, lower volume.
+- Status: open.
+
+## [AD → AB] V3 — "See it on the page" stacks a NEW copy of the tabs (use `router.dismissTo`)
+- What: in expo-router 58, `router.navigate('/(tabs)/coloring')` from the `mission/[id]` modal PUSHES a second `(tabs)`
+  navigator on the root stack instead of going back. Verified on web with mount logs: the Coloring page mounts a fresh
+  instance (r2) while the old one (r1) stays alive underneath. Every mission finished this way grows the stack, the
+  new page has no memory of what just changed, and the old page's queued glow never plays.
+- Proposed diff (`app/mission/[id].tsx`, every navigate that leaves the modal for a tab — lines ~93, 182, 183, 342):
+  ```diff
+  - router.navigate('/(tabs)/coloring')
+  + router.dismissTo('/(tabs)/coloring')
+  - router.navigate('/(tabs)/missions')
+  + router.dismissTo('/(tabs)/missions')
+  ```
+  AD tested exactly this locally (not committed — AB's file): the modal closes, the SAME Coloring page comes back,
+  the region is already colored and plays one glow (gold ring + sparkles + shimmer). No second fill.
+- With it, V3 reads: reward card = the single fill (blank → your color), page = glow. AD's side is pushed.
 - Status: open.

@@ -45,6 +45,27 @@
   (mood-tinted closed shapes under the regions). `validatePageArt()` = no problems for all 20 ids.
 - U8: sheet, quote cards, locked pill moved off white to parchment; only the coloring page itself is white.
 
+## Done — V1 final round (all pushed to feat/coloring, typecheck clean, checked in the web build)
+- V3 no flicker: (1) a fresh completion stays blank in the render it lands (it used to flash full color for a frame
+  before the scribble started); (2) static start values on every animated layer; (3) each mission fills once per
+  mount, a stale refetch that flips `complete` back within 8 s is ignored, one cancellable focus timer;
+  (4) NO DOUBLE ANIMATION: a region colored while the page was off screen (you watched it fill on AB's reward card)
+  arrives colored and only glows (ring + sparkles + shimmer). Verified frame by frame with 30 fps recordings.
+  Needs AB's `router.dismissTo` fix (REQUESTS) for the glow to play after "See it on the page" — today that button
+  pushes a NEW tabs copy, so a fresh page mounts (region just shows colored, no glow, stack grows).
+- V4: the region sheet has its own ✕ (top-right of the sheet header). Before, there was no close button and AB's
+  floating speaker-✕ music toggle read as one.
+- V5: `HeaderMusicToggle` in the reader top bar (right of Montage), the shelf title row and the chapter header →
+  AB's floating fallback hides on AD screens; nothing overlaps (checked at 375 px).
+- V8: montage verified silent (every Audio/play() logged): only the one bards loop plays. Rule documented in
+  Montage.tsx. REQUESTS → AB if a second track is heard on native.
+- V9: leaving the Storybook tab closes the book + montage, so the tab always opens on the shelf.
+
+## Open requests from V1 (in REQUESTS.md)
+- AB: `router.dismissTo` instead of `router.navigate` when leaving the mission modal (re-mount root cause).
+- AB: check native for a second music player; optional `useMusicDuck` for the montage.
+- EV: sequence `useLive` loads so an older response can't overwrite a newer one.
+
 ## Round 3 — open
 - MP's 8 set-mp pages (troll_bridge, cloud_kingdom, crystal_cave, owl_library, rose_garden, lantern_festival,
   swamp_hollow, unicorn_meadow) are on feat/friends, NOT on main yet → still placeholder frames here. After they reach
@@ -62,7 +83,6 @@
 - Montage music; share a finished page as an image.
 
 ## Known issues
-- AB's wizard FAB covers the Storybook reader's "next" arrow until AB's A10 (auto-hide on reader/montage) lands. Swipe still works.
 - Commit 9bfbcbe has the message "x" (pushed by mistake from my push script); its contents are described in 842903d. Not rewritten (no force-push).
 - Web preview tip: run Metro WITHOUT `CI=1` (CI mode disables file watching → stale bundles). react-native-svg logs harmless
   "Unknown event handler" errors on web.

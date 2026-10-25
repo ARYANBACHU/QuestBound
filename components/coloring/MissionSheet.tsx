@@ -11,6 +11,7 @@ import { CREW_LABEL, crewOf } from '@/lib/game';
 import { CrestRow } from './Crests';
 import { crayonHex, missionColors } from './pageUtils';
 import { InkButton, Txt } from './ui';
+import { playSfx } from './sfx';
 
 export function MissionSheet({ mission, page, members, onClose }: { mission: Mission | null; page: Page | null; members: FellowshipMember[]; onClose: () => void }) {
   const insets = useSafeAreaInsets();
@@ -34,6 +35,16 @@ export function MissionSheet({ mission, page, members, onClose }: { mission: Mis
               <Txt v="smallBold" color={mood.deep} style={{ flex: 1 }} numberOfLines={1}>
                 {CREW_LABEL[crewOf(mission)]}{region ? ` · ${region.label}` : ''}
               </Txt>
+              {/* V4: a real close button IN the sheet (the floating music toggle's speaker-✕ was mistaken for one) */}
+              <Pressable
+                onPress={() => { playSfx('close'); onClose(); }}
+                hitSlop={14}
+                style={({ pressed }) => [styles.close, pressed && { transform: [{ scale: 0.92 }] }]}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Txt v="bodyBold" color={ink.ink}>✕</Txt>
+              </Pressable>
             </View>
           </View>
           <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -115,6 +126,10 @@ const styles = StyleSheet.create({
   grip: { alignSelf: 'center', width: 48, height: 5, borderRadius: 3, backgroundColor: ink.muted },
   body: { gap: space.md, paddingHorizontal: space.xl, paddingTop: space.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  close: {
+    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: panel.parchment,
+    borderWidth: 2, borderColor: ink.ink, overflow: 'hidden',
+  },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   place: { borderRadius: radius.md, overflow: 'hidden', backgroundColor: ink.lavenderMist, borderWidth: 1.5, borderColor: ink.ink },
   placeMain: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md },

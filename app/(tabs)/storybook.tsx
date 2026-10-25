@@ -1,9 +1,9 @@
 // Owner: AD. The Storybook: a shelf of every book → reader (pages + photos + story lines) → recap → montage.
 'use no memo';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFellowship } from '@/lib/fellowship';
@@ -17,6 +17,7 @@ import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { Chip, InkButton, Txt } from '@/components/coloring/ui';
 import { SageSays } from '@/components/coloring/sage';
 import { useHideWizardFab } from '@/components/wizard/WizardProvider';
+import { HeaderMusicToggle } from '@/components/shell/music';
 import { BookReader } from '@/components/storybook/BookReader';
 import { Montage } from '@/components/storybook/Montage';
 import { bookProgress, fallbackRecap, montageSlides, withDemoMemories } from '@/components/storybook/bookData';
@@ -32,6 +33,15 @@ export default function StorybookScreen() {
   const [error, setError] = useState<string | null>(null);
   // Sage's FAB covers the reader's arrows and the montage — hide it while either is open (AB's A10 hook).
   useHideWizardFab(!!openId || montage);
+  // V9: the Storybook tab always opens on the shelf — leaving the tab closes the book (and its montage), so coming
+  // back never lands mid-book.
+  const focused = useIsFocused();
+  useEffect(() => {
+    if (focused) return;
+    setMontage(false);
+    setOpenId(null);
+    setError(null);
+  }, [focused]);
 
   // Any book on the shelf (current or older) loads its own pages, missions, memories and verses.
   const open = books.find((b) => b.id === openId) ?? null;
@@ -85,7 +95,10 @@ export default function StorybookScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <LinearGradient colors={SCREEN_GRADIENTS.castle} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.shelfWrap}>
-        <Txt v="hero">Storybook</Txt>
+        <View style={styles.head}>
+          <Txt v="hero" style={{ flex: 1 }}>Storybook</Txt>
+          <HeaderMusicToggle />
+        </View>
         <Txt v="story" color={ink.inkSoft}>Every tale your fellowship has lived.</Txt>
         {loading ? (
           <ActivityIndicator color={ink.ink} style={{ marginTop: space.xxl }} />
@@ -135,6 +148,7 @@ function BookCard({ book, members, onPress }: { book: Storyline; members: Fellow
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: ink.paper },
+  head: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   shelfWrap: { padding: space.lg, gap: space.sm, paddingBottom: space.xxl * 2 },
   empty: { marginTop: space.xl, gap: space.lg },
   shelf: { marginTop: space.lg, gap: space.lg },
