@@ -25,6 +25,33 @@
 - P4 past chapters: a finished chapter shows "The tale of this chapter" (every mission, crests, story line); taps open the read-only sheet.
 - P5 revamp polish; checked iPhone SE (375×667) + Pro Max (430×932) on web preview.
 
+## Done — Round 3 (all pushed to feat/coloring, typecheck clean)
+- B6 page-back sound: every flip (forward AND back) plays; page turns use a fresh one-shot player (AB's reused player
+  goes silent on replay — root cause written up in REQUESTS). Back = 'pageBack' (page.wav at 0.86×) until AB's U7.
+- B2 shelf labels from pages: "Chapter N of M · X colored" / "Finished ✦" / "Set aside · Chapter N of M"
+  (`bookProgress()` in components/storybook/bookData.ts). Set-aside books end on Sage's bookmark recap (no sequel button,
+  montage end card says "A bookmark, for now"). Coloring tab's "book done" also derives from pages.
+- B3 montage: one clock (shared value = index + progress) drives timer AND bars; token-guarded advance (no double timers);
+  5 s photos / 3 s titles; hold pauses (release never skips), tap left/right, swipe, swipe-down close, Play again.
+  Crossfade without exiting animations.
+- U1 coloring moment: crayon tip rides the scribble → waxy grain fill + darker pressed rim → gold ring + sparkles →
+  light shimmer; mood wash + scenery deepen. Plaid hatch textures removed. Fills/page turns/book party wait until the
+  Coloring tab is focused again (`paused` prop on ColoringPage), so you watch your color land after AB's reward.
+- U3 Storybook: one chapter view — Muse painting hero (on-demand via `components/storybook/paint.ts`, "Sage is
+  painting…"), colored-page thumbnail row (tap for full size), tale entries. "Illustration" toggle gone. New
+  `MontageButton` / `MontageIcon` (reel from a book, italic label) in the reader header + recap.
+- U2 art: redrew castle_gate, enchanted_forest, dragon_peak, royal_feast; new mermaid_lagoon, witch_cottage,
+  beanstalk_sky, fairy_glen, ice_palace, pirate_cove, candy_village, starlit_tower. PageArt gained optional `scenery`
+  (mood-tinted closed shapes under the regions). `validatePageArt()` = no problems for all 20 ids.
+- U8: sheet, quote cards, locked pill moved off white to parchment; only the coloring page itself is white.
+
+## Round 3 — open
+- MP's 8 set-mp pages (troll_bridge, cloud_kingdom, crystal_cave, owl_library, rose_garden, lantern_festival,
+  swamp_hollow, unicorn_meadow) are on feat/friends, NOT on main yet → still placeholder frames here. After they reach
+  main: add one import per file to `assets/pages/index.ts` and the `DRAWN` map (see REQUESTS [AD → MERGE]).
+- EV's `paintChapter` (G3) not landed: real mode shows the coloring page as hero until then (no AD change needed).
+- Not yet tested on a physical phone in Expo Go (web preview only): check 60fps of the reveal on a low-end Android.
+
 ## Local stand-ins (one-line swaps, listed in REQUESTS.md)
 - `components/storybook/useStoryData.ts` → EV's `usePages` / `useCompletions` (on feat/engine, compatible).
 - `components/coloring/sage.tsx` (`Sage` placeholder + AD's `SageSays`) → AB's `components/wizard/Sage.tsx` (on feat/shell, compatible).
