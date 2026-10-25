@@ -5,12 +5,18 @@ import { castle_gate } from './castle_gate';
 import { enchanted_forest } from './enchanted_forest';
 import { dragon_peak } from './dragon_peak';
 import { royal_feast } from './royal_feast';
+import { beanstalk_sky } from './beanstalk_sky';
+import { fairy_glen } from './fairy_glen';
+import { ice_palace } from './ice_palace';
 import { placeholderArt } from './placeholder';
 
 export type { PageArt, RegionArt } from './types';
 export { VIEW_W, VIEW_H } from './types';
 
-const DRAWN: Partial<Record<TemplateId, PageArt>> = { castle_gate, enchanted_forest, dragon_peak, royal_feast };
+const DRAWN: Partial<Record<TemplateId, PageArt>> = {
+  castle_gate, enchanted_forest, dragon_peak, royal_feast,
+  beanstalk_sky, fairy_glen, ice_palace,
+};
 
 /** Every template id has art: drawn pages first, a placeholder frame for any id not drawn yet. */
 export const PAGE_ART = Object.fromEntries(
