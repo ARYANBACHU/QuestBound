@@ -27,7 +27,7 @@ export interface UTMission {
   trial_question?: string;
   trial_answer?: string; // alternates separated by "|"
   verification_hint: string;
-  crew?: 2 | 3; // G1: medium trio slot (3) / small duet slot (2). Description starts with {Crew} ("Three of you").
+  crew?: 1 | 2 | 3; // medium: 2 (default) or 3 = trio; small: 2 = duet, 1 = the page's one solo. Description starts with {Crew}.
 }
 
 export interface UTChapter {
@@ -38,6 +38,8 @@ export interface UTChapter {
 }
 
 export const UT_VERIFY_MAX_M = 150;
+/** V2: the UT Campus Demo shows each landmark's distance but never blocks a proof on location (storylines.geo_enforced). */
+export const UT_GEO_ENFORCED = false;
 export const UT_CENTER = { lat: 30.2849, lng: -97.7341, label: 'UT Austin' };
 
 export const UT_PLACES: Record<string, UTPlace> = {
@@ -91,6 +93,12 @@ export const UT_PLACES: Record<string, UTPlace> = {
     lat: 30.285856, lng: -97.729254, query: 'LBJ Presidential Library',
     verified: { by: 'serpapi_google_maps', title: 'LBJ Presidential Library', place_id: 'ChIJ-WVL_5C1RIYRfDHlppbnLYE', delta_m: 8, at: '2026-10-25' },
   },
+  coop: {
+    // V2: "The Harvest Horns" (seasonal pumpkin display across Guadalupe from the Co-op). Pin = our estimate until the
+    // live SerpApi check confirms it (generate-storyline prefers SerpApi's pin within UT_VERIFY_MAX_M).
+    key: 'coop', title: 'University Co-op', address: '2246 Guadalupe St, Austin, TX 78705', category: 'Bookstore',
+    lat: 30.28563, lng: -97.74213, query: 'University Co-op Guadalupe St Austin',
+  },
   union: {
     key: 'union', title: 'Texas Union', address: '2308 Whitis Ave, Austin, TX 78712', category: 'Student union',
     lat: 30.286661, lng: -97.741163, query: 'Texas Union Building UT Austin',
@@ -106,51 +114,50 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
   theme_tags: ['museums', 'photography', 'live_music'],
   chapters: [
     {
+      // V2 (V1-PLAN): the judging-table chapter. Group play first: 0 solo missions on this page.
       template_id: 'castle_gate',
-      title: 'The Tower Wakes',
+      title: 'The Forty Acres Awaken',
       narrative:
-        'High above the South Mall, the great Tower sleeps with its clock hands frozen. Legend says it wakes only when a ' +
-        'fellowship gathers at its feet and answers the words carved in its stone.',
+        'High above the South Mall, the great Tower sleeps with its clock hands frozen. Legend says the Forty Acres ' +
+        'wakes only when a fellowship plays, sketches and cheers together beneath it.',
       missions: [
         {
-          region_id: 'castle', type: 'gathering', title: 'Council Beneath the Tower', place: 'tower',
-          description: 'Gather the whole fellowship on the South Mall lawn and take one group photo with the UT Tower behind you, everyone flashing Hook ’em.',
-          story_hook: 'A tower this tall can only be woken by a crowd of friends.',
-          verification_hint: 'Group photo outdoors with the UT Tower (tall clock tower) in the background.',
+          region_id: 'castle', type: 'gathering', title: 'The Great Tournament', place: null,
+          description: 'Gather the whole fellowship and win any video game together: co-op, versus the computer, anything goes. Photograph the victory screen with everyone cheering in front of it.',
+          story_hook: 'Every legend on the Forty Acres begins with a tournament, and every tournament ends in a cheer.',
+          verification_hint: 'A screen showing a video game win, victory or results screen, with a group of friends cheering nearby.',
         },
         {
-          region_id: 'drawbridge', type: 'duet', title: 'March the South Mall', place: 'littlefield',
-          description: '{Crew} walk down the South Mall from the Tower to Littlefield Fountain, then take a photo together with the fountain behind you.', crew: 3,
+          region_id: 'drawbridge', type: 'duet', title: 'Salute the Tower', place: 'tower', crew: 3,
+          description: '{Crew} take a selfie together with the UT Tower rising behind you. Salute it like knights reporting for duty.',
+          story_hook: 'The drawbridge lowers only for those who greet the Tower properly.',
+          verification_hint: 'A selfie of friends outdoors with the UT Tower (a tall clock tower) behind them.',
+        },
+        {
+          region_id: 'banners', type: 'duet', title: 'The Harvest Horns', place: 'coop', crew: 2,
+          description: '{Crew} find the seasonal pumpkin display across from the University Co-op on Guadalupe Street and throw your best Hook ’em among the pumpkins. Snap a photo together.',
+          story_hook: 'The banners of autumn fly orange, and so do the horns of a true Longhorn.',
+          verification_hint: 'Two people making the Hook ’em hand sign (index and pinky up) next to pumpkins.',
+        },
+        {
+          region_id: 'tower_flag', type: 'relic', title: 'The Royal Portraitist', place: 'blanton', crew: 2,
+          description: '{Crew} hand-sketch the Blanton Museum of Art together, then photograph your drawing held up with the museum behind it.',
+          story_hook: 'No flag rises over the realm until the royal portraitist has captured it.',
+          verification_hint: 'A hand-drawn sketch on paper, held up in front of a museum building.',
+        },
+        {
+          region_id: 'moon', type: 'trial', title: "The Turtle Keepers' Riddle", place: 'turtle_pond', crew: 2,
+          description: '{Crew} visit Turtle Pond, just north of the Tower, count the sunbathing shells and answer the keepers’ riddle together.',
+          story_hook: 'The moon rises over the pond where the oldest Longhorn secrets swim.',
+          trial_question: "Most of Turtle Pond's residents are one kind of turtle, named for the red stripe behind each eye. What are they called?",
+          trial_answer: 'red-eared slider|red eared slider|red-eared sliders|red eared sliders|slider|sliders|red-eared slider turtle|red-eared slider turtles',
+          verification_hint: "The turtle's common name.",
+        },
+        {
+          region_id: 'moat', type: 'relic', title: 'March the South Mall', place: 'littlefield', crew: 2,
+          description: '{Crew} walk down the South Mall from the Tower to Littlefield Fountain, then take a photo together with the fountain behind you.',
           story_hook: 'The old road between tower and fountain only opens for pairs.',
           verification_hint: 'Two people with a large fountain (bronze figures, horses) behind them.',
-        },
-        {
-          region_id: 'banners', type: 'trial', title: 'The Carved Words', place: 'tower',
-          description: 'Two of you find the words carved high on the south face of the Main Building and finish the line.',
-          story_hook: 'The Tower wrote its own riddle in stone a century ago.',
-          trial_question: 'Carved on the Main Building: "Ye shall know the truth and the truth shall make you ___." What is the last word?',
-          trial_answer: 'free',
-          verification_hint: 'The correct missing word.',
-        },
-        {
-          region_id: 'moon', type: 'relic', title: 'Catch the Tower Light', place: 'tower',
-          description: 'Photograph the UT Tower up close: its clock face by day, or its glow by night.',
-          story_hook: 'Every light the Tower shows is a message to the city.',
-          verification_hint: 'Photo of the UT Tower or its clock face.',
-        },
-        {
-          region_id: 'tower_flag', type: 'trial', title: 'How Tall the Tower', place: 'tower',
-          description: '{Crew} stand at the foot of the Tower, look up, and answer its riddle together.', crew: 2,
-          story_hook: 'The flag rises only for those who know how far it must climb.',
-          trial_question: 'The UT Tower rises over the Forty Acres. How tall is it, in feet?',
-          trial_answer: '307|307 feet|307 ft|three hundred seven|three hundred and seven',
-          verification_hint: 'The correct height in feet.',
-        },
-        {
-          region_id: 'moat', type: 'bard', title: 'Ode to the Forty Acres', place: null,
-          description: 'Write two lines of a poem about your fellowship on the Forty Acres. The best lines are written into the book.',
-          story_hook: 'The moat lets poets pass and splashes everyone else.',
-          verification_hint: 'Two lines of verse about the group or campus.',
         },
       ],
     },
@@ -182,13 +189,13 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
           verification_hint: 'The inventor’s name.',
         },
         {
-          region_id: 'fireflies', type: 'relic', title: 'Catch the Colored Light', place: 'blanton',
-          description: 'Photograph colored light near the Blanton: the stained glass of “Austin”, a bright artwork or a glowing sign.',
+          region_id: 'fireflies', type: 'relic', title: 'Catch the Colored Light', place: 'blanton', crew: 2,
+          description: '{Crew} hunt for colored light near the Blanton: the stained glass of “Austin”, a bright artwork or a glowing sign. Photograph your best catch.',
           story_hook: 'Each spark of color is a firefly that escaped the chapel.',
           verification_hint: 'Photo of colored glass, colorful art or a glowing light.',
         },
         {
-          region_id: 'owl', type: 'bard', title: 'The Owl of the Stacks', place: 'pcl',
+          region_id: 'owl', type: 'bard', title: 'The Owl of the Stacks', place: 'pcl', crew: 1,
           description: 'At the PCL, find the strangest book title you can and write a one-sentence fairy-tale blurb for it.',
           story_hook: 'The library owl trades shortcuts for a good story.',
           verification_hint: 'A one-sentence playful book blurb.',
@@ -235,15 +242,15 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
           verification_hint: 'The correct number.',
         },
         {
-          region_id: 'shield', type: 'trial', title: "The Stadium's Name", place: 'dkr',
-          description: "Stand outside the stadium and answer the riddle of its name.",
+          region_id: 'shield', type: 'trial', title: "The Stadium's Name", place: 'dkr', crew: 2,
+          description: '{Crew} stand outside the stadium and answer the riddle of its name together.',
           story_hook: 'Every shield bears the name of a legend.',
           trial_question: 'DKR-Texas Memorial Stadium is named for a legendary Longhorns coach. What do the letters D. K. R. stand for?',
           trial_answer: 'Darrell K Royal|Darrell K. Royal|Darrell Royal|Darrell Keith Royal',
           verification_hint: "The coach's full name.",
         },
         {
-          region_id: 'lantern', type: 'relic', title: "Gregory's Lantern", place: 'gregory',
+          region_id: 'lantern', type: 'relic', title: "Gregory's Lantern", place: 'gregory', crew: 1,
           description: 'Photograph the front of Gregory Gym, the old stone hall on Speedway.',
           story_hook: 'The last lantern hangs where champions train.',
           verification_hint: 'Photo of a large brick or stone gym building.',
@@ -284,13 +291,13 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
           verification_hint: 'Photo of a drink.',
         },
         {
-          region_id: 'cake', type: 'relic', title: 'Sweet of the Forty Acres', place: null,
-          description: 'Photograph a dessert or sweet treat you find on or near campus.',
-          story_hook: 'One bite and every curse is lifted.',
+          region_id: 'cake', type: 'relic', title: 'Sweet of the Forty Acres', place: null, crew: 2,
+          description: '{Crew} split a dessert or sweet treat on or near campus and photograph it before it vanishes.',
+          story_hook: 'One shared bite and every curse is lifted.',
           verification_hint: 'Photo of a dessert or sweet snack.',
         },
         {
-          region_id: 'lute', type: 'bard', title: 'The Last Verse', place: null,
+          region_id: 'lute', type: 'bard', title: 'The Last Verse', place: null, crew: 1,
           description: 'Write a four-word toast to your fellowship. The bards will sing it at the feast.',
           story_hook: 'The bard needs one last verse to end the legend.',
           verification_hint: 'A short toast.',

@@ -280,7 +280,9 @@ async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse>
   }
 
   // GPS gate, same rule as the server (missions whose place has lat/lng need you within ~400 m). 'dev' skips it.
-  const geo: GeoResult = req.proof_text === 'dev' ? { ok: true } : checkGeo(mission.place, req);
+  // V2: a book with geo_enforced = false (UT Campus Demo) shows the distance but never blocks.
+  const book = mock.storyline?.id === mission.storyline_id ? mock.storyline : null;
+  const geo: GeoResult = req.proof_text === 'dev' ? { ok: true } : checkGeo(mission.place, req, undefined, book?.geo_enforced === false);
   if (!geo.ok) return respond({ pass: false, confidence: 1, reason: geo.reason, flavor_text: geo.flavor, ...(geo.distance_m != null ? { distance_m: geo.distance_m } : {}) }, mission);
 
   let verdict: Verdict;

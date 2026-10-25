@@ -4,7 +4,7 @@
  * (supabase/functions/_shared/ut-campus.ts, pure data, no imports); this file re-exports it for the app and builds the
  * mock-mode version of the book. Owner: EV.
  */
-import { UT_BOOK, UT_CENTER, UT_PLACES, type UTPlace } from '@/supabase/functions/_shared/ut-campus';
+import { UT_BOOK, UT_CENTER, UT_GEO_ENFORCED, UT_PLACES, type UTPlace } from '@/supabase/functions/_shared/ut-campus';
 import { crewOf, missionPoints } from '@/supabase/functions/_shared/points';
 import { crewFor, crewWord } from '@/supabase/functions/_shared/fallbacks';
 import { TEMPLATES } from '@/shared/templates';
@@ -14,7 +14,7 @@ const PROOF_FOR_TYPE: Record<MissionType, ProofType> = {
   gathering: 'group_photo', duet: 'photo', relic: 'photo', bard: 'text', trial: 'answer', gift: 'confirm',
 };
 
-export { UT_BOOK, UT_CENTER, UT_PLACES, type UTPlace };
+export { UT_BOOK, UT_CENTER, UT_GEO_ENFORCED, UT_PLACES, type UTPlace };
 
 /** A UT landmark as a mission Place (Google Maps link included; lib/maps.ts openInMaps opens the native app). */
 export function utPlace(key: string): Place | null {
@@ -37,7 +37,7 @@ export function utMockBook(fellowshipId: string, bookNumber: number, difficulty:
   const sid = `ut-${Date.now().toString(36)}`;
   const storyline: Storyline = {
     id: sid, fellowship_id: fellowshipId, book_number: bookNumber, title: UT_BOOK.title, synopsis: UT_BOOK.synopsis,
-    theme_tags: UT_BOOK.theme_tags, status: 'active', difficulty, recap: null, created_at: now,
+    theme_tags: UT_BOOK.theme_tags, status: 'active', difficulty, geo_enforced: UT_GEO_ENFORCED, recap: null, created_at: now,
   };
   const answers: Record<string, string> = {};
   const pages: Page[] = [];
