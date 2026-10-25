@@ -1,10 +1,10 @@
 // Owner: MP. Deep-link landing for questbound://join/<CODE>: sign in, join, then onboarding or the Friends tab.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { haptic } from '@/components/friends/haptics';
 import GameButton from '@/components/friends/GameButton';
-import KeyboardSafe from '@/components/friends/KeyboardSafe';
+import { KeyboardSafe } from '@/components/shell/KeyboardSafe';
 import { Sage } from '@/components/friends/sage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SCREEN_GRADIENTS, fonts, ink, panel, radius, shadow, space, type, ui } from '@/shared/theme';
@@ -75,30 +75,28 @@ export default function JoinScreen() {
 
   return (
     <LinearGradient colors={SCREEN_GRADIENTS.castle} style={styles.screen}>
-      <KeyboardSafe extra={space.md}>
-        <Pressable style={[styles.fill, styles.center]} onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.scroll}>
-            <Sage expression="surprised" size="md" />
-            <Text style={styles.title}>The gate stayed shut</Text>
-            <Text style={styles.body}>{error}</Text>
-            <TextInput
-              value={code}
-              onChangeText={(t) => setCode(normalizeInviteCode(t).slice(0, 6))}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              maxLength={6}
-              placeholder="ABC123"
-              placeholderTextColor={ink.muted}
-              style={styles.input}
-              returnKeyType="go"
-              onSubmitEditing={() => code.length >= 4 && run(code)}
-            />
-            <GameButton label="Try again" disabled={code.length < 4} onPress={() => void run(code)} style={styles.btn} />
-            <Pressable onPress={() => router.replace('/')} style={styles.link}>
-              <Text style={styles.linkText}>Back to the start</Text>
-            </Pressable>
-          </View>
-        </Pressable>
+      <KeyboardSafe style={styles.center}>
+        <View style={styles.scroll}>
+          <Sage expression="surprised" size="md" />
+          <Text style={styles.title}>The gate stayed shut</Text>
+          <Text style={styles.body}>{error}</Text>
+          <TextInput
+            value={code}
+            onChangeText={(t) => setCode(normalizeInviteCode(t).slice(0, 6))}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={6}
+            placeholder="ABC123"
+            placeholderTextColor={ink.muted}
+            style={styles.input}
+            returnKeyType="go"
+            onSubmitEditing={() => code.length >= 4 && run(code)}
+          />
+          <GameButton label="Try again" disabled={code.length < 4} onPress={() => void run(code)} style={styles.btn} />
+          <Pressable onPress={() => router.replace('/')} style={styles.link}>
+            <Text style={styles.linkText}>Back to the start</Text>
+          </Pressable>
+        </View>
       </KeyboardSafe>
     </LinearGradient>
   );

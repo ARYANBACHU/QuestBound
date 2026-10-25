@@ -20,7 +20,7 @@ import Crest from './Crest';
 import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
 import { ReactionChips, ReactionPicker } from './Reactions';
-import KeyboardSafe from './KeyboardSafe';
+import { KeyboardSafe, useKeyboardVisible } from '@/components/shell/KeyboardSafe';
 import { Sage, playSfx } from './sage';
 import SageTalk from './SageTalk';
 import GameButton from './GameButton';
@@ -87,7 +87,7 @@ export interface ChatViewProps {
 export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember, missionsById, surface }: ChatViewProps) {
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
   const listRef = useRef<FlatList<Row>>(null);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const keyboardOpen = useKeyboardVisible();
   const scrollToNewest = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
   // Keyboard opens → jump to the newest message so you see what you're replying to.
   useEffect(() => {
@@ -196,7 +196,7 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
   const typing = chat.typingUserIds.map((id) => profileOf(members, id)).filter(Boolean);
 
   return (
-    <KeyboardSafe onKeyboardChange={setKeyboardOpen}>
+    <KeyboardSafe dismissOnTap={false}>
       <Pressable style={styles.flex} onPress={Keyboard.dismiss} accessible={false}>
         {chat.loading && chat.messages.length === 0 ? (
           <View style={styles.center}>
@@ -245,6 +245,7 @@ function Composer({ chat, keyboardOpen, onSent, surface }: { chat: ChatState; ke
     void chat.send(body);
     onSent();
     haptic.tap();
+    playSfx('send');
   };
   return (
     <View style={[styles.composer, surface ? { backgroundColor: surface } : null]}>
