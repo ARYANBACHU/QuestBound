@@ -1,61 +1,53 @@
-# AB status (Wizard & Shell)
+# AB status (Wizard & Shell) — Round 2 + UI revamp
 
-## Done
-- Task 1: fonts + splash + providers (`app/_layout.tsx`), gate (`app/index.tsx`).
-  Gate: ensureSignedIn → !onboarded → `/onboarding` · no fellowship → `/onboarding?step=fellowship` ·
-  no storyline → `/onboarding?step=summon` · else `/(tabs)/coloring`.
+## Done (all on feat/shell, typecheck clean, checked in mock mode on web at iPhone SE 375×667 and Pro Max 430×932)
+- **P6 sound + Sage (built first):**
+  - `components/shell/sfx.ts` → `playSfx('ping' | 'crayon' | 'page' | 'seal')` (preloaded expo-audio, low volume,
+    honors Settings → Sound effects, never throws). Sounds are original + CC0: `assets/audio/` (+ `README.md`, `synth.py`).
+  - `components/wizard/Sage.tsx` → `<Sage expression size variant="face|full" still speakKey silent />`, `<SageTitle />`
+    ("Sage" + "✦ powered by Muse"), `speakOnce(key)`, `markSpoken(keys)`. Talk animation + ping once per NEW key.
+  - `components/shell/soundSettings.ts` — Music + Sound effects (AsyncStorage, listeners).
+- **A1 music:** `components/shell/music.tsx` (`<MusicController/>` in root layout: loops `bards-loop.mp3` at low volume,
+  pauses in background; `useMusicToggle()` writes AsyncStorage + `profile.music_enabled`; `<MuteToggle/>` sits on the
+  tab bar). Onboarding "Shall the bards play?" step; Settings → Sound.
+- **A2–A5 onboarding:** debounced name reaction (700 ms idle or blur, only on a meaningful change); big labeled crayon
+  swatches + live region preview + Sage says the color; fit-to-screen layout (Sage beside content, content centered,
+  castle skyline only in leftover space); waiting-for-founder summon screen (realtime; "Summon it myself"); gate sends a
+  `generating` book to the ritual.
+- **A6:** mission detail "…" → "Ask Sage for a different mission" (`RerollSheet`, easier/similar/harder);
+  `NewStorylineSheet` (difficulty + confirm, `replace_active`) from Missions "…" and Settings.
+- **A7 GPS:** `components/shell/useProximity.ts` (permission, watch, haversine, "You're close!" within 400 m + accuracy
+  slack, ft/mi distance, retry), lat/lng/accuracy_m sent on submit, distance shown on fail.
+- **A8:** points via `components/shell/engine.ts` (`pointsFor`/`leaderboard` — uses EV's lib/game.ts exports as soon
+  as they exist, identical fallback until then).
+- **A9 Sage sheet:** pill / half / full (drag handle + buttons), history per fellowship in memory + AsyncStorage
+  (`qb.sage.chat.<fid>`; greeting stored once; API only on send; replies type out once), flush on keyboard
+  (`useAnimatedKeyboard`), tap outside = dismiss keyboard (or minimize).
+- **A10 FAB:** Sage face, draggable, snaps to nearest corner (remembered), hidden while keyboard/sheet/pill is up or
+  any screen calls `useHideWizardFab(true)`.
+- **A11:** Demo Tools → "Start UT campus demo" (`demo:'ut'`, replace_active) + SerpApi counts from `useGenerationInfo`.
+- **P7:** Missions chapter selector I · II · III (past chapters read-only, default active).
+- **P8 / SIMPLIFY:** onboarding, Missions, mission detail (one pinned primary action, "…" menu), Settings (hero card +
+  Invite friends, Leave in "…"), wizard sheet. Chunky game `Button` (press depth; AD re-exports it as InkButton),
+  shared `Sheet` / `ActionMenu` with one radius + overflow hidden (no jagged corners), mood gradients per chapter.
+- **MAPS:** every place tap (mission detail card + mission cards) → `openInMaps(place)`; `place.website` is a separate
+  small "Website" link.
+- **NAMING:** Sage everywhere in AB copy, incl. `wizard-chat` persona + app guide (reroll/new storyline/GPS/music).
 
 ## For teammates
-- **`<T variant="hero|title|heading|body|bodyBold|small|smallBold|story">` in `components/shell/T.tsx`** — use it
-  instead of `<Text>` so Fraunces/Nunito apply. Props: `color`, `center`, plus all Text props.
-- `components/shell/Button.tsx` — `<Button label variant="primary|secondary|ghost|danger" small icon loading />`.
-- `components/shell/ParchmentLoading.tsx` — full-screen loader.
+- `playSfx`, `<Sage>`, `<SageTitle>`, `speakOnce` — see top. `useHideWizardFab(hidden)` from
+  `components/wizard/WizardProvider` (AD: Storybook reader/montage — see REQUESTS.md).
+- `<Button tone="gold|forest|swamp|lantern|primary">` for any gameButton face.
 
-- Task 2: custom `TabBar` (inked SVG icons, crayon squiggle, Friends unread badge), Muse FAB (tap = sheet,
-  long-press = Demo Tools), coach marks once per tab, `WizardSheet` chat client (Task 7 client side).
-  `TAB_CONTENT_BOTTOM_PAD` (from `components/shell/TabBar.tsx`) — pad your tab's scroll content so the FAB
-  doesn't cover it. `useWizard().open('question')` from any tab opens Muse and asks it.
+## Needs someone else
+- **Deploy `wizard-chat`** (persona/guide changed): `npx supabase functions deploy wizard-chat --use-api`. My deploy
+  attempt was blocked by this session's permission policy (production deploy), so it is NOT deployed from here.
+- REQUESTS.md: AD `useHideWizardFab`, EV `rerollMission(..., difficulty)` + `pointsFor`, MERGE README audio credit.
 
-- Task 3: onboarding (`app/onboarding.tsx`) with Muse bubble + typewriter, quill dots, crest/crayon/interest
-  (with quips)/budget+availability pickers (reusable in `components/shell/`), fellowship found/join (QR + code),
-  summon ritual (`components/wizard/SummonRitual.tsx`) with error → "write a quick demo book" fallback.
-- Local fallbacks for teammates' components live in **`components/shell/teammates.tsx`** (Crest, CrestRow,
-  InviteSheet, QrScanner, MissionTypeIcon). Swap to re-exports once MP/AD land on main.
+## Next
+- When EV's E2/E4/E6 land: nothing to change (adapters pick them up); drop the cast in `engine.ts` if desired.
+- Optional polish: confetti on mission pass is left to AD's coloring celebration (one animation at a time).
 
-- Task 4: Missions dashboard (header, 6-segment page progress in completers' crayons, points leaderboard,
-  filters, Whole fellowship / Pairs / Solo sections, collapsed locked chapters), `MissionCard`, `StatusPill`.
-
-- Task 5: mission detail (`app/mission/[id].tsx`): place card + Open in Maps, riddle, proof UI per proof_type,
-  participant picker (gathering allows required−1 when fellowship ≥ 4, mirroring EV's rule), gift give/seal,
-  photo upload cached across retries, Magic Mirror while verifying, "The Mirror sees: …" Lens titles, wax seal +
-  typewriter story_line, Chapter complete banner → auto-navigates to coloring after ~3 s.
-
-- Task 6: Settings — hero card, edit sheets reusing onboarding pickers, fellowship (invite sheet, leave w/ confirm),
-  replay tour, alerts toggle (local stub), about, version label ×5 → Demo Tools.
-
-- Task 7: `supabase/functions/wizard-chat/index.ts` — auth, membership check, loads profile/fellowship/members/
-  latest book/active page missions/last 15 messages, system prompt = persona (inline copy) + app guide + reply
-  rules + live context JSON + screen; `chatJSON` (works with both the old and EV's new `llm.ts` signature);
-  validates actions (known tabs, mission ids on the active page, summon only when no book); canned context-aware
-  reply on any failure or when `LLM_API_KEY` is unset. `deno check` passes.
-  **NOT DEPLOYED** — no `SUPABASE_ACCESS_TOKEN` in this container. Whoever has it:
-  `npx supabase functions deploy wizard-chat`.
-
-## In progress / next
-- Swap `components/shell/teammates.tsx` fallbacks for MP/AD components after merge round 1.
-- Swap inline `MUSE_PERSONA` for `_shared/prompts.ts` once EV's branch is on main.
-- Round 2 #1 done: "Plan our next meetup" → `components/wizard/planMeetup.ts` picks the slot most members share,
-  the best open mission for that many people, proposes a concrete time + place, and offers "📜 Post to the
-  fellowship" (sends a chat message as the user via `useChat().send`).
-- Round 2 next: sequel adaptation card + Demo Tools SerpApi counts (both via EV's `useGenerationInfo`, after merge);
-  reroll (waits on EV's `reroll-mission`); voice (waits on EV transcribe fn); icon/splash need `assets/` + `app.json`
-  (merge agent).
-
-## Integration check (local throwaway merge, not pushed)
-- main + feat/engine + feat/friends + feat/coloring + feat/shell: only `handoffs/notes/REQUESTS.md` conflicts
-  (append-only → take both sides). `tsc --noEmit` passes on the result. Mock mode runs on web: coloring page,
-  friends chat, missions, riddle proof → wax seal all work together.
-- Fixed from that run: Muse FAB covered MP's chat Send button → FAB floats above the composer on Friends.
-
-## Known bugs
-- none yet
+## Known bugs / caveats
+- Web preview: `useAnimatedKeyboard` reports 0 (sheet still works; keyboard flush is native-only by design).
+- RN-web has no `Alert`; AB confirms use in-app sheets (Leave, New storyline). Demo Tools skips confirms on web.
