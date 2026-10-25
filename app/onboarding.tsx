@@ -444,6 +444,7 @@ export default function Onboarding() {
           >
             <View style={styles.group} onLayout={(e) => setContentH(e.nativeEvent.layout.height)}>
             <SageBubble
+              still
               key={hero ? 'hero' : 'row'}
               text={bubble}
               expression={expression}

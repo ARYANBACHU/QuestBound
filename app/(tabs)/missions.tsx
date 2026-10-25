@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionMenu } from '@/components/shell/ActionMenu';
+import { CoachTarget } from '@/components/wizard/coachTargets';
 import { HeaderMusicToggle } from '@/components/shell/music';
 import { Button } from '@/components/shell/Button';
 import { MissionCard } from '@/components/shell/MissionCard';
@@ -60,6 +61,7 @@ export default function MissionsScreen() {
     filtered.forEach((m) => g[missionGroup(m)].push(m));
     return g;
   }, [filtered]);
+  const firstCardId = (['whole', 'pairs', 'solo'] as MissionGroup[]).map((g) => grouped[g][0]).find(Boolean)?.id;
   const leaders = useMemo(() => pointsByMember(missions, fs.members), [missions, fs.members]);
 
   const menu = [
@@ -109,7 +111,8 @@ export default function MissionsScreen() {
             <ActionMenu items={menu} />
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.chapters}>
+          <CoachTarget id="missions.chapters" style={styles.bleed}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chapters}>
             {pages.map((p) => {
               const on = p.id === viewed.id;
               const locked = p.status === 'locked';
@@ -131,6 +134,7 @@ export default function MissionsScreen() {
               );
             })}
           </ScrollView>
+          </CoachTarget>
 
           <T variant="story" color={ink.ink}>Chapter {roman(viewed.chapter_number)}: {viewed.title}</T>
           <View style={styles.progressRow} accessibilityLabel={`${coloredCount} of ${total} regions colored`}>
@@ -147,7 +151,8 @@ export default function MissionsScreen() {
 
           {/* Leaderboard: one compact strip */}
           {leaders.length > 1 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.leaders}>
+            <CoachTarget id="missions.leaders" style={styles.bleed}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.leaders}>
               {leaders.map(({ member, points }, i) => member.profile ? (
                 <View key={member.user_id} style={[styles.leader, member.user_id === userId && { backgroundColor: mood.tintStrong }]}>
                   <Crest crest={member.profile.crest} color={member.profile.color} size={24} />
@@ -157,6 +162,7 @@ export default function MissionsScreen() {
                 </View>
               ) : null)}
             </ScrollView>
+            </CoachTarget>
           ) : null}
 
           {/* Filters (active chapter only) */}
@@ -194,7 +200,11 @@ export default function MissionsScreen() {
                   <T variant="small">{GROUP_TITLES[g].sub}</T>
                 </View>
                 <View style={{ gap: space.md }}>
-                  {grouped[g].map((m) => <MissionCard key={m.id} mission={m} members={fs.members} page={viewed} mood={mood} />)}
+                  {grouped[g].map((m) => m.id === firstCardId ? (
+                    <CoachTarget key={m.id} id="missions.firstCard">
+                      <MissionCard mission={m} members={fs.members} page={viewed} mood={mood} />
+                    </CoachTarget>
+                  ) : <MissionCard key={m.id} mission={m} members={fs.members} page={viewed} mood={mood} />)}
                 </View>
               </View>
             ) : null)

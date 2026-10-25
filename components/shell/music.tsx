@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { useSession } from '@/lib/session';
 import { ink, shadow, space } from '@/shared/theme';
+import { CoachTarget } from '@/components/wizard/coachTargets';
 import { playSfx } from './sfx';
 import { ensureAudioMode } from './sfx';
 import { hasStoredMusicChoice, loadSoundSettings, setSoundSetting, useSoundSettings } from './soundSettings';
@@ -121,7 +122,7 @@ export function HeaderMusicToggle({ style }: { style?: StyleProp<ViewStyle> }) {
     bump(1);
     return () => bump(-1);
   }, [focused]);
-  return <MuteToggle size={40} style={style} />;
+  return <CoachTarget id="music.header"><MuteToggle size={40} style={style} /></CoachTarget>;
 }
 
 /** Top-right fallback for tabs whose header has no <HeaderMusicToggle /> yet. Rendered by the tabs layout. */

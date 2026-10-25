@@ -9,7 +9,7 @@ import { NewBookProvider } from '@/components/shell/NewBook';
 import { TAB_BAR_HEIGHT, TabBar } from '@/components/shell/TabBar';
 import { CoachMark } from '@/components/wizard/CoachMark';
 import { screenFromPath } from '@/components/wizard/screens';
-import { FAB_SIZE, WizardFab } from '@/components/wizard/WizardFab';
+import { WizardFab } from '@/components/wizard/WizardFab';
 import { WizardProvider } from '@/components/wizard/WizardProvider';
 import { WizardSheet } from '@/components/wizard/WizardSheet';
 import { ink, space } from '@/shared/theme';
@@ -42,9 +42,10 @@ export default function TabsLayout() {
         <ProclamationToast />
         {/* U6: music toggle at the top — fallback for tabs whose header doesn't render <HeaderMusicToggle /> yet */}
         <FloatingMusicToggle visible={FLOATING_MUSIC.has(screen)} />
-        <CoachMark screen={screen} bottom={fabBottom + FAB_SIZE + space.sm} />
         <WizardFab bottom={fabBottom} />
         <WizardSheet />
+        {/* U5: spotlight tour, above everything in the tabs (incl. Sage's FAB, which it can point at) */}
+        <CoachMark screen={screen} />
         <DemoTools />
         </NewBookProvider>
       </View>

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardVisible } from '@/components/shell/KeyboardSafe';
 import { playSfx } from '@/components/shell/sfx';
 import { ink, realm, shadow, space } from '@/shared/theme';
+import { CoachTarget } from './coachTargets';
 import { Sage } from './Sage';
 import { useWizard } from './WizardProvider';
 
@@ -122,6 +123,7 @@ export function WizardFab({ bottom }: { bottom: number }) {
 
   return (
     <Animated.View style={[styles.wrap, style]} pointerEvents={hidden ? 'none' : 'auto'}>
+      <CoachTarget id="sage.fab">
       <View {...pan.panHandlers}>
       <Pressable
         accessibilityRole="button"
@@ -139,6 +141,7 @@ export function WizardFab({ bottom }: { bottom: number }) {
         </View>
       </Pressable>
       </View>
+      </CoachTarget>
     </Animated.View>
   );
 }

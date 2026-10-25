@@ -17,10 +17,12 @@ export interface SageBubbleProps {
   speakKey?: string | null;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void; // called on tap once the text is fully shown
+  /** No idle bob/twinkle loop (Sage still talks on a new line). Calm screens: onboarding, coach marks. */
+  still?: boolean;
 }
 
 export function SageBubble({
-  text, expression = 'idle', sageSize = 'md', layout = 'row', typewriter = true, speakKey, style, onPress,
+  text, expression = 'idle', sageSize = 'md', layout = 'row', typewriter = true, speakKey, style, onPress, still,
 }: SageBubbleProps) {
   const { shown, done, skip } = useTypewriter(text, 25, typewriter);
   const stack = layout === 'stack';
@@ -31,7 +33,7 @@ export function SageBubble({
       onPress={() => (done ? onPress?.() : skip())}
       style={[stack ? styles.stack : styles.row, style]}
     >
-      <Sage expression={expression} size={sageSize} speakKey={speakKey === undefined ? text : speakKey} />
+      <Sage expression={expression} size={sageSize} still={still} speakKey={speakKey === undefined ? text : speakKey} />
       <View style={[styles.bubbleWrap, stack ? styles.bubbleStack : styles.bubbleRow]}>
         <View style={[styles.tail, stack ? styles.tailUp : styles.tailLeft]} />
         <View style={styles.bubble}>

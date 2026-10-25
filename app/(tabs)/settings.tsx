@@ -24,6 +24,7 @@ import { T } from '@/components/shell/T';
 import { TAB_CONTENT_BOTTOM_PAD } from '@/components/shell/TabBar';
 import { Crest, InviteSheet } from '@/components/shell/teammates';
 import { resetCoachMarks } from '@/components/wizard/coachMarks';
+import { CoachTarget } from '@/components/wizard/coachTargets';
 import { SageBubble } from '@/components/wizard/SageBubble';
 import { useWizard } from '@/components/wizard/WizardProvider';
 import { useFellowship } from '@/lib/fellowship';
@@ -98,6 +99,7 @@ export default function SettingsScreen() {
           </View>
 
           {/* Hero card — the focal point */}
+          <CoachTarget id="settings.hero">
           <Pressable style={styles.hero} onPress={() => setEditing('identity')} accessibilityRole="button"
             accessibilityLabel={`${profile.display_name}, edit name and crest`}>
             <Crest crest={profile.crest} color={profile.color} size={76} />
@@ -108,6 +110,7 @@ export default function SettingsScreen() {
             </View>
             <T variant="heading" color={ink.muted}>›</T>
           </Pressable>
+          </CoachTarget>
           {fs.fellowship ? (
             <Button label="Invite friends" icon="📜" tone="gold" onPress={() => setInviteOpen(true)} style={styles.primary} />
           ) : (

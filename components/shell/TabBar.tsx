@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useFellowship } from '@/lib/fellowship';
 import { useSession } from '@/lib/session';
 import { CRAYONS, fonts, ink, radius, space } from '@/shared/theme';
+import { CoachTarget } from '@/components/wizard/coachTargets';
 import { T } from './T';
 import { CrayonSquiggle, TabIcon, type TabName } from './TabIcons';
 import { useUnreadProclamations } from './useUnreadProclamations';
@@ -52,14 +53,14 @@ export function TabBar({ state, navigateToTab, emitter, insets }: BottomTabBarPr
             }}
             onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
           >
-            <View>
+            <CoachTarget id={`tab.${name}`}>
               <TabIcon name={name} active={active} fill={crayon} />
               {badge ? (
                 <View style={styles.badge}>
                   <T style={styles.badgeText} color={ink.page}>{badge > 9 ? '9+' : String(badge)}</T>
                 </View>
               ) : null}
-            </View>
+            </CoachTarget>
             <T variant={active ? 'smallBold' : 'small'} color={active ? ink.ink : ink.muted} style={styles.label}>
               {LABELS[name]}
             </T>
