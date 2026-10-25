@@ -16,7 +16,7 @@ import { KeyboardSafeScroll } from '@/components/shell/KeyboardSafe';
 import { CrayonPicker, CrayonPreview, crayonName } from '@/components/shell/CrayonPicker';
 import { CrestPicker } from '@/components/shell/CrestPicker';
 import { INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
-import { useMusicToggle } from '@/components/shell/music';
+import { HeaderMusicToggle, useMusicToggle } from '@/components/shell/music';
 import { useNewBook } from '@/components/shell/NewBook';
 import { Sheet } from '@/components/shell/Sheet';
 import { setSoundSetting, useSoundSettings } from '@/components/shell/soundSettings';
@@ -93,6 +93,7 @@ export default function SettingsScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.headRow}>
             <T variant="title" style={styles.fill}>Settings</T>
+            <HeaderMusicToggle />
             <ActionMenu items={menu} />
           </View>
 

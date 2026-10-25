@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionMenu } from '@/components/shell/ActionMenu';
+import { HeaderMusicToggle } from '@/components/shell/music';
 import { Button } from '@/components/shell/Button';
 import { MissionCard } from '@/components/shell/MissionCard';
 import {
@@ -104,6 +105,7 @@ export default function MissionsScreen() {
               <T variant="small" color={ink.inkSoft} numberOfLines={1}>{fs.fellowship?.name} · Book {roman(storyline.book_number)}</T>
               <T variant="title" numberOfLines={2}>{storyline.title}</T>
             </View>
+            <HeaderMusicToggle />
             <ActionMenu items={menu} />
           </View>
 

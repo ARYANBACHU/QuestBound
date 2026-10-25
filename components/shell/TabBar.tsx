@@ -6,7 +6,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useFellowship } from '@/lib/fellowship';
 import { useSession } from '@/lib/session';
 import { CRAYONS, fonts, ink, radius, space } from '@/shared/theme';
-import { MuteToggle } from './music';
 import { T } from './T';
 import { CrayonSquiggle, TabIcon, type TabName } from './TabIcons';
 import { useUnreadProclamations } from './useUnreadProclamations';
@@ -32,7 +31,6 @@ export function TabBar({ state, navigateToTab, emitter, insets }: BottomTabBarPr
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space.sm) }]}>
-      <MuteToggle style={styles.mute} />
       {state.routes.map((route, i) => {
         const name = route.name as TabName;
         if (!(name in LABELS)) return null;
@@ -78,7 +76,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', backgroundColor: ink.page, borderTopWidth: 2, borderTopColor: ink.ink,
     paddingTop: space.sm,
   },
-  mute: { position: 'absolute', top: -16, left: space.md, zIndex: 2 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: TAB_BAR_HEIGHT - space.sm },
   label: { fontSize: 11, lineHeight: 14, marginTop: 2 },
   squiggle: { height: 8, marginTop: 1 },
