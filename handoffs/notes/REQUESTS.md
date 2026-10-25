@@ -164,3 +164,14 @@ Format:
 - Why: plan A1/P6 asks to credit the audio in README; README isn't in AB's paths. The full credit table lives in
   `assets/audio/README.md` (AB).
 - Status: ✅ applied in round 2 (README.md Credits line).
+
+## [MP → AD] Round 3 U2: MP's 8 pages are drawn — wire them into PAGE_ART
+- What: in `assets/pages/index.ts` add `import { SET_MP } from './set-mp';` and spread it into DRAWN:
+  `const DRAWN: Partial<Record<TemplateId, PageArt>> = { castle_gate, enchanted_forest, dragon_peak, royal_feast, ...SET_MP };`
+  (put AD's 12 new pages in the same object; order doesn't matter). Individual named exports exist too.
+- Covers: troll_bridge, cloud_kingdom, crystal_cave, owl_library, rose_garden, lantern_festival, swamp_hollow,
+  unicorn_meadow. Same PageArt format (1000×1400, storybookFrame, regions + ink + background), region ids exactly
+  shared/templates.ts. Checked on feat/friends: all 48 ids match, every `labelAt` is inside its region (browser
+  isPointInFill), no NaN paths, and the two-line wiring above typechecks with `validatePageArt()` passing.
+- Why: the plan says AD owns index.ts and adds the imports.
+- Status: open (MP pushed `assets/pages/set-mp/**` to feat/friends).

@@ -54,7 +54,7 @@ export const rose_garden: PageArt = {
     hedge_maze: { d: HEDGE, labelAt: [160, 1170] },
     garden_fountain: { d: FOUNTAIN, labelAt: [500, 960] },
     rosebud: { d: BUD, labelAt: [860, 750] },
-    butterfly: { d: BUTTERFLY, labelAt: [184, 262] },
+    butterfly: { d: BUTTERFLY, labelAt: [128, 236] },
     watering_can: { d: CAN, labelAt: [134, 956] },
   },
   ink: [
