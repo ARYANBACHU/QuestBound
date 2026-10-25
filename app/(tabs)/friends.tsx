@@ -1,7 +1,7 @@
 // Owner: MP. Friends tab. The chat is the hero: header (name + crests + Invite) → one "Up next" strip → chat.
 // The fellowship roster (points, profiles) opens from the crests.
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,15 +62,22 @@ export default function FriendsScreen() {
 
   return (
     <LinearGradient colors={gradient} style={[styles.screen, { paddingTop: insets.top + space.sm }]}>
-      <FellowshipHeader
-        fellowship={fellowship}
-        members={members}
-        online={chat.online}
-        onInvite={() => setInviteOpen(true)}
-        onPressMembers={() => setView('fellowship')}
-      />
-      {view === 'chat' ? (
-        <>
+      {/* Tapping anywhere above the chat puts the keyboard away (buttons inside still work). */}
+      <Pressable onPress={Keyboard.dismiss} accessible={false}>
+        <FellowshipHeader
+          fellowship={fellowship}
+          members={members}
+          online={chat.online}
+          onInvite={() => {
+            Keyboard.dismiss();
+            setInviteOpen(true);
+          }}
+          onPressMembers={() => {
+            Keyboard.dismiss();
+            setView('fellowship');
+          }}
+        />
+        {view === 'chat' ? (
           <UpNext
             storyline={storyline}
             pages={pages}
@@ -80,6 +87,10 @@ export default function FriendsScreen() {
             myId={userId}
             loading={storyLoading}
           />
+        ) : null}
+      </Pressable>
+      {view === 'chat' ? (
+        <>
           <View style={styles.body}>
             <ChatView
               chat={chat}

@@ -20,7 +20,7 @@ import Crest from './Crest';
 import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
 import { ReactionChips, ReactionPicker } from './Reactions';
-import { useKeyboardLift, type ViewRef } from './useKeyboardLift';
+import KeyboardSafe from './KeyboardSafe';
 import { Sage, playSfx } from './sage';
 import SageTalk from './SageTalk';
 import GameButton from './GameButton';
@@ -84,14 +84,13 @@ export interface ChatViewProps {
 
 export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember, missionsById }: ChatViewProps) {
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
-  const rootRef = useRef<ViewRef>(null);
   const listRef = useRef<FlatList<Row>>(null);
-  const keyboard = useKeyboardLift(rootRef);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const scrollToNewest = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
   // Keyboard opens → jump to the newest message so you see what you're replying to.
   useEffect(() => {
-    if (keyboard.visible) scrollToNewest();
-  }, [keyboard.visible]);
+    if (keyboardOpen) scrollToNewest();
+  }, [keyboardOpen]);
   // My own message lands → follow it down.
   const newest = chat.messages[chat.messages.length - 1];
   useEffect(() => {
@@ -195,7 +194,7 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
   const typing = chat.typingUserIds.map((id) => profileOf(members, id)).filter(Boolean);
 
   return (
-    <View ref={rootRef} onLayout={keyboard.remeasure} style={[styles.flex, { paddingBottom: keyboard.lift }]}>
+    <KeyboardSafe onKeyboardChange={setKeyboardOpen}>
       <Pressable style={styles.flex} onPress={Keyboard.dismiss} accessible={false}>
         {chat.loading && chat.messages.length === 0 ? (
           <View style={styles.center}>
@@ -229,8 +228,8 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
           {typing.length === 1 ? `${heroName(typing[0])} is writing…` : `${typing.length} heroes are writing…`}
         </Text>
       ) : null}
-      <Composer chat={chat} keyboardOpen={keyboard.visible} onSent={scrollToNewest} />
-    </View>
+      <Composer chat={chat} keyboardOpen={keyboardOpen} onSent={scrollToNewest} />
+    </KeyboardSafe>
   );
 }
 
