@@ -1,30 +1,39 @@
 // Owner: AB. Mission detail + proof submission — the core loop's action.
-// Photo → uploadProof → submitProof → Magic Mirror → wax seal (pass) or Muse's hint (fail).
+// Photo → uploadProof → submitProof (+ GPS for place missions) → Magic Mirror → wax seal (pass) or Sage's hint (fail).
+// One primary action pinned at the bottom; secondary actions (reroll, maps) in the "…" menu.
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActionMenu, type MenuItem } from '@/components/shell/ActionMenu';
 import { Button } from '@/components/shell/Button';
 import { MagicMirror } from '@/components/shell/MagicMirror';
 import { regionLabel } from '@/components/shell/missionUtils';
 import { ParchmentLoading } from '@/components/shell/ParchmentLoading';
 import { ParticipantPicker } from '@/components/shell/ParticipantPicker';
-import { StatusPill } from '@/components/shell/StatusPill';
+import { RerollSheet } from '@/components/shell/RerollSheet';
+import { playSfx } from '@/components/shell/sfx';
 import { T } from '@/components/shell/T';
 import { CrestRow, MissionTypeIcon, MISSION_TYPE_LABEL } from '@/components/shell/teammates';
+import { formatDistance, hasCoords, useProximity, type Proximity } from '@/components/shell/useProximity';
 import { WaxSeal } from '@/components/shell/WaxSeal';
-import { MuseBubble } from '@/components/wizard/MuseBubble';
+import { Sage } from '@/components/wizard/Sage';
+import { SageBubble } from '@/components/wizard/SageBubble';
 import { useTypewriter } from '@/components/wizard/useTypewriter';
 import { submitProof, uploadProof } from '@/lib/api';
 import { useChat } from '@/lib/chat';
 import { useFellowship, profileOf } from '@/lib/fellowship';
 import { useMission, useStoryline } from '@/lib/game';
+import { openInMaps } from '@/lib/maps';
 import { useSession } from '@/lib/session';
-import type { Mission, SubmitProofRequest, SubmitProofResponse } from '@/shared/types';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
+import type { Mission, Place, SubmitProofRequest, SubmitProofResponse } from '@/shared/types';
+import {
+  SCREEN_GRADIENTS, accent, chips, fonts, ink, moodFor, panel, radius, shadow, space, type, ui, type Mood,
+} from '@/shared/theme';
 
 const TEXT_MAX = 280;
 
@@ -42,6 +51,7 @@ export default function MissionDetail() {
   const { pages } = useStoryline(fs.fellowship?.id ?? null);
   const { messages } = useChat(fs.fellowship?.id ?? null);
   const page = pages.find((p) => p.id === mission?.page_id) ?? null;
+  const mood = moodFor(page?.template_id);
 
   const [phase, setPhase] = useState<Phase>({ kind: 'form' });
   const [photo, setPhoto] = useState<string | null>(null);
@@ -51,6 +61,11 @@ export default function MissionDetail() {
   const [recipient, setRecipient] = useState<string | null>(null);
   const [giver, setGiver] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rerollOpen, setRerollOpen] = useState(false);
+  const [rerolled, setRerolled] = useState<string | null>(null);
+
+  const actionable = !!mission && (mission.status === 'open' || mission.status === 'pending');
+  const prox = useProximity(mission?.place, actionable);
 
   useEffect(() => {
     if (userId && participants.length === 0) setParticipants([userId]);
@@ -67,15 +82,20 @@ export default function MissionDetail() {
   if (loading && !mission) return <ParchmentLoading line="Finding the mission scroll…" />;
   if (!mission) {
     return (
-      <Shell onClose={() => router.back()}>
-        <MuseBubble text="Hmm. That mission scroll has blown away. Head back to the board and pick another." />
-        <Button label="Back to missions" onPress={() => router.navigate('/(tabs)/missions')} style={{ marginTop: space.xl }} />
+      <Shell mood={mood} onClose={() => router.back()}>
+        <View style={styles.centerFill}>
+          <SageBubble layout="stack" expression="surprised" sageSize={120}
+            text="Hmm. That mission scroll has blown away. Head back to the board and pick another." />
+        </View>
+        <Footer><Button label="Back to missions" onPress={() => router.navigate('/(tabs)/missions')} /></Footer>
       </Shell>
     );
   }
 
   const isGift = mission.proof_type === 'confirm';
+  const isPhoto = mission.proof_type === 'photo' || mission.proof_type === 'group_photo';
   const iAmGiftRecipient = isGift && mission.status === 'pending' && giftGiver !== userId;
+  const waitingOnGift = isGift && mission.status === 'pending' && !iAmGiftRecipient;
   const needPeople = mission.required_members >= 2 && !isGift;
   const minPeople = mission.type === 'gathering' && fs.members.length >= 4 ? mission.required_members - 1 : mission.required_members;
 
@@ -84,8 +104,13 @@ export default function MissionDetail() {
     if (!userId) return;
     setError(null);
     const req: SubmitProofRequest = { mission_id: mission.id, participant_ids: needPeople ? participants : [userId] };
+    if (prox.coords && hasCoords(mission.place)) {
+      req.lat = prox.coords.lat;
+      req.lng = prox.coords.lng;
+      if (prox.coords.accuracy_m != null) req.accuracy_m = Math.round(prox.coords.accuracy_m);
+    }
     try {
-      if (mission.proof_type === 'photo' || mission.proof_type === 'group_photo') {
+      if (isPhoto) {
         if (!photo) return;
         if (uploaded.current?.uri !== photo) {
           setPhase({ kind: 'working', step: 'upload' });
@@ -131,7 +156,7 @@ export default function MissionDetail() {
   // ---------- working / result ----------
   if (phase.kind === 'working') {
     return (
-      <Shell onClose={undefined}>
+      <Shell mood={mood}>
         <View style={styles.centerFill}>
           <MagicMirror
             photoUri={photo}
@@ -144,6 +169,7 @@ export default function MissionDetail() {
   if (phase.kind === 'result') {
     return (
       <Result
+        mood={mood}
         res={phase.res}
         mission={mission}
         photo={photo}
@@ -165,76 +191,61 @@ export default function MissionDetail() {
   })();
 
   const completer = profileOf(fs.members, mission.completed_by[0]);
+  const menu: MenuItem[] = [
+    ...(mission.status === 'open' ? [{ label: 'Ask Sage for a different mission', icon: '🎲', onPress: () => setRerollOpen(true) }] : []),
+    ...(mission.place ? [{ label: 'Open in Maps', icon: '🗺️', onPress: () => { openInMaps(mission.place); } }] : []),
+  ];
+  const primaryLabel = iAmGiftRecipient ? 'Seal it — I received the gift'
+    : mission.proof_type === 'answer' ? 'Speak the answer'
+    : isGift ? 'Send the gift'
+    : error ? 'Try again' : 'Submit proof';
 
   return (
-    <Shell onClose={() => router.back()}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={60}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {/* Header */}
+    <Shell mood={mood} onClose={() => router.back()} menu={menu}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fill} keyboardVerticalOffset={44}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          {/* Header: the focal point */}
           <View style={styles.kicker}>
-            <MissionTypeIcon type={mission.type} size={22} />
-            <T variant="smallBold" color={ink.inkSoft}>
+            <View style={[styles.typeIcon, { backgroundColor: mood.tintStrong }]}>
+              <MissionTypeIcon type={mission.type} size={22} />
+            </View>
+            <T variant="smallBold" color={mood.deep} style={styles.fill} numberOfLines={1}>
               {MISSION_TYPE_LABEL[mission.type]} · {regionLabel(page, mission)} · {mission.points} pts
             </T>
-            <View style={{ flex: 1 }} />
-            <StatusPill mission={mission} members={fs.members} />
           </View>
           <T variant="title">{mission.title}</T>
           {mission.story_hook ? <T variant="story">{mission.story_hook}</T> : null}
-          {mission.description ? <T variant="body" style={{ marginTop: space.sm }}>{mission.description}</T> : null}
+          {rerolled ? <T variant="smallBold" color={accent.secondary}>{rerolled}</T> : null}
+          {mission.description ? <T variant="body" style={styles.desc}>{mission.description}</T> : null}
 
-          {/* Who */}
-          <View style={styles.infoRow}>
+          <View style={styles.who}>
             <T variant="smallBold">{whoLabel(mission, fs.members.length)}</T>
             {mission.assignee_ids.length ? <CrestRow userIds={mission.assignee_ids} members={fs.members} size={24} /> : null}
           </View>
 
-          {/* Place */}
-          {mission.place ? (
-            <View style={styles.place}>
-              {mission.place.thumbnail ? (
-                <Image source={{ uri: mission.place.thumbnail }} style={styles.thumb} contentFit="cover" />
-              ) : (
-                <View style={[styles.thumb, styles.thumbEmpty]}><T style={{ fontSize: 28, lineHeight: 34 }}>📍</T></View>
-              )}
-              <View style={{ flex: 1, gap: 2 }}>
-                <T variant="bodyBold" numberOfLines={2}>{mission.place.title}</T>
-                <T variant="small" numberOfLines={1}>
-                  {[mission.place.rating ? `★ ${mission.place.rating}` : null, mission.place.category, mission.place.when].filter(Boolean).join(' · ')}
-                </T>
-                {mission.place.address ? <T variant="small" numberOfLines={2}>{mission.place.address}</T> : null}
-                <Pressable onPress={() => openMaps(mission)} hitSlop={8} accessibilityRole="link">
-                  <T variant="smallBold" color={ink.ink} style={styles.link}>Open in Maps ↗</T>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
+          {mission.place ? <PlaceCard place={mission.place} prox={actionable ? prox : null} /> : null}
 
-          {/* Trial */}
           {mission.trial_question ? (
-            <View style={styles.riddle}>
-              <T variant="smallBold" color={ink.inkSoft}>The riddle</T>
+            <View style={[styles.panel, { backgroundColor: mood.tint }]}>
+              <T variant="smallBold" color={mood.deep}>The riddle</T>
               <T variant="story" color={ink.ink}>“{mission.trial_question}”</T>
             </View>
           ) : null}
 
-          {/* Already colored */}
           {mission.status === 'complete' ? (
             <View style={styles.doneBox}>
               <WaxSeal size={84} />
               <T variant="heading" center>Colored{completer ? ` by ${completer.display_name}` : ''}</T>
               {mission.story_line ? <T variant="story" center>{mission.story_line}</T> : null}
               <CrestRow userIds={mission.completed_by} members={fs.members} size={30} />
-              <Button label="See it on the page" onPress={() => router.navigate('/(tabs)/coloring')} style={{ alignSelf: 'stretch' }} />
             </View>
           ) : mission.status === 'locked' ? (
             <View style={styles.doneBox}>
-              <T variant="heading" center>🔒 Sealed for now</T>
-              <T variant="story" center>Finish the current chapter and this mission will unseal itself.</T>
+              <SageBubble expression="sleepy" sageSize={64} text="This mission is sealed until the chapter before it is fully colored." />
             </View>
           ) : (
             <View style={styles.proof}>
-              <T variant="heading">Submit proof</T>
+              <T variant="heading">Your proof</T>
 
               {needPeople ? (
                 <View style={{ gap: space.sm }}>
@@ -245,7 +256,7 @@ export default function MissionDetail() {
                 </View>
               ) : null}
 
-              {(mission.proof_type === 'photo' || mission.proof_type === 'group_photo') ? (
+              {isPhoto ? (
                 <View style={{ gap: space.md }}>
                   {photo ? (
                     <View style={styles.previewWrap}>
@@ -256,8 +267,8 @@ export default function MissionDetail() {
                     <T variant="small">{mission.verification_hint || 'Snap a photo that shows you did it.'}</T>
                   )}
                   <View style={styles.row}>
-                    <Button label={photo ? 'Retake' : 'Take photo'} icon="📷" variant="secondary" onPress={() => pick('camera')} style={{ flex: 1 }} small />
-                    <Button label="Choose photo" icon="🖼️" variant="secondary" onPress={() => pick('library')} style={{ flex: 1 }} small />
+                    <Button label={photo ? 'Retake' : 'Take photo'} icon="📷" variant="secondary" onPress={() => pick('camera')} style={styles.fill} small />
+                    <Button label="Choose photo" icon="🖼️" variant="secondary" onPress={() => pick('library')} style={styles.fill} small />
                   </View>
                 </View>
               ) : null}
@@ -272,6 +283,7 @@ export default function MissionDetail() {
                     maxLength={TEXT_MAX}
                     placeholder="Write your verse…"
                     placeholderTextColor={ink.muted}
+                    accessibilityLabel="Your verse"
                     style={[styles.input, styles.multiline]}
                   />
                   <T variant="small" style={{ alignSelf: 'flex-end' }}>{text.length}/{TEXT_MAX}</T>
@@ -286,6 +298,7 @@ export default function MissionDetail() {
                   placeholderTextColor={ink.muted}
                   autoCorrect={false}
                   returnKeyType="done"
+                  accessibilityLabel="Your answer"
                   onSubmitEditing={() => canSubmit && submit()}
                   style={styles.input}
                 />
@@ -294,12 +307,12 @@ export default function MissionDetail() {
               {isGift ? (
                 iAmGiftRecipient ? (
                   <View style={{ gap: space.sm }}>
-                    <MuseBubble text="A gift awaits your seal! Who gave it to you?" avatarSize={32} />
+                    <SageBubble text="A gift awaits your seal! Who gave it to you?" expression="happy" sageSize={56} />
                     <ParticipantPicker members={fs.members} meId={userId} value={giver ? [giver] : []}
                       onChange={(ids) => setGiver(ids[0] ?? null)} mode="single" exclude={userId ? [userId] : []} />
                   </View>
-                ) : mission.status === 'pending' ? (
-                  <MuseBubble text="Your gift is on its way. Once your friend seals it, the region fills with color." avatarSize={32} />
+                ) : waitingOnGift ? (
+                  <SageBubble text="Your gift is on its way. Once your friend seals it, the region fills with color." sageSize={56} />
                 ) : (
                   <View style={{ gap: space.sm }}>
                     <T variant="small">Who is receiving your gift? They'll confirm to seal it.</T>
@@ -315,26 +328,104 @@ export default function MissionDetail() {
                   <T variant="small">{error}</T>
                 </View>
               ) : null}
-
-              {!(isGift && mission.status === 'pending' && !iAmGiftRecipient) ? (
-                <Button
-                  label={iAmGiftRecipient ? 'Seal it — I received the gift' : mission.proof_type === 'answer' ? 'Speak the answer'
-                    : isGift ? 'Send the gift' : error ? 'Try again' : 'Submit proof'}
-                  onPress={submit}
-                  disabled={!canSubmit}
-                />
-              ) : null}
             </View>
           )}
         </ScrollView>
+
+        <Footer>
+          {mission.status === 'complete' ? (
+            <Button label="See it on the page" onPress={() => router.navigate('/(tabs)/coloring')} />
+          ) : mission.status === 'locked' || waitingOnGift ? (
+            <Button label="Back to missions" variant="secondary" onPress={() => router.back()} />
+          ) : (
+            <Button label={primaryLabel} onPress={submit} disabled={!canSubmit} />
+          )}
+        </Footer>
       </KeyboardAvoidingView>
+
+      <RerollSheet
+        mission={mission}
+        visible={rerollOpen}
+        onClose={() => setRerollOpen(false)}
+        onRerolled={(next) => {
+          setText(''); setPhoto(null); uploaded.current = null; setError(null);
+          setRerolled(`Sage rewrote this quest${next.title !== mission.title ? '' : ' (same title, new task)'}.`);
+        }}
+      />
     </Shell>
   );
 }
 
+// ---------- place ----------
+function PlaceCard({ place, prox }: { place: Place; prox: Proximity | null }) {
+  const meta = [place.rating ? `★ ${place.rating}` : null, place.category, place.when].filter(Boolean).join(' · ');
+  return (
+    <View style={styles.place}>
+      <Pressable
+        style={styles.placeMain}
+        onPress={() => { Haptics.selectionAsync().catch(() => {}); openInMaps(place); }}
+        accessibilityRole="link"
+        accessibilityLabel={`${place.title}. Open in Maps`}
+      >
+        {place.thumbnail ? (
+          <Image source={{ uri: place.thumbnail }} style={styles.thumb} contentFit="cover" />
+        ) : (
+          <View style={[styles.thumb, styles.thumbEmpty]}><T style={styles.pin}>📍</T></View>
+        )}
+        <View style={styles.fill}>
+          <T variant="bodyBold" numberOfLines={2}>{place.title}</T>
+          {meta ? <T variant="small" numberOfLines={1}>{meta}</T> : null}
+          {place.address ? <T variant="small" numberOfLines={1}>{place.address}</T> : null}
+        </View>
+      </Pressable>
+      <View style={styles.placeActions}>
+        <Pressable
+          onPress={() => { Haptics.selectionAsync().catch(() => {}); openInMaps(place); }}
+          style={styles.mapsBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open in Maps"
+        >
+          <T variant="smallBold" color={chips.secondary.fg}>🗺️ Open in Maps</T>
+        </Pressable>
+        {place.website ? (
+          <Pressable onPress={() => Linking.openURL(place.website!).catch(() => {})} hitSlop={8} accessibilityRole="link">
+            <T variant="small" style={styles.link}>Website</T>
+          </Pressable>
+        ) : null}
+        <View style={styles.fill} />
+        {prox ? <ProximityBadge prox={prox} /> : null}
+      </View>
+    </View>
+  );
+}
+
+function ProximityBadge({ prox }: { prox: Proximity }) {
+  switch (prox.status) {
+    case 'off': return null;
+    case 'asking':
+    case 'locating': return <T variant="small">Finding you…</T>;
+    case 'denied':
+    case 'error':
+      return (
+        <Pressable onPress={prox.retry} hitSlop={8} accessibilityRole="button"
+          accessibilityLabel="Location is off. Tap to try again">
+          <T variant="smallBold" color={accent.warm}>{prox.status === 'denied' ? 'Location off · retry' : 'Can’t find you · retry'}</T>
+        </Pressable>
+      );
+    case 'ready':
+      return prox.close ? (
+        <View style={[styles.badge, { backgroundColor: chips.secondary.bg, borderColor: chips.secondary.border }]}>
+          <T variant="smallBold" color={chips.secondary.fg}>✨ You're close!</T>
+        </View>
+      ) : (
+        <T variant="smallBold" color={ink.inkSoft}>{prox.distance_m != null ? `${formatDistance(prox.distance_m)} away` : ''}</T>
+      );
+  }
+}
+
 // ---------- result ----------
-function Result({ res, mission, photo, onRetry, onPage, onMissions }: {
-  res: SubmitProofResponse; mission: Mission; photo: string | null;
+function Result({ mood, res, mission, photo, onRetry, onPage, onMissions }: {
+  mood: Mood; res: SubmitProofResponse; mission: Mission; photo: string | null;
   onRetry: () => void; onPage: () => void; onMissions: () => void;
 }) {
   const { verdict } = res;
@@ -343,6 +434,8 @@ function Result({ res, mission, photo, onRetry, onPage, onMissions }: {
   const [landed, setLanded] = useState(false);
   const { shown } = useTypewriter(storyLine ?? '', 28, landed);
   const lens = (verdict.lens_titles ?? []).filter(Boolean).slice(0, 3);
+  const far = !verdict.pass && verdict.distance_m != null && verdict.distance_m > 0
+    ? `You were about ${formatDistance(verdict.distance_m)} from the spot.` : null;
 
   useEffect(() => {
     if (!res.page_completed) return;
@@ -351,67 +444,92 @@ function Result({ res, mission, photo, onRetry, onPage, onMissions }: {
     return () => clearTimeout(t);
   }, [res.page_completed, onPage]);
 
+  const lensBox = lens.length ? (
+    <View style={[styles.panel, styles.stretch, { backgroundColor: mood.tint }]}>
+      <T variant="smallBold" color={mood.deep}>🔍 The Mirror sees</T>
+      <T variant="small" color={ink.ink}>{lens.join(' · ')}</T>
+    </View>
+  ) : null;
+
+  if (!verdict.pass) {
+    return (
+      <Shell mood={mood} onClose={onMissions}>
+        <ScrollView contentContainerStyle={[styles.content, styles.resultContent]}>
+          {photo ? <MagicMirror photoUri={photo} pondering={false} caption="" /> : null}
+          {lensBox}
+          <SageBubble expression="surprised" sageSize={72}
+            text={[verdict.flavor_text || 'Not quite, traveler. Look again and try once more.', far].filter(Boolean).join(' ')} />
+        </ScrollView>
+        <Footer>
+          <Button label="Try again" onPress={onRetry} />
+          <Button label="Back to missions" variant="ghost" onPress={onMissions} />
+        </Footer>
+      </Shell>
+    );
+  }
+
+  if (giftPending) {
+    return (
+      <Shell mood={mood} onClose={onMissions}>
+        <View style={styles.centerFill}>
+          <SageBubble layout="stack" expression="happy" sageSize={120}
+            text={verdict.flavor_text || 'Gift sent! Now your friend must seal it. The banner waits.'} />
+        </View>
+        <Footer><Button label="Back to missions" onPress={onMissions} /></Footer>
+      </Shell>
+    );
+  }
+
   return (
-    <Shell onClose={onMissions}>
+    <Shell mood={mood} onClose={onMissions}>
       <ScrollView contentContainerStyle={[styles.content, styles.resultContent]}>
-        {lens.length ? (
-          <View style={styles.lens}>
-            <T variant="smallBold" color={ink.inkSoft}>🔍 The Mirror sees:</T>
-            <T variant="small" color={ink.ink}>{lens.join(' · ')}</T>
+        {res.page_completed ? (
+          <View style={[styles.banner, styles.stretch]}>
+            <T variant="heading" center>Chapter complete!</T>
+            <T variant="small" center color={ink.ink}>The page is turning…</T>
           </View>
         ) : null}
-
-        {!verdict.pass ? (
-          <>
-            {photo ? <MagicMirror photoUri={photo} pondering={false} caption="" /> : null}
-            <MuseBubble text={verdict.flavor_text || 'Not quite, traveler. Look again and try once more.'} />
-            <Button label="Try again" onPress={onRetry} style={{ alignSelf: 'stretch' }} />
-            <Button label="Back to missions" variant="ghost" onPress={onMissions} />
-          </>
-        ) : giftPending ? (
-          <>
-            <T style={styles.bigEmoji}>🎁</T>
-            <T variant="title" center>Gift sent!</T>
-            <MuseBubble text={verdict.flavor_text || 'Now your friend must seal it. The banner waits.'} />
-            <Button label="Back to missions" onPress={onMissions} style={{ alignSelf: 'stretch' }} />
-          </>
-        ) : (
-          <>
-            {res.page_completed ? (
-              <View style={styles.banner}>
-                <T variant="heading" center color={ink.page}>Chapter complete!</T>
-                <T variant="small" center color={ink.page}>The page is turning…</T>
-              </View>
-            ) : null}
-            <WaxSeal onLanded={() => setLanded(true)} />
-            <T variant="title" center>{res.book_completed ? 'The book is finished!' : 'Region colored!'}</T>
-            <T variant="small" center>{mission.title}</T>
-            <View style={styles.storyBox}>
-              <T variant="story" center color={ink.ink}>{shown || ' '}</T>
-            </View>
-            <Button label={res.page_completed ? 'Turn the page' : 'See it on the page'} onPress={onPage} style={{ alignSelf: 'stretch' }} />
-            <Button label="Back to missions" variant="secondary" onPress={onMissions} style={{ alignSelf: 'stretch' }} />
-          </>
-        )}
+        <View style={styles.sealRow}>
+          <Sage expression={res.book_completed || res.page_completed ? 'happy' : 'proud'} size="md" speakKey={`pass-${mission.id}-${res.completion?.id ?? ''}`} silent />
+          <WaxSeal size={120} onLanded={() => { setLanded(true); playSfx('seal'); }} />
+        </View>
+        <T variant="title" center>{res.book_completed ? 'The book is finished!' : 'Region colored!'}</T>
+        <T variant="small" center>{mission.title}</T>
+        <View style={styles.storyBox}>
+          <T variant="story" center color={ink.ink}>{shown || ' '}</T>
+        </View>
+        {lensBox}
       </ScrollView>
+      <Footer>
+        <Button label={res.page_completed ? 'Turn the page' : 'See it on the page'} onPress={onPage} tone={res.page_completed ? 'gold' : undefined} />
+        <Button label="Back to missions" variant="ghost" onPress={onMissions} />
+      </Footer>
     </Shell>
   );
 }
 
-function Shell({ children, onClose }: { children: React.ReactNode; onClose?: () => void }) {
+// ---------- frame ----------
+function Shell({ children, onClose, menu, mood }: { children: React.ReactNode; onClose?: () => void; menu?: MenuItem[]; mood: Mood }) {
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <View style={styles.topBar}>
-        <View style={styles.grabber} />
-        {onClose ? (
-          <Pressable onPress={onClose} hitSlop={14} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-            <T variant="heading">✕</T>
-          </Pressable>
-        ) : null}
-      </View>
-      {children}
-    </SafeAreaView>
+    <LinearGradient colors={SCREEN_GRADIENTS[mood.id]} style={styles.fill}>
+      <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
+        <View style={styles.topBar}>
+          {onClose ? (
+            <Pressable onPress={onClose} hitSlop={14} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
+              <T variant="heading">✕</T>
+            </Pressable>
+          ) : <View style={styles.close} />}
+          <View style={styles.grabber} />
+          <View style={styles.menuSlot}>{menu?.length ? <ActionMenu items={menu} top={44} /> : null}</View>
+        </View>
+        {children}
+      </SafeAreaView>
+    </LinearGradient>
   );
+}
+
+function Footer({ children }: { children: React.ReactNode }) {
+  return <View style={styles.footer}>{children}</View>;
 }
 
 function whoLabel(m: Mission, count: number) {
@@ -421,52 +539,61 @@ function whoLabel(m: Mission, count: number) {
   return '🧭 Solo — you can do this alone';
 }
 
-function openMaps(m: Mission) {
-  const p = m.place!;
-  const url = p.link
-    ?? (p.lat != null && p.lng != null
-      ? `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`
-      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.title} ${p.address ?? ''}`)}`);
-  Linking.openURL(url).catch(() => {});
-}
-
 function readable(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e);
   if (/network|fetch|timeout|abort/i.test(raw)) return 'The connection wobbled. Your proof is still here — tap Try again.';
-  if (/not signed in|401/i.test(raw)) return 'Muse lost track of who you are. Reopen the app and try again.';
+  if (/not signed in|401/i.test(raw)) return 'Sage lost track of who you are. Reopen the app and try again.';
   return `${raw.slice(0, 140)}. Your proof is still here — tap Try again.`;
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: ink.paper },
-  topBar: { height: 36, alignItems: 'center', justifyContent: 'center' },
+  fill: { flex: 1 },
+  stretch: { alignSelf: 'stretch' },
+  topBar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.lg },
   grabber: { width: 44, height: 5, borderRadius: 3, backgroundColor: ink.muted },
-  close: { position: 'absolute', right: space.lg, top: 4 },
-  content: { padding: space.lg, paddingBottom: space.xxl, gap: space.xs },
-  resultContent: { alignItems: 'center', gap: space.lg, paddingTop: space.xl },
+  close: { width: 40, height: 40, alignItems: 'flex-start', justifyContent: 'center' },
+  menuSlot: { width: 40, alignItems: 'flex-end' },
+  content: { padding: space.lg, paddingTop: space.sm, paddingBottom: space.xl, gap: space.xs },
+  resultContent: { alignItems: 'center', gap: space.lg, paddingTop: space.lg },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
+  footer: { paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.sm, gap: space.xs },
   kicker: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.sm },
-  infoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md, marginTop: space.md },
-  place: {
-    flexDirection: 'row', gap: space.md, padding: space.md, borderRadius: radius.md, borderWidth: 2, borderColor: ink.ink,
-    backgroundColor: ink.page, marginTop: space.md,
+  typeIcon: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: ink.ink, alignItems: 'center', justifyContent: 'center' },
+  desc: { marginTop: space.sm },
+  who: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md, marginTop: space.md },
+  panel: {
+    marginTop: space.md, padding: space.lg, borderRadius: ui.cardRadius, borderWidth: 2, borderColor: ink.ink, gap: space.xs,
+    overflow: 'hidden',
   },
-  thumb: { width: 72, height: 72, borderRadius: radius.sm, borderWidth: 1.5, borderColor: ink.ink },
+  place: {
+    marginTop: space.md, borderRadius: ui.cardRadius, borderWidth: panel.borderWidth, borderColor: panel.border,
+    backgroundColor: panel.parchment, overflow: 'hidden', ...shadow.sm,
+  },
+  placeMain: { flexDirection: 'row', gap: space.md, padding: space.md },
+  thumb: { width: 64, height: 64, borderRadius: radius.md, borderWidth: 1.5, borderColor: ink.ink },
   thumbEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: ink.lavenderMist },
-  link: { textDecorationLine: 'underline', marginTop: 2 },
-  riddle: { marginTop: space.md, padding: space.lg, borderRadius: radius.md, backgroundColor: ink.lavenderMist, borderWidth: 2, borderColor: ink.ink, gap: space.xs },
-  proof: { marginTop: space.xl, gap: space.lg, paddingTop: space.lg, borderTopWidth: 2, borderTopColor: ink.ink, borderStyle: 'dashed' },
+  pin: { fontSize: 26, lineHeight: 32 },
+  placeActions: {
+    flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.md, paddingVertical: space.sm,
+    borderTopWidth: 1.5, borderTopColor: panel.parchmentEdge,
+  },
+  mapsBtn: {
+    paddingVertical: space.xs, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 2,
+    borderColor: chips.secondary.border, backgroundColor: chips.secondary.bg,
+  },
+  link: { textDecorationLine: 'underline' },
+  badge: { paddingVertical: 2, paddingHorizontal: space.sm, borderRadius: radius.pill, borderWidth: 1.5 },
+  proof: { marginTop: space.xl, gap: space.lg },
   doneBox: { marginTop: space.xl, alignItems: 'center', gap: space.md },
   row: { flexDirection: 'row', gap: space.sm },
   previewWrap: { alignItems: 'center', gap: space.xs },
   input: {
-    minHeight: 54, borderWidth: 2.5, borderColor: ink.ink, borderRadius: radius.md, paddingHorizontal: space.lg, paddingVertical: space.md,
-    backgroundColor: ink.page, fontFamily: fonts.body, fontSize: type.body, color: ink.ink,
+    minHeight: 54, borderWidth: ui.borderWidth, borderColor: ink.ink, borderRadius: radius.md, paddingHorizontal: space.lg,
+    paddingVertical: space.md, backgroundColor: ink.page, fontFamily: fonts.body, fontSize: type.body, color: ink.ink,
   },
   multiline: { minHeight: 120, textAlignVertical: 'top', fontFamily: fonts.displayItalic, fontSize: type.body + 1 },
   error: { padding: space.md, borderRadius: radius.md, borderWidth: 2, borderColor: ink.danger, backgroundColor: ink.page, gap: 2 },
-  lens: { alignSelf: 'stretch', padding: space.md, borderRadius: radius.md, borderWidth: 2, borderColor: ink.ink, backgroundColor: ink.lavenderMist, gap: 2 },
-  banner: { alignSelf: 'stretch', padding: space.md, borderRadius: radius.md, backgroundColor: ink.gold, borderWidth: 2.5, borderColor: ink.ink },
+  banner: { padding: space.md, borderRadius: ui.cardRadius, backgroundColor: accent.goldSoft, borderWidth: 2.5, borderColor: ink.ink, overflow: 'hidden' },
+  sealRow: { flexDirection: 'row', alignItems: 'flex-end', gap: space.sm },
   storyBox: { minHeight: 80, paddingHorizontal: space.md, justifyContent: 'center' },
-  bigEmoji: { fontSize: 72, lineHeight: 88 },
 });

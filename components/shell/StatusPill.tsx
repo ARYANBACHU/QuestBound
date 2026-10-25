@@ -1,7 +1,7 @@
 // Owner: AB. Mission status: open (ink outline) · pending (hourglass) · complete (completer's crayon + crest) · locked.
 import { StyleSheet, View } from 'react-native';
 import type { FellowshipMember, Mission } from '@/shared/types';
-import { CRAYONS, ink, radius, space } from '@/shared/theme';
+import { CRAYONS, ON_CRAYON, accent, ink, radius, space } from '@/shared/theme';
 import { T } from './T';
 import { Crest } from './teammates';
 
@@ -11,14 +11,14 @@ export function StatusPill({ mission, members }: { mission: Mission; members: Fe
     return (
       <View style={[styles.pill, { backgroundColor: p ? CRAYONS[p.color] : ink.gold, borderColor: ink.ink }]}>
         {p ? <Crest crest={p.crest} color={p.color} size={20} ring={false} /> : null}
-        <T variant="smallBold" color={ink.page}>Colored</T>
+        <T variant="smallBold" color={p ? ON_CRAYON[p.color] : ink.ink}>Colored</T>
       </View>
     );
   }
   if (mission.status === 'pending') {
     return (
-      <View style={[styles.pill, { backgroundColor: ink.lavenderMist }]}>
-        <T variant="smallBold">⏳ Waiting</T>
+      <View style={[styles.pill, { backgroundColor: accent.goldSoft }]}>
+        <T variant="smallBold" color={accent.gold}>⏳ Waiting</T>
       </View>
     );
   }

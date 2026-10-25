@@ -1,4 +1,4 @@
-// Owner: AB. Perform a WizardAction (from wizard-chat or the local Muse).
+// Owner: AB. Perform a WizardAction (from wizard-chat or the local Sage).
 import type { useRouter } from 'expo-router';
 import type { WizardAction } from '@/shared/types';
 

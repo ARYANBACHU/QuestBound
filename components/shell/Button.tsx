@@ -1,7 +1,9 @@
-// Owner: AB. Big primary / secondary buttons in thick ink, coloring-book style.
+// Owner: AB. Chunky "game" buttons: rounded face + darker bottom edge that compresses on press, bold Nunito label.
+// Variants keep the Round 1 API (AD re-exports this as InkButton): primary · secondary · ghost · danger.
+// `tone` picks any gameButton face for primary (e.g. 'forest', 'gold').
 import * as Haptics from 'expo-haptics';
 import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { ink, radius, space } from '@/shared/theme';
+import { gameButton, ink, space, ui, type GameButtonTone } from '@/shared/theme';
 import { T } from './T';
 
 export interface ButtonProps {
@@ -9,62 +11,99 @@ export interface ButtonProps {
   onPress?: () => void;
   onLongPress?: () => void;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  tone?: GameButtonTone;
   disabled?: boolean;
   loading?: boolean;
   icon?: string; // emoji
   style?: StyleProp<ViewStyle>;
   small?: boolean;
+  accessibilityHint?: string;
 }
 
-export function Button({ label, onPress, onLongPress, variant = 'primary', disabled, loading, icon, style, small }: ButtonProps) {
-  const isPrimary = variant === 'primary';
-  const fg = isPrimary ? ink.page : variant === 'danger' ? ink.danger : ink.ink;
+export function Button({
+  label, onPress, onLongPress, variant = 'primary', tone, disabled, loading, icon, style, small, accessibilityHint,
+}: ButtonProps) {
+  const off = disabled || loading;
+  const height = small ? ui.buttonHeightSm : ui.buttonHeight;
+
+  if (variant === 'ghost') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ disabled: !!off }}
+        disabled={off}
+        onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress?.(); }}
+        onLongPress={onLongPress}
+        hitSlop={6}
+        style={({ pressed }) => [styles.ghost, { minHeight: height - 8 }, off && styles.disabled, pressed && styles.ghostPressed, style]}
+      >
+        <View style={styles.row}>
+          {icon ? <T variant="body" style={styles.icon}>{icon}</T> : null}
+          <T variant={small ? 'smallBold' : 'bodyBold'} color={ink.inkSoft}>{label}</T>
+        </View>
+      </Pressable>
+    );
+  }
+
+  const look = variant === 'secondary' ? gameButton.ghost
+    : variant === 'danger' ? { face: ink.page, edge: gameButton.danger.edge, label: ink.danger }
+    : gameButton[tone ?? 'primary'];
+  const depth = small ? ui.buttonDepth - 1 : ui.buttonDepth;
+  const pressedDepth = ui.buttonDepthPressed;
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      disabled={disabled || loading}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: !!off, busy: !!loading }}
+      disabled={off}
       onLongPress={onLongPress}
-      onPress={() => {
-        Haptics.selectionAsync().catch(() => {});
-        onPress?.();
-      }}
-      style={({ pressed }) => [
-        styles.base,
-        small && styles.small,
-        isPrimary && styles.primary,
-        variant === 'secondary' && styles.secondary,
-        variant === 'danger' && styles.dangerBox,
-        variant === 'ghost' && styles.ghost,
-        (disabled || loading) && styles.disabled,
-        pressed && styles.pressed,
-        style,
-      ]}
+      onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress?.(); }}
+      style={[{ paddingBottom: depth }, off && styles.disabled, style]}
     >
-      {loading ? (
-        <ActivityIndicator color={fg} />
-      ) : (
-        <View style={styles.row}>
-          {icon ? <T variant={small ? 'small' : 'body'} style={styles.icon}>{icon}</T> : null}
-          <T variant={small ? 'smallBold' : 'bodyBold'} color={fg}>{label}</T>
-        </View>
+      {({ pressed }) => (
+        <>
+          <View
+            style={[styles.edge, { top: depth, backgroundColor: look.edge, borderRadius: ui.buttonRadius }]}
+          />
+          <View
+            style={[
+              styles.face,
+              {
+                minHeight: height, backgroundColor: look.face, borderRadius: ui.buttonRadius,
+                paddingHorizontal: small ? space.lg : space.xl,
+                borderColor: variant === 'danger' ? ink.danger : ink.ink,
+                transform: [{ translateY: pressed && !off ? depth - pressedDepth : 0 }],
+              },
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator color={look.label} />
+            ) : (
+              <View style={styles.row}>
+                {icon ? <T variant={small ? 'small' : 'body'} style={styles.icon}>{icon}</T> : null}
+                <T variant={small ? 'smallBold' : 'bodyBold'} color={look.label} style={!small && styles.big} numberOfLines={1}>
+                  {label}
+                </T>
+              </View>
+            )}
+          </View>
+        </>
       )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: {
-    minHeight: 54, borderRadius: radius.lg, paddingHorizontal: space.xl, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2.5, borderColor: ink.ink,
-  },
-  small: { minHeight: 38, paddingHorizontal: space.lg, borderWidth: 2, borderRadius: radius.pill },
-  primary: { backgroundColor: ink.ink },
-  secondary: { backgroundColor: ink.page },
-  dangerBox: { backgroundColor: ink.page, borderColor: ink.danger },
-  ghost: { borderColor: 'transparent', backgroundColor: 'transparent' },
-  disabled: { opacity: 0.4 },
-  pressed: { transform: [{ scale: 0.97 }] },
+  edge: { position: 'absolute', left: 0, right: 0, bottom: 0, borderWidth: ui.borderWidth, borderColor: ink.ink },
+  face: { alignItems: 'center', justifyContent: 'center', borderWidth: ui.borderWidth },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   icon: { fontSize: 18 },
+  big: { fontSize: 17 },
+  disabled: { opacity: 0.45 },
+  ghost: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.lg, borderRadius: ui.buttonRadius },
+  ghostPressed: { opacity: 0.6 },
 });

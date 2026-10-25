@@ -1,4 +1,4 @@
-// Owner: AB. Five tabs with the custom coloring-book tab bar, plus Muse (FAB, sheet, coach marks, demo tools).
+// Owner: AB. Five tabs with the custom coloring-book tab bar, plus Sage (FAB, sheet, coach marks, demo tools).
 import { Tabs, usePathname } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +7,7 @@ import { DemoTools } from '@/components/shell/DemoTools';
 import { TAB_BAR_HEIGHT, TabBar } from '@/components/shell/TabBar';
 import { CoachMark } from '@/components/wizard/CoachMark';
 import { screenFromPath } from '@/components/wizard/screens';
-import { WizardFab } from '@/components/wizard/WizardFab';
+import { FAB_SIZE, WizardFab } from '@/components/wizard/WizardFab';
 import { WizardProvider } from '@/components/wizard/WizardProvider';
 import { WizardSheet } from '@/components/wizard/WizardSheet';
 import { ink, space } from '@/shared/theme';
@@ -15,7 +15,7 @@ import { ink, space } from '@/shared/theme';
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const screen = screenFromPath(usePathname());
-  // Friends has a chat composer pinned above the tab bar — float Muse above it so Send stays reachable.
+  // Friends has a chat composer pinned above the tab bar — float Sage above it so Send stays reachable.
   const lift = screen === 'friends' ? FRIENDS_COMPOSER_HEIGHT : 0;
   const fabBottom = TAB_BAR_HEIGHT + Math.max(insets.bottom, space.sm) + space.md + lift;
 
@@ -34,7 +34,7 @@ export default function TabsLayout() {
         </Tabs>
         {/* MP: friends' progress banner on every tab (hides itself on Friends); keeps chat Presence alive app-wide. */}
         <ProclamationToast />
-        <CoachMark screen={screen} bottom={fabBottom} />
+        <CoachMark screen={screen} bottom={fabBottom + FAB_SIZE + space.sm} />
         <WizardFab bottom={fabBottom} />
         <WizardSheet />
         <DemoTools />

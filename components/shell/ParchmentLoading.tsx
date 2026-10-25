@@ -1,21 +1,23 @@
-// Owner: AB. Calm full-screen "parchment" loader used by the gate and slow screens.
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { ink, space } from '@/shared/theme';
+// Owner: AB. Calm full-screen loader used by the gate and slow screens: Sage (thinking) + one narrated line.
+import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, StyleSheet } from 'react-native';
+import { Sage } from '@/components/wizard/Sage';
+import { SCREEN_GRADIENTS, ink, space } from '@/shared/theme';
 import { T } from './T';
 
-export function ParchmentLoading({ line = 'Muse is turning the pages…' }: { line?: string }) {
+export function ParchmentLoading({ line = 'Sage is turning the pages…' }: { line?: string }) {
   return (
-    <View style={styles.wrap}>
-      <T variant="hero" style={styles.mark}>🪶</T>
-      <T variant="title" center>Questbound</T>
-      <T variant="story" center style={styles.line}>{line}</T>
-      <ActivityIndicator color={ink.ink} style={{ marginTop: space.xl }} />
-    </View>
+    <LinearGradient colors={SCREEN_GRADIENTS.castle} style={styles.wrap}>
+      <Sage expression="thinking" size="lg" />
+      <T variant="title" center style={styles.title}>Questbound</T>
+      <T variant="story" center>{line}</T>
+      <ActivityIndicator color={ink.ink} style={styles.spinner} />
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: ink.paper, alignItems: 'center', justifyContent: 'center', padding: space.xl },
-  mark: { fontSize: 48, lineHeight: 60, marginBottom: space.md },
-  line: { marginTop: space.sm },
+  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
+  title: { marginTop: space.lg, marginBottom: space.xs },
+  spinner: { marginTop: space.xl },
 });

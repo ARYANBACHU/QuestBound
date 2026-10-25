@@ -1,5 +1,5 @@
-// Owner: AB. Offline Muse: answers common questions from live app data. Used in mock mode and when
-// wizard-chat is unreachable, so the Wizard is never silent during a demo.
+// Owner: AB. Offline Sage: answers common questions from live app data. Used in mock mode and when
+// wizard-chat is unreachable, so Sage is never silent during a demo.
 import type { FellowshipMember, Mission, Page, Storyline, WizardAction, WizardChatResponse } from '@/shared/types';
 import type { WizardScreen } from './screens';
 
@@ -42,6 +42,15 @@ export function localMuse(question: string, screen: WizardScreen, ctx: MuseConte
     };
   }
 
+  if (/different mission|reroll|swap|easier|harder/.test(q)) {
+    return { reply: 'Open the mission, tap “…” and choose “Ask Sage for a different mission”. Easier, similar or harder — I’ll rewrite it on the spot.', actions: [{ type: 'navigate', target: 'missions' }] };
+  }
+  if (/new (story|book)|difficult|start over|restart/.test(q)) {
+    return { reply: 'Missions “…” → New storyline. Pick Easy, Normal or Hard (worth 1.5× points). Your current book goes to the Storybook, colors and all.', actions: [{ type: 'navigate', target: 'missions' }] };
+  }
+  if (/music|sound|bards|mute/.test(q)) {
+    return { reply: 'Tap the little speaker by the tabs to hush the bards. Sound effects and music both live in Settings.', actions: [{ type: 'navigate', target: 'settings' }] };
+  }
   if (/sequel|next book/.test(q)) {
     return { reply: 'When every page of this book is colored, I write a sequel — shaped by what you actually did. Love duets? Expect more duets.', actions: [{ type: 'navigate', target: 'storybook' }] };
   }

@@ -1,4 +1,4 @@
-// Owner: AB. The Magic Mirror: an oval gold-framed mirror that shimmers while Muse verifies a proof.
+// Owner: AB. The Magic Mirror: an oval gold-framed mirror that shimmers while Sage verifies a proof.
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';

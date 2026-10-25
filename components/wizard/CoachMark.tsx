@@ -1,16 +1,18 @@
-// Owner: AB. Muse pops up once per tab with a one-sentence explanation. Tap to dismiss.
+// Owner: AB. Sage pops up once per tab with a one-sentence explanation (talks + pings once). Tap to dismiss.
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
-import { ink, space } from '@/shared/theme';
+import { ink, panel, radius, shadow, space, ui } from '@/shared/theme';
 import { T } from '@/components/shell/T';
 import { hasSeenCoach, markCoachSeen, onCoachReset } from './coachMarks';
-import { MuseBubble } from './MuseBubble';
+import { SageBubble } from './SageBubble';
 import { COACH_MARKS, type WizardScreen } from './screens';
+import { useWizard } from './WizardProvider';
 
 export function CoachMark({ screen, bottom }: { screen: WizardScreen; bottom: number }) {
   const [visible, setVisible] = useState(false);
   const [resets, setResets] = useState(0);
+  const { mode } = useWizard();
 
   useEffect(() => onCoachReset(() => setResets((n) => n + 1)), []);
 
@@ -23,14 +25,14 @@ export function CoachMark({ screen, bottom }: { screen: WizardScreen; bottom: nu
     return () => { alive = false; clearTimeout(t); };
   }, [screen, resets]);
 
-  if (!visible) return null;
+  if (!visible || mode !== 'closed') return null;
   const dismiss = () => { setVisible(false); markCoachSeen(screen); };
 
   return (
     <Animated.View entering={FadeInDown.duration(260)} exiting={FadeOutDown.duration(180)} style={[styles.wrap, { bottom }]}
       pointerEvents="box-none">
       <View style={styles.card}>
-        <MuseBubble text={COACH_MARKS[screen]} avatarSize={34} onPress={dismiss} />
+        <SageBubble text={COACH_MARKS[screen]} sageSize={56} speakKey={`coach-${screen}-${resets}`} onPress={dismiss} />
         <Pressable onPress={dismiss} hitSlop={10} style={styles.ok} accessibilityRole="button" accessibilityLabel="Got it">
           <T variant="smallBold" color={ink.ink}>Got it</T>
         </Pressable>
@@ -40,10 +42,13 @@ export function CoachMark({ screen, bottom }: { screen: WizardScreen; bottom: nu
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: space.lg, right: space.lg + 72 },
-  card: { shadowColor: ink.ink, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  wrap: { position: 'absolute', left: space.lg, right: space.lg },
+  card: {
+    backgroundColor: panel.parchment, borderRadius: ui.cardRadius, borderWidth: panel.borderWidth, borderColor: panel.border,
+    padding: space.md, gap: space.sm, ...shadow.lg,
+  },
   ok: {
-    alignSelf: 'flex-end', marginTop: space.sm, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: 999,
+    alignSelf: 'flex-end', paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.pill,
     backgroundColor: ink.page, borderWidth: 2, borderColor: ink.ink,
   },
 });

@@ -1,4 +1,4 @@
-// Owner: AB. Muse's reactions to interest picks during onboarding (a local dictionary — no LLM call).
+// Owner: AB. Sage's reactions to interest picks during onboarding (a local dictionary — no LLM call).
 const PAIRS: Record<string, string> = {
   'board_games+hiking': 'Board games AND hiking? A strategist with strong calves.',
   'coffee+study_spots': 'Coffee and study spots. You run on espresso and quiet ambition.',
@@ -45,7 +45,7 @@ const SINGLES: Record<string, string> = {
   volunteering: 'Volunteering. The kindest heroes are the real ones.',
 };
 
-/** Muse's reaction to the interest just picked, considering what was already chosen. */
+/** Sage's reaction to the interest just picked, considering what was already chosen. */
 export function interestQuip(picked: string, all: string[]): string {
   for (const other of all) {
     if (other === picked) continue;

@@ -1,6 +1,6 @@
 // Owner: AB. Onboarding progress: small ink dots, the current one is a quill.
 import { StyleSheet, View } from 'react-native';
-import { ink, space } from '@/shared/theme';
+import { accent, ink, space } from '@/shared/theme';
 import { T } from './T';
 
 export function QuillDots({ count, index }: { count: number; index: number }) {
@@ -20,6 +20,6 @@ export function QuillDots({ count, index }: { count: number; index: number }) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, height: 22 },
   dot: { width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: ink.ink },
-  done: { backgroundColor: ink.ink },
+  done: { backgroundColor: accent.primary, borderColor: accent.primary },
   quill: { fontSize: 16, lineHeight: 22 },
 });

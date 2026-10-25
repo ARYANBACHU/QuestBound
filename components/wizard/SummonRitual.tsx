@@ -1,5 +1,5 @@
-// Owner: AB. Full-screen "Muse writes your book" ritual: an ink quill scribbles across a blank page while
-// Muse narrates what's happening (interests → SerpApi maps/events → chapters).
+// Owner: AB. Full-screen "Sage writes your book" ritual: an ink quill scribbles across a blank page while
+// Sage (thinking) narrates what's happening (interests → SerpApi maps/events → chapters).
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
@@ -7,8 +7,10 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
-import { ink, space } from '@/shared/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SAGE_CREDIT, SCREEN_GRADIENTS, ink, shadow, space } from '@/shared/theme';
 import { T } from '@/components/shell/T';
+import { Sage } from './Sage';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const LINES = 6;
@@ -30,11 +32,12 @@ function scribble(y: number, seed: number) {
 }
 const PATHS = Array.from({ length: LINES }, (_, i) => scribble(lineY(i), i));
 
-export function SummonRitual({ lines, title = 'Muse is writing…' }: { lines: string[]; title?: string }) {
+export function SummonRitual({ lines, title = 'Sage is writing…' }: { lines: string[]; title?: string }) {
   const progress = useSharedValue(0);
   const [lineIdx, setLineIdx] = useState(0);
   const { width, height } = useWindowDimensions();
-  const scale = Math.min(1, (width - 48) / W, (height - 260) / H); // fit small phones
+  const compact = height < 720;
+  const scale = Math.min(1, (width - 48) / W, (height - (compact ? 330 : 400)) / H); // fit small phones
 
   useEffect(() => {
     progress.value = withRepeat(withTiming(LINES, { duration: LINES * 1800, easing: Easing.linear }), -1, false);
@@ -59,8 +62,14 @@ export function SummonRitual({ lines, title = 'Muse is writing…' }: { lines: s
   });
 
   return (
-    <View style={styles.wrap}>
-      <T variant="title" center>{title}</T>
+    <LinearGradient colors={SCREEN_GRADIENTS.castle} style={styles.wrap}>
+      <View style={styles.sage}>
+        <Sage expression="thinking" size={compact ? 64 : 88} />
+        <View>
+          <T variant="title">{title}</T>
+          <T variant="small">{SAGE_CREDIT}</T>
+        </View>
+      </View>
       <View style={[styles.page, { transform: [{ scale }], marginVertical: (H * (scale - 1)) / 2 }]}>
         <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
           {PATHS.map((d, i) => <InkLine key={i} d={d} i={i} progress={progress} />)}
@@ -72,7 +81,7 @@ export function SummonRitual({ lines, title = 'Muse is writing…' }: { lines: s
       <Animated.View key={lineIdx} entering={FadeIn.duration(350)} exiting={FadeOut.duration(200)} style={styles.lineBox}>
         <T variant="story" center>{lines[lineIdx]}</T>
       </Animated.View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -88,10 +97,11 @@ function InkLine({ d, i, progress }: { d: string; i: number; progress: SharedVal
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: ink.paper, alignItems: 'center', justifyContent: 'center', padding: space.xl, gap: space.xl },
+  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl, gap: space.xl },
+  sage: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   page: {
     width: W, height: H, backgroundColor: ink.page, borderWidth: 3, borderColor: ink.ink, borderRadius: 6,
-    shadowColor: ink.ink, shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 4, height: 6 }, elevation: 3,
+    ...shadow.md,
   },
   quill: { position: 'absolute', left: 0, top: 0 },
   quillEmoji: { fontSize: 34, lineHeight: 42 },
