@@ -13,20 +13,24 @@ import { candy_village } from './candy_village';
 import { starlit_tower } from './starlit_tower';
 import { mermaid_lagoon } from './mermaid_lagoon';
 import { witch_cottage } from './witch_cottage';
-import { placeholderArt } from './placeholder';
+import { SET_MP } from './set-mp';
 
 export type { PageArt, RegionArt } from './types';
 export { VIEW_W, VIEW_H } from './types';
 
-const DRAWN: Partial<Record<TemplateId, PageArt>> = {
+// [MERGE] round 3: MP's 8 set-mp pages imported here (AD's documented wiring); the placeholder frame is gone —
+// every template is drawn, and the Record type makes a missing id a type error.
+const DRAWN: Record<TemplateId, PageArt> = {
   castle_gate, enchanted_forest, dragon_peak, royal_feast,
   mermaid_lagoon, witch_cottage, beanstalk_sky, fairy_glen, ice_palace, pirate_cove, candy_village, starlit_tower,
+  ...SET_MP,
 };
 
-/** Every template id has art: drawn pages first, a placeholder frame for any id not drawn yet. */
-export const PAGE_ART = Object.fromEntries(
-  (Object.keys(TEMPLATES) as TemplateId[]).map((id) => [id, DRAWN[id] ?? placeholderArt(id)]),
-) as Record<TemplateId, PageArt>;
+/** Every template id has real art. */
+export const PAGE_ART: Record<TemplateId, PageArt> = DRAWN;
+
+/** Templates with real art in this build — lib/api sends it to the engine as `art_ready` (EV's G2 request). */
+export const DRAWN_TEMPLATES = (Object.keys(TEMPLATES) as TemplateId[]).filter((id) => !!DRAWN[id]);
 
 /** Region ids in the art must exactly match shared/templates.ts — the engine only assigns those. */
 export function validatePageArt(): string[] {
