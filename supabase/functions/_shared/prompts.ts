@@ -74,9 +74,11 @@ function sizeRulesText(): string {
     `medium regions -> one of ${SIZE_RULES.medium.types.map((t) => `"${t}"`).join(', ')}, done by a DUET (2 members) or a TRIO ` +
       `(3 members) — each region says which. duet = the members do something together (photo). gift = one member makes/buys a ` +
       `tiny surprise for another, who confirms (always 2 people, never on a trio region). trial = a co-op riddle solved together on location.`,
-    `small regions -> one of ${SIZE_RULES.small.types.map((t) => `"${t}"`).join(', ')}, SOLO or a DUET of 2 — each region says which. ` +
+    `small regions -> one of ${SIZE_RULES.small.types.map((t) => `"${t}"`).join(', ')}, almost always a DUET of 2 (rarely SOLO) — each region says which. ` +
       `relic = find/photograph a specific thing. bard = write a short verse/story/review (text). trial = a riddle with one short answer.`,
-    `GROUP PLAY: at most 2 solo missions per page. The description of every duet/trio mission starts with "Two of you" / "Three of you".`,
+    `GROUP PLAY: this app brings friends together, so missions are done in pairs, trios or all together; at most 1 solo ` +
+      `mission per page (usually none). Even small relics, verses and riddles are done as a pair: photograph it together, ` +
+      `write it together, solve it together. The description of every duet/trio mission starts with "Two of you" / "Three of you".`,
   ].join('\n- ');
 }
 

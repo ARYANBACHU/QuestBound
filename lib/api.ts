@@ -16,7 +16,7 @@ import { ME, MOCK_RECAP } from '@/fixtures/demo';
 import { utMockBook } from '@/fixtures/ut-campus';
 import { asDifficulty, crewOf, missionPoints } from '@/supabase/functions/_shared/points';
 import { checkGeo, type GeoResult } from '@/supabase/functions/_shared/geo';
-import { crewFor, FALLBACK, FALLBACK_CHAPTER_TEXT } from '@/supabase/functions/_shared/fallbacks';
+import { crewFor, FALLBACK, FALLBACK_CHAPTER_TEXT, withCrew } from '@/supabase/functions/_shared/fallbacks';
 import { pickChapterTemplates } from '@/supabase/functions/_shared/pick';
 import * as PageArtModule from '@/assets/pages';
 import { isTemplateId, TEMPLATE_IDS, TEMPLATES, type TemplateId } from '@/shared/templates';
@@ -401,7 +401,7 @@ function mockSequel(difficulty: Difficulty = 'normal', abandonCurrent = false): 
     if (spec.trial) mockAnswers[id] = spec.trial.a;
     return {
       id, page_id: pg.id, storyline_id: sid, fellowship_id: mock.fellowship.id, region_id: r.id, title: spec.title,
-      description: spec.desc(null, crew), story_hook: spec.hook, type: spec.type, proof_type: PROOF_FOR_TYPE[spec.type],
+      description: withCrew(spec.desc(null, crew), spec.type === 'gathering' || spec.type === 'gift' ? 1 : crew), story_hook: spec.hook, type: spec.type, proof_type: PROOF_FOR_TYPE[spec.type],
       required_members: crew, assignee_ids: [], place: null, trial_question: spec.trial?.q ?? null, verification_hint: spec.hint,
       points: missionPoints(crewOf({ type: spec.type, required_members: crew }), difficulty),
       status: i === 0 ? 'open' : 'locked', completed_by: [], completed_at: null, story_line: null, created_at: now,

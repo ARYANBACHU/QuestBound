@@ -64,8 +64,8 @@ export const MISSIONS: Mission[] = [
   m({ id: 'm-5', region_id: 'tower_flag', title: 'The Riddle of the Tower', type: 'trial', proof_type: 'answer', required_members: 2, points: 20,
       trial_question: 'I stand 307 feet over the Forty Acres and glow orange after victories. What am I?',
       description: 'Two of you put your heads together and answer the riddle.', story_hook: 'The flag will not rise for a fool.' }),
-  m({ id: 'm-6', region_id: 'moat', title: 'Verse of the Moat', type: 'bard', proof_type: 'text', points: 10,
-      description: 'Write two lines of a poem about your fellowship. The best lines are written into the book.',
+  m({ id: 'm-6', region_id: 'moat', title: 'Verse of the Moat', type: 'bard', proof_type: 'text', required_members: 2, points: 20,
+      description: 'Two of you write two lines of a poem about your fellowship. The best lines are written into the book.',
       story_hook: 'The moat only lets poets pass.' }),
   // Chapter 2 — Whispers in the Wood (locked until chapter 1 is fully colored)
   m({ id: 'm-7', page_id: 'p-2', status: 'locked', region_id: 'great_tree', title: 'Beneath the Great Tree', type: 'gathering', proof_type: 'group_photo', required_members: 4, points: 40,
@@ -82,8 +82,8 @@ export const MISSIONS: Mission[] = [
   m({ id: 'm-10', page_id: 'p-2', status: 'locked', region_id: 'fireflies', title: 'Catch a Firefly', type: 'relic', proof_type: 'photo', points: 10,
       description: 'Photograph a small glowing light: string lights, a lantern or a neon sign.', story_hook: 'Each firefly carries a spark of the stolen light.',
       verification_hint: 'A small glowing light.', assignee_ids: ['u-cleo'] }),
-  m({ id: 'm-11', page_id: 'p-2', status: 'locked', region_id: 'owl', title: 'The Owl\'s Question', type: 'bard', proof_type: 'text', points: 10,
-      description: 'Write the wisest thing someone in this fellowship has ever told you.', story_hook: 'The Wise Owl trades directions for wisdom.' }),
+  m({ id: 'm-11', page_id: 'p-2', status: 'locked', region_id: 'owl', title: 'The Owl\'s Question', type: 'bard', proof_type: 'text', required_members: 2, points: 20,
+      description: 'Two of you write the wisest thing someone in this fellowship has ever told you.', story_hook: 'The Wise Owl trades directions for wisdom.' }),
   m({ id: 'm-12', page_id: 'p-2', status: 'locked', region_id: 'path', title: 'The Winding Path', type: 'relic', proof_type: 'photo', required_members: 2, points: 20,
       description: 'Two of you walk an interesting trail or staircase at the Barton Creek Greenbelt and photograph it from the middle.', story_hook: 'The path rearranges itself for the curious.',
       place: { title: 'Barton Creek Greenbelt', address: 'Austin, TX', rating: 4.8, category: 'Hiking area', source: 'google_maps' },
@@ -106,8 +106,8 @@ export const MISSIONS: Mission[] = [
   m({ id: 'm-17', page_id: 'p-3', status: 'locked', region_id: 'shield', title: 'The Knight\'s Shield', type: 'relic', proof_type: 'photo', points: 10,
       description: 'Photograph something round and brave-looking: a clock, a manhole cover, a round sign.', story_hook: 'Every knight needs a shield, even a borrowed one.',
       verification_hint: 'A round object.', assignee_ids: ['u-bram'] }),
-  m({ id: 'm-18', page_id: 'p-3', status: 'locked', region_id: 'lantern', title: 'Light the Lantern', type: 'bard', proof_type: 'text', points: 10,
-      description: 'Write one sentence about a moment this week when a friend made things brighter.', story_hook: 'The last lantern is lit with a true story.' }),
+  m({ id: 'm-18', page_id: 'p-3', status: 'locked', region_id: 'lantern', title: 'Light the Lantern', type: 'bard', proof_type: 'text', required_members: 2, points: 20,
+      description: 'Two of you write one sentence about a moment this week when a friend made things brighter.', story_hook: 'The last lantern is lit with a true story.' }),
 ];
 
 export const MESSAGES: Message[] = [
