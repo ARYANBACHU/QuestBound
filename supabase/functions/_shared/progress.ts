@@ -186,6 +186,34 @@ function fallbackRecap(title: string, members: MemberCtx[], done: Mission[], sta
   };
 }
 
+/**
+ * Shelve an unfinished book (E2 replace_active, or a demo/sequel replacing it): status 'complete' and a quick recap
+ * with `abandoned: true` so the Storybook can show it as "set aside". Writes no proclamation. No LLM (instant).
+ */
+export async function archiveBook(storylineId: string, title: string, members: MemberCtx[]) {
+  const { data: missions } = await admin.from('missions').select('title, type, story_line, completed_by, place, status, completed_at')
+    .eq('storyline_id', storylineId);
+  const done = (missions ?? []).filter((m) => m.status === 'complete') as Mission[];
+  const { count: photos } = await admin.from('memories').select('id', { count: 'exact', head: true })
+    .eq('storyline_id', storylineId).eq('kind', 'photo');
+  const stats = {
+    missions_completed: done.length,
+    photos: photos ?? 0,
+    places_visited: new Set(done.filter((m) => m.place).map((m) => m.place!.title)).size,
+    members_active: new Set(done.flatMap((m) => m.completed_by)).size,
+  };
+  const base = fallbackRecap(title, members, done, stats);
+  const total = (missions ?? []).length;
+  const recap: BookRecap = {
+    ...base,
+    summary: `"${title}" was set aside with ${done.length} of ${total} regions colored. Sage tucked a bookmark in it, ` +
+      'just in case. Some tales are better as a teaser.',
+    next_book_hint: 'A fresh book is already being inked.',
+    abandoned: true,
+  };
+  await admin.from('storylines').update({ status: 'complete', recap }).eq('id', storylineId).neq('status', 'complete');
+}
+
 export async function announceBook(fellowshipId: string, storylineId: string, title: string, recap: BookRecap) {
   await proclaim(fellowshipId, `Hear ye! "${title}" is complete! ${recap.summary}`, { event: 'book_complete', storyline_id: storylineId });
 }

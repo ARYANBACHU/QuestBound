@@ -265,6 +265,16 @@ export function useMemories(fellowshipId: string | null, storylineId?: string | 
   return { memories: live.data, loading: live.loading };
 }
 
+// ---------------------------------------------------------------- points (E4: the ONE source of truth)
+// Pure functions shared with the edge functions (supabase/functions/_shared/points.ts). AB + MP: use these, never
+// re-add points by hand. Each participant in a complete mission's completed_by earns mission.points.
+//   pointsFor(userId, missions) -> number
+//   leaderboard(members, missions) -> { member, user_id, points, missions, rank }[] (desc, ties share a rank)
+export {
+  asDifficulty, DIFFICULTY_MULTIPLIER, leaderboard, missionPoints, missionsCompletedBy, pointsFor, SIZE_POINTS,
+  type LeaderboardEntry,
+} from '@/supabase/functions/_shared/points';
+
 // ---------------------------------------------------------------- extras (new exports, additive)
 
 /** What Muse used to write a book: SerpApi live/cached counts, how many real places, and (sequels) the adaptation note. */

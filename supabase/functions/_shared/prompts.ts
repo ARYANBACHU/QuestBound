@@ -1,6 +1,7 @@
 // Owner: EV. Every prompt Muse uses, in one file so they're easy to tune.
 // AB's wizard-chat imports MUSE_PERSONA from here.
 import { interestLabel } from './interests.ts';
+import type { PointsDifficulty } from './points.ts';
 import {
   type BookRecap, type MemberCtx, type Mission, type Page, type Place, SIZE_RULES, TEMPLATE_META,
   TEMPLATE_REGIONS, type TemplateId,
@@ -35,8 +36,18 @@ export interface StoryCtx {
   places: Place[]; // index i => "P{i}"
   chapters: TemplateId[];
   preferFree: boolean;
+  difficulty: PointsDifficulty;
   sequel?: SequelCtx;
 }
+
+/** How hard the fellowship asked the book to be (E2). Points scale too: easy ×0.75, hard ×1.5 (set in code). */
+export const DIFFICULTY_TEXT: Record<PointsDifficulty, string> = {
+  easy: 'EASY — cozy and close. Every task is within a ~10 minute walk, free or nearly free, and takes under 45 minutes. ' +
+    'Prefer the nearest places. Simple photos, gentle riddles.',
+  normal: 'NORMAL — a fun afternoon. Tasks within a short ride, cheap, up to ~1.5 hours.',
+  hard: 'HARD — an epic quest. More ambitious tasks: farther places across town, longer outings (up to ~2.5 hours), ' +
+    'trickier riddles, more creative photos. Still safe, legal and cheap.',
+};
 
 export interface Outline {
   title: string;
@@ -107,6 +118,7 @@ export function storylineUser(ctx: StoryCtx, includePlaces = true): string {
 ${memberLines(ctx.members, ctx.unique)}
 Shared interests: ${ctx.shared.map(interestLabel).join(', ') || 'none yet — find common ground'}
 Budget: ${ctx.preferFree ? 'most members are on a tight budget — strongly prefer FREE places and events' : 'modest; cheap is better than fancy'}
+Difficulty: ${DIFFICULTY_TEXT[ctx.difficulty]}
 
 ${includePlaces ? `REAL PLACES & EVENTS NEARBY (from Google Maps / Google Events — reference them by index):
 ${placeLines(ctx.places)}` : 'REAL PLACES: real nearby places are attached later, per chapter. Keep the outline about the city in general.'}
@@ -147,13 +159,14 @@ Rules:
 - trial missions MUST have trial_question (a riddle answerable from the place facts above or common knowledge) and a
   short trial_answer (1-3 words). Non-trials: both null.
 - verification_hint: what a photo/answer must show for Muse to accept it.
-- points: gathering 40, medium 20, small 10 (+5 per chapter after the first).
+- Match the difficulty: ${DIFFICULTY_TEXT[ctx.difficulty]}
+- points: put 0 (the game sets points itself).
 - Chapter ${ch.chapter_number} should feel ${chapterIndex === 0 ? 'easy and welcoming' : chapterIndex === outline.chapters.length - 1 ? 'like a triumphant finale' : 'a bit more adventurous than the last'}.
 
 Return JSON:
 {"missions": [{"region_id": "...", "type": "...", "title": "2-5 words", "description": "...", "story_hook": "...",
   "place_ref": "P3" or null, "assignee_names": [], "trial_question": null, "trial_answer": null,
-  "verification_hint": "...", "points": 10}]}`;
+  "verification_hint": "...", "points": 0}]}`;
 }
 
 /** Appended to the outline + chapter prompts in sequel mode. */
@@ -343,12 +356,18 @@ export function rerollTask(args: {
   chapterTitle: string;
   bookTitle: string;
   reason?: string;
+  difficulty?: PointsDifficulty; // relative to the old mission: easy = easier, normal = similar, hard = harder
 }): string {
+  const want = args.difficulty === 'hard'
+    ? 'Make it MORE ambitious than the old one (farther, longer or more creative), still safe and cheap.'
+    : args.difficulty === 'normal'
+    ? 'Keep about the same effort as the old one, but a fresh idea.'
+    : 'Make it noticeably EASIER and quicker to do today than the old one (closer, shorter, free).';
   return `BOOK: "${args.bookTitle}" — chapter "${args.chapterTitle}".
 The fellowship wants a DIFFERENT mission for region "${args.regionId}" (${args.size}; allowed types: ${args.allowedTypes.join(' | ')}).
 Old mission (do NOT repeat it): ${args.old.title} — ${args.old.description} (${args.old.type})
 ${args.reason ? `Why they rerolled: ${args.reason}` : ''}
-Make it easier to do today than the old one. Same JSON shape as one element of "missions":
+${want} Same JSON shape as one element of "missions":
 {"region_id": "${args.regionId}", "type": "...", "title": "...", "description": "...", "story_hook": "...", "place_ref": "P#" or null,
- "assignee_names": [], "trial_question": null, "trial_answer": null, "verification_hint": "...", "points": 10}`;
+ "assignee_names": [], "trial_question": null, "trial_answer": null, "verification_hint": "...", "points": 0}`;
 }

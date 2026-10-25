@@ -10,6 +10,8 @@ import { preflight, json, fail } from '../_shared/cors.ts';
 import { admin, callerId, proclaim } from '../_shared/db.ts';
 import { chat, HAS_LLM, parseJSON, withTimeout, type ChatMsg } from '../_shared/llm.ts';
 import { eventsSearch, mapsSearch, resetSerpStats, snapshotSerpStats } from '../_shared/serp.ts';
+import { asDifficulty, type PointsDifficulty } from '../_shared/points.ts';
+import { archiveBook } from '../_shared/progress.ts';
 import { analyzeInterests, INTEREST_INFO } from '../_shared/interests.ts';
 import {
   CHAPTER_SCHEMA, chapterTask, OUTLINE_SCHEMA, type Outline, outlineTask, type SequelCtx, sequelAddendum, type StoryCtx,
@@ -41,6 +43,7 @@ Deno.serve(async (req) => {
   const fellowship_id: string | undefined = body.fellowship_id;
   const mode: 'first' | 'sequel' = body.mode === 'sequel' ? 'sequel' : 'first';
   const demo = body.demo === true;
+  const replaceActive = body.replace_active === true;
   if (!fellowship_id) return fail('fellowship_id required');
 
   // 1. membership
@@ -53,7 +56,7 @@ Deno.serve(async (req) => {
     admin.from('fellowships').select('*').eq('id', fellowship_id).single(),
     admin.from('fellowship_members').select('user_id, joined_at, profile:profiles(*)').eq('fellowship_id', fellowship_id)
       .order('joined_at', { ascending: true }),
-    admin.from('storylines').select('id, status, book_number, title, recap, created_at').eq('fellowship_id', fellowship_id)
+    admin.from('storylines').select('id, status, book_number, title, recap, created_at, difficulty').eq('fellowship_id', fellowship_id)
       .order('created_at', { ascending: false }),
   ]);
   if (!fellowship) return fail('Fellowship not found', 404);
@@ -67,7 +70,7 @@ Deno.serve(async (req) => {
     const ia = analyzeInterests(members);
     const themes = [...new Set([...ia.themes, 'coffee', 'parks', 'live_music', 'board_games', 'food_trucks'])];
     const places = await ground(fellowship.lat ?? DEFAULT_LOCATION.lat, fellowship.lng ?? DEFAULT_LOCATION.lng,
-      fellowship.area_label ?? DEFAULT_LOCATION.label, themes, 10_000);
+      fellowship.area_label ?? DEFAULT_LOCATION.label, themes, 10_000, asDifficulty(body.difficulty));
     return json({ prewarmed: themes, places_count: places.length, serp: snapshotSerpStats() });
   }
 
@@ -75,7 +78,9 @@ Deno.serve(async (req) => {
   const generating = (books ?? []).find((b) => b.status === 'generating' && Date.now() - new Date(b.created_at).getTime() < 90_000);
   if (generating) return json({ storyline_id: generating.id, reused: true });
   const active = (books ?? []).find((b) => b.status === 'active');
-  if (mode === 'first' && !demo && active) return json({ storyline_id: active.id, reused: true });
+  if (mode === 'first' && !demo && !replaceActive && active) return json({ storyline_id: active.id, reused: true });
+  // Sequels keep the last book's difficulty unless the fellowship picks a new one.
+  const difficulty: PointsDifficulty = asDifficulty(body.difficulty, mode === 'sequel' ? asDifficulty(books?.[0]?.difficulty) : 'normal');
 
   const lat = fellowship.lat ?? DEFAULT_LOCATION.lat;
   const lng = fellowship.lng ?? DEFAULT_LOCATION.lng;
@@ -96,8 +101,8 @@ Deno.serve(async (req) => {
 
   // Placeholder row so every phone flips to the "Muse is writing…" ritual immediately.
   const { data: row, error: insErr } = await admin.from('storylines').insert({
-    fellowship_id, book_number: bookNumber, status: 'generating', title: 'Muse is writing…', synopsis: '',
-    theme_tags: interests.themes,
+    fellowship_id, book_number: bookNumber, status: 'generating', title: 'Sage is writing…', synopsis: '',
+    theme_tags: interests.themes, difficulty,
   }).select('id').single();
   if (insErr || !row) return fail(`Could not start the book: ${insErr?.message}`, 500);
   const storyline_id: string = row.id;
@@ -113,14 +118,14 @@ Deno.serve(async (req) => {
   try {
     const ctx: StoryCtx = {
       mode, fellowshipName: fellowship.name, areaLabel, members, shared: interests.shared, themes: interests.themes,
-      unique: interests.unique, places: [], chapters, preferFree: interests.preferFree, sequel,
+      unique: interests.unique, places: [], chapters, preferFree: interests.preferFree, difficulty, sequel,
     };
     const timings: Record<string, number> = {};
     const seed = demo ? 0 : hashSeed(`${fellowship_id}:${bookNumber}`);
     const useLLM = HAS_LLM && !demo;
 
     // 4 + 6a. SerpApi grounding in parallel with the outline (the outline doesn't need places).
-    const groundP = ground(lat, lng, areaLabel, interests.themes, demo ? 4_000 : 7_000).then((p) => {
+    const groundP = ground(lat, lng, areaLabel, interests.themes, demo ? 4_000 : 7_000, difficulty).then((p) => {
       timings.serp = Date.now() - t0;
       return p;
     });
@@ -169,7 +174,7 @@ Deno.serve(async (req) => {
         repaired += r.repaired;
         chapterSources.push(r.repaired >= 4 ? 'fallback' : 'llm');
       } else {
-        missions = fallbackChapterMissions(c.template_id, i, picker, prefer[i]);
+        missions = fallbackChapterMissions(c.template_id, i, picker, prefer[i], difficulty);
         chapterSources.push('fallback');
       }
       ensureCoverage(missions, members, interests.unique);
@@ -182,7 +187,7 @@ Deno.serve(async (req) => {
     const adaptation = sequel ? buildAdaptation(sequel, priorBook!.id, book) : null;
     const serp = snapshotSerpStats();
     const generation_context = {
-      mode, demo, book_number: bookNumber,
+      mode, demo, difficulty, replace_active: replaceActive, book_number: bookNumber,
       interests: { counts: interests.counts, shared: interests.shared, unique: interests.unique, themes: interests.themes },
       places, serp, prior_recap: sequel?.recap ?? null, adaptation,
       source: { outline: outlineSource, chapters: chapterSources, repaired, llm_available: HAS_LLM },
@@ -192,9 +197,10 @@ Deno.serve(async (req) => {
       title: book.title, synopsis: book.synopsis, theme_tags: book.theme_tags, status: 'active', generation_context,
     }).eq('id', storyline_id);
     if (upErr) throw new Error(`activate storyline: ${upErr.message}`);
-    // Only one active book per fellowship.
-    await admin.from('storylines').update({ status: 'complete' })
+    // Only one active book per fellowship: shelve the old one (unfinished -> recap marked abandoned).
+    const { data: others } = await admin.from('storylines').select('id, title')
       .eq('fellowship_id', fellowship_id).eq('status', 'active').neq('id', storyline_id);
+    await Promise.all((others ?? []).map((b: { id: string; title: string }) => archiveBook(b.id, b.title, members)));
 
     // 9. proclaim
     const first = book.chapters[0];
@@ -205,7 +211,7 @@ Deno.serve(async (req) => {
       { event: 'storyline_ready', storyline_id },
     );
     console.log('[generate-storyline]', JSON.stringify({ storyline_id, ...generation_context.source, serp, ms: Date.now() - t0 }));
-    return json({ storyline_id, serp, adaptation });
+    return json({ storyline_id, serp, adaptation, difficulty });
   } catch (e) {
     console.error('[generate-storyline] failed, rolling back', String(e));
     await admin.from('storylines').delete().eq('id', storyline_id);
@@ -292,9 +298,11 @@ function normalizeOutline(raw: Outline | null, ctx: StoryCtx, seed: number): Out
 }
 
 /** SerpApi: one Maps search per theme + one Events search, each with its own timeout. Interleaved + deduped. */
-async function ground(lat: number, lng: number, area: string, themes: string[], timeoutMs: number): Promise<Place[]> {
+async function ground(lat: number, lng: number, area: string, themes: string[], timeoutMs: number, difficulty: PointsDifficulty = 'normal'): Promise<Place[]> {
+  // Easy books search a tighter map (closer places), hard books a wider one (across town).
+  const zoom = difficulty === 'easy' ? 15 : difficulty === 'hard' ? 12 : 14;
   const tasks: Promise<Place[]>[] = themes.map((t) =>
-    withTimeout(mapsSearch(INTEREST_INFO[t]?.query ?? t.replace(/_/g, ' '), lat, lng, 4), timeoutMs, [], `maps:${t}`)
+    withTimeout(mapsSearch(INTEREST_INFO[t]?.query ?? t.replace(/_/g, ' '), lat, lng, 4, zoom), timeoutMs, [], `maps:${t}`)
   );
   tasks.push(withTimeout(eventsSearch(`events in ${area}`, 6), timeoutMs, [], 'events'));
   const lists = await Promise.all(tasks);

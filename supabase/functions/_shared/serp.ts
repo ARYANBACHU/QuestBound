@@ -80,9 +80,9 @@ export async function serp(params: Record<string, string>, opts: { cache?: boole
 }
 
 /** Google Maps local results near a point. */
-export async function mapsSearch(q: string, lat: number, lng: number, limit = 6): Promise<Place[]> {
+export async function mapsSearch(q: string, lat: number, lng: number, limit = 6, zoom = 14): Promise<Place[]> {
   // Round coords so nearby fellowships share cache entries (~1 km).
-  const ll = `@${lat.toFixed(3)},${lng.toFixed(3)},14z`;
+  const ll = `@${lat.toFixed(3)},${lng.toFixed(3)},${zoom}z`;
   const j = await serp({ engine: 'google_maps', type: 'search', q, ll });
   // deno-lint-ignore no-explicit-any
   return (j.local_results ?? []).slice(0, limit).map((r: any): Place => ({

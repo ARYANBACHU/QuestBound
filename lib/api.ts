@@ -12,10 +12,12 @@
 import { USE_MOCKS } from './env';
 import { supabase } from './supabase';
 import { addBook, addCompletion, addMemory, addMessage, advanceIfPageDone, emitMock, mock, patchMission, restoreDemoBook } from './mockStore';
-import { ME } from '@/fixtures/demo';
+import { ME, MOCK_RECAP } from '@/fixtures/demo';
+import { asDifficulty, missionPoints } from '@/supabase/functions/_shared/points';
+import { TEMPLATES } from '@/shared/templates';
 import type {
-  GenerateStorylineRequest, GenerateStorylineResponse, Mission, Page, Storyline, SubmitProofRequest, SubmitProofResponse,
-  Verdict, WizardChatRequest, WizardChatResponse,
+  BookRecap, Difficulty, GenerateStorylineRequest, GenerateStorylineResponse, Mission, Page, Storyline, SubmitProofRequest,
+  SubmitProofResponse, Verdict, WizardChatRequest, WizardChatResponse,
 } from '@/shared/types';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -42,12 +44,21 @@ async function invoke<T>(fn: string, body: object): Promise<T> {
   return data as T;
 }
 
-/** Summon a book. `demo: true` = instant handcrafted book (no LLM) for the judging table. */
+/**
+ * Summon a book. Safe to call from ANY member, any time (two phones at once get the same storyline_id).
+ * - `demo: true` = instant handcrafted book (no LLM); `demo: 'ut'` = "The Legend of the Forty Acres" (UT campus).
+ * - `difficulty`: 'easy' | 'normal' | 'hard' (points ×0.75 / ×1 / ×1.5). Sequels inherit the last book's by default.
+ * - `replace_active: true` shelves the current book (status 'complete', recap.abandoned = true) and writes a new one.
+ * - mode 'first' without replace_active returns the active book (`reused: true`) if there is one.
+ */
 export async function generateStoryline(req: GenerateStorylineRequest): Promise<GenerateStorylineResponse> {
   if (USE_MOCKS) {
     await wait(req.demo ? 600 : 2500);
     if (!mock.storyline) return { storyline_id: mockFirstBook() }; // join race: nobody had summoned yet
-    if (req.mode === 'sequel') return { storyline_id: mockSequel() };
+    const difficulty = asDifficulty(req.difficulty, req.mode === 'sequel' ? asDifficulty(mock.storyline.difficulty) : 'normal');
+    if (req.mode === 'sequel' || req.replace_active || req.demo) {
+      return { storyline_id: mockSequel(difficulty, mock.storyline.status !== 'complete'), difficulty } as GenerateStorylineResponse;
+    }
     return { storyline_id: mock.storyline.id, reused: true };
   }
   return invoke('generate-storyline', req);
@@ -68,19 +79,24 @@ export async function wizardChat(req: WizardChatRequest): Promise<WizardChatResp
 
 /** Round 2: Muse swaps one OPEN mission for a fresh one on the same region. Throws a readable Error if it can't. */
 export interface RerollMissionResponse { mission: Mission; source: 'llm' | 'fallback' }
-export async function rerollMission(missionId: string, reason?: string): Promise<RerollMissionResponse> {
+/** `difficulty` is relative to the old mission: 'easy' = easier (default), 'normal' = similar, 'hard' = harder. */
+export async function rerollMission(missionId: string, reason?: string, difficulty?: Difficulty): Promise<RerollMissionResponse> {
   if (USE_MOCKS) {
     await wait(1200);
     const m = mock.missions.find((x) => x.id === missionId);
     if (!m) throw new Error('That mission has vanished from the book. Pull to refresh.');
     if (m.status !== 'open') throw new Error(m.status === 'complete' ? 'That region is already colored!' : 'That chapter is still sealed.');
     const alt = MOCK_REROLLS[m.type] ?? MOCK_REROLLS.relic;
-    const next = patchMission(m.id, { ...alt, title: m.title === alt.title ? `${alt.title} II` : alt.title, place: null, trial_question: null })!;
-    addMessage({ fellowship_id: m.fellowship_id, user_id: null, kind: 'wizard', body: `Muse rewrote a quest. "${m.title}" became "${next.title}".`, payload: null });
+    const page = mock.pages.find((p) => p.id === m.page_id);
+    const size = TEMPLATES[page?.template_id ?? 'castle_gate'].regions.find((r) => r.id === m.region_id)?.size ?? 'small';
+    const d = asDifficulty(difficulty, 'easy');
+    const next = patchMission(m.id, { ...alt, title: m.title === alt.title ? `${alt.title} II` : alt.title, place: null, trial_question: null, points: missionPoints(size, d) })!;
+    const how = d === 'hard' ? 'a braver' : d === 'normal' ? 'a different' : 'a gentler';
+    addMessage({ fellowship_id: m.fellowship_id, user_id: null, kind: 'wizard', body: `${mock.profiles.find((p) => p.id === ME)?.display_name ?? 'Someone'} asked Sage for ${how} quest. With a flick of the quill, "${m.title}" became "${next.title}".`, payload: null });
     emitMock();
     return { mission: next, source: 'fallback' };
   }
-  return invoke('reroll-mission', { mission_id: missionId, ...(reason ? { reason } : {}) });
+  return invoke('reroll-mission', { mission_id: missionId, ...(reason ? { reason } : {}), ...(difficulty ? { difficulty } : {}) });
 }
 
 const MOCK_REROLLS: Record<string, Pick<Mission, 'title' | 'description' | 'story_hook' | 'type' | 'proof_type' | 'verification_hint'>> = {
@@ -203,12 +219,15 @@ function mockFirstBook(): string {
   return book.id;
 }
 
-/** Mock sequel: a fresh copy of the current book's pages/missions, all reset, as Book N+1. */
-function mockSequel(): string {
+/**
+ * Mock sequel / replacement: a fresh copy of the current book's pages/missions, all reset, as Book N+1.
+ * `abandonCurrent` shelves the current book unfinished (recap.abandoned), like the server's replace_active.
+ */
+function mockSequel(difficulty: Difficulty = 'normal', abandonCurrent = false): string {
   const prev = mock.storyline!;
   const n = prev.book_number + 1;
-  const sid = `s-${n}`;
-  const book: Storyline = { ...prev, id: sid, book_number: n, status: 'active', recap: null, created_at: new Date().toISOString(),
+  const sid = `s-${n}-${Date.now().toString(36)}`;
+  const book: Storyline = { ...prev, id: sid, book_number: n, status: 'active', recap: null, difficulty, created_at: new Date().toISOString(),
     title: 'The Clockwork Owl of Austin',
     synopsis: 'A clockwork owl is stealing the songs of Austin, one by one. The fellowship that once lit the lanterns must win the music back.' };
   const prevPages = mock.pages.filter((p) => p.storyline_id === prev.id).sort((a, b) => a.chapter_number - b.chapter_number);
@@ -216,12 +235,21 @@ function mockSequel(): string {
   const pageId = new Map(prevPages.map((p, i) => [p.id, pages[i].id]));
   const missions: Mission[] = mock.missions.filter((m) => m.storyline_id === prev.id).map((m) => {
     const pid = pageId.get(m.page_id)!;
-    return { ...m, id: `${sid}-${m.id}`, page_id: pid, storyline_id: sid, status: pid === pages[0].id ? 'open' : 'locked', completed_by: [], completed_at: null, story_line: null };
+    const tpl = prevPages.find((p) => p.id === m.page_id)?.template_id ?? 'castle_gate';
+    const size = TEMPLATES[tpl].regions.find((r) => r.id === m.region_id)?.size ?? 'small';
+    return { ...m, id: `${sid}-${m.id}`, page_id: pid, storyline_id: sid, status: pid === pages[0].id ? 'open' : 'locked', completed_by: [], completed_at: null, story_line: null, points: missionPoints(size, difficulty) };
   });
-  if (prev.status !== 'complete') mock.books = mock.books.map((b) => (b.id === prev.id ? { ...b, status: 'complete' } : b));
+  if (prev.status !== 'complete') {
+    const done = mock.missions.filter((m) => m.storyline_id === prev.id && m.status === 'complete').length;
+    const total = mock.missions.filter((m) => m.storyline_id === prev.id).length;
+    const recap: BookRecap & { abandoned?: boolean } = abandonCurrent
+      ? { ...MOCK_RECAP, summary: `"${prev.title}" was set aside with ${done} of ${total} regions colored. Sage tucked a bookmark in it, just in case.`, abandoned: true }
+      : MOCK_RECAP;
+    mock.books = mock.books.map((b) => (b.id === prev.id ? { ...b, status: 'complete', recap } : b));
+  }
   addBook(book, pages, missions);
   addMessage({ fellowship_id: mock.fellowship.id, user_id: null, kind: 'proclamation',
-    body: `Hear ye! Muse has written a new tale: "${book.title}". Chapter I: ${pages[0]?.title ?? ''} awaits. Muse noticed you love Duets and Riddles, so this book has more of them.`,
+    body: `Hear ye! Sage has written a new tale: "${book.title}". Chapter I: ${pages[0]?.title ?? ''} awaits. Sage noticed you love Duets and Riddles, so this book has more of them.`,
     payload: { event: 'storyline_ready', storyline_id: sid } });
   emitMock();
   return sid;
