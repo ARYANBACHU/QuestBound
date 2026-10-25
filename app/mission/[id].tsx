@@ -27,7 +27,7 @@ import { SageBubble } from '@/components/wizard/SageBubble';
 import { submitProof, uploadProof } from '@/lib/api';
 import { useChat } from '@/lib/chat';
 import { useFellowship, profileOf } from '@/lib/fellowship';
-import { CREW_LABEL, crewOf, useMission, useStoryline } from '@/lib/game';
+import { CREW_LABEL, crewOf, isGeoEnforced, useMission, useStoryline } from '@/lib/game';
 import { openInMaps } from '@/lib/maps';
 import { useSession } from '@/lib/session';
 import type { Mission, Page, Place, SubmitProofRequest, SubmitProofResponse } from '@/shared/types';
@@ -53,7 +53,7 @@ export default function MissionDetail() {
   const fs = useFellowship();
   const { pages, storyline } = useStoryline(fs.fellowship?.id ?? null);
   // V2: demo books (UT campus) show the distance but never block on location.
-  const geoFree = storyline?.geo_enforced === false;
+  const geoFree = !isGeoEnforced(storyline);
   const { messages } = useChat(fs.fellowship?.id ?? null);
   const page = pages.find((p) => p.id === mission?.page_id) ?? null;
   const mood = moodFor(page?.template_id);
@@ -92,7 +92,7 @@ export default function MissionDetail() {
           <SageBubble layout="stack" expression="surprised" sageSize={120}
             text="Hmm. That mission scroll has blown away. Head back to the board and pick another." />
         </View>
-        <Footer><Button label="Back to missions" onPress={() => router.navigate('/(tabs)/missions')} /></Footer>
+        <Footer><Button label="Back to missions" onPress={() => router.dismissTo('/(tabs)/missions')} /></Footer>
       </Shell>
     );
   }
@@ -182,8 +182,8 @@ export default function MissionDetail() {
         page={page}
         color={crayonHex(profileOf(fs.members, phase.res.mission.completed_by[0] ?? userId)?.color)}
         onRetry={() => setPhase({ kind: 'form' })}
-        onPage={() => router.navigate('/(tabs)/coloring')}
-        onMissions={() => router.navigate('/(tabs)/missions')}
+        onPage={() => router.dismissTo('/(tabs)/coloring')}
+        onMissions={() => router.dismissTo('/(tabs)/missions')}
       />
     );
   }
@@ -342,7 +342,7 @@ export default function MissionDetail() {
 
         <Footer>
           {mission.status === 'complete' ? (
-            <Button label="See it on the page" onPress={() => router.navigate('/(tabs)/coloring')} />
+            <Button label="See it on the page" onPress={() => router.dismissTo('/(tabs)/coloring')} />
           ) : mission.status === 'locked' || waitingOnGift ? (
             <Button label="Back to missions" variant="secondary" onPress={() => router.back()} />
           ) : (
