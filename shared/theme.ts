@@ -29,6 +29,126 @@ export const CRAYONS = {
 export type CrayonColor = keyof typeof CRAYONS;
 export const CRAYON_LIST = Object.keys(CRAYONS) as CrayonColor[];
 
+/** Text color that passes WCAG AA (≥4.5:1) on each crayon fill — use for labels drawn ON a crayon swatch. */
+export const ON_CRAYON: Record<CrayonColor, string> = {
+  rose: ink.ink,
+  marigold: ink.ink,
+  fern: ink.ink,
+  lagoon: ink.ink,
+  violet: '#FFFFFF',
+  ember: ink.ink,
+  teal: ink.ink,
+  plum: '#FFFFFF',
+};
+
+// ---------------------------------------------------------------------------------------------
+// ROUND 2 — MORE COLOR, SAME COLORING-BOOK LOOK (additive; every token above is unchanged)
+// Rules: outlines + body text stay ink.ink. Crayons still mean "a player did this".
+// Mood colors are soft washes behind the ink (backgrounds, frames, headers). Accents are for UI
+// controls (buttons, chips, toggles). Contrast notes are WCAG ratios, checked by the merge agent.
+// ---------------------------------------------------------------------------------------------
+
+export type MoodId = 'castle' | 'forest' | 'dragon' | 'feast';
+
+export interface Mood {
+  id: MoodId;
+  label: string;
+  /** Two-stop gradient for headers / page frames (LinearGradient colors). ink.ink ≥7.5:1, inkSoft ≥4.9:1 on both stops. */
+  gradient: readonly [string, string];
+  /** Soft screen background tint (ink.ink ≥14:1). */
+  tint: string;
+  /** Stronger tint for cards, chips, selected rows (ink.ink ≥12:1). */
+  tintStrong: string;
+  /** Deep mood color for titles, icons, borders, or a filled button (≥5.8:1 on tint; onDeep text ≥6.3:1). */
+  deep: string;
+  onDeep: string;
+}
+
+/** Chapter moods. castle: dusk lavender→rose · forest: mint→teal · dragon: ember→marigold · feast: gold→plum. */
+export const MOODS: Record<MoodId, Mood> = {
+  castle: {
+    id: 'castle', label: 'Dusk at the castle',
+    gradient: ['#CDBDF5', '#F6B8CC'], tint: '#F4EFFF', tintStrong: '#E7DDFC', deep: '#5A3E9E', onDeep: '#FFFFFF',
+  },
+  forest: {
+    id: 'forest', label: 'Deep in the forest',
+    gradient: ['#BDEDD6', '#86D4CB'], tint: '#EAF8F2', tintStrong: '#D2F0E6', deep: '#0E6B63', onDeep: '#FFFFFF',
+  },
+  dragon: {
+    id: 'dragon', label: "Dragon's fire",
+    gradient: ['#F8AE88', '#F9D47E'], tint: '#FFF3EA', tintStrong: '#FDE2CF', deep: '#A33F18', onDeep: '#FFFFFF',
+  },
+  feast: {
+    id: 'feast', label: 'The royal feast',
+    gradient: ['#F3D57E', '#D8B4D4'], tint: '#FCF2F8', tintStrong: '#F4DDEC', deep: '#7A2D5E', onDeep: '#FFFFFF',
+  },
+};
+export const MOOD_LIST = Object.keys(MOODS) as MoodId[];
+
+/** Which mood each coloring-page template uses (keys = TemplateId in shared/templates.ts). */
+export const MOOD_FOR_TEMPLATE = {
+  castle_gate: 'castle',
+  enchanted_forest: 'forest',
+  dragon_peak: 'dragon',
+  royal_feast: 'feast',
+} as const satisfies Record<string, MoodId>;
+
+/** Mood for a template id (falls back to castle for unknown ids). */
+export function moodFor(templateId: string | null | undefined): Mood {
+  const id = (MOOD_FOR_TEMPLATE as Record<string, MoodId>)[templateId ?? ''];
+  return MOODS[id ?? 'castle'];
+}
+
+/**
+ * UI accents for buttons, chips, toggles, links. `x` = filled background (text = onX, ≥5.1:1),
+ * `xSoft` = chip/pill background (x as text on it ≥4.9:1; ink.ink ≥13:1).
+ */
+export const accent = {
+  primary: '#5B3FD1', // royal violet — main buttons
+  primaryPressed: '#4630B0',
+  primarySoft: '#ECE7FF',
+  onPrimary: '#FFFFFF',
+  secondary: '#0D736B', // enchanted teal — secondary actions, "You're close!"
+  secondarySoft: '#DDF4EF',
+  onSecondary: '#FFFFFF',
+  warm: '#A8431A', // ember — attention, "harder", streaks
+  warmSoft: '#FFE9DC',
+  onWarm: '#FFFFFF',
+  rose: '#B8325A', // hearts, reactions, friends
+  roseSoft: '#FDE4EB',
+  onRose: '#FFFFFF',
+  gold: '#7A5C0B', // text-safe gold (ink.gold itself is for seals/fills, not small text)
+  goldSoft: '#FBF1D0',
+  onGold: '#FFFFFF',
+} as const;
+
+/** Chip presets: { bg, fg, border } — fg on bg is AA. */
+export const chips = {
+  neutral: { bg: ink.lavenderMist, fg: ink.ink, border: ink.ink },
+  primary: { bg: accent.primarySoft, fg: accent.primary, border: accent.primary },
+  secondary: { bg: accent.secondarySoft, fg: accent.secondary, border: accent.secondary },
+  warm: { bg: accent.warmSoft, fg: accent.warm, border: accent.warm },
+  rose: { bg: accent.roseSoft, fg: accent.rose, border: accent.rose },
+  gold: { bg: accent.goldSoft, fg: accent.gold, border: accent.gold },
+} as const;
+export type ChipTone = keyof typeof chips;
+
+/** Difficulty chip tones (easy / normal / hard). */
+export const DIFFICULTY_TONE = { easy: 'secondary', normal: 'primary', hard: 'warm' } as const satisfies Record<string, ChipTone>;
+
+/** Backdrops and overlays. Use instead of hard-coded rgba(). Ink-tinted so they read as "the book dims". */
+export const scrim = {
+  soft: 'rgba(33,26,59,0.35)', // sheets (wizard)
+  base: 'rgba(33,26,59,0.4)', // modals, confirm dialogs
+  strong: 'rgba(33,26,59,0.45)', // tool panels, pickers
+  heavy: 'rgba(33,26,59,0.7)', // full-screen viewers (montage, photo)
+  black: 'rgba(0,0,0,0.85)', // camera / story playback
+  paperFade: 'rgba(252,251,255,0)', // transparent paper — start of "Read more" fade
+  paper: 'rgba(252,251,255,1)', // end of "Read more" fade (matches ink.paper)
+  glareClear: 'rgba(255,255,255,0)', // Magic Mirror shimmer
+  glare: 'rgba(255,255,255,0.75)',
+} as const;
+
 /** Crests are each player's avatar. Emoji now; swap for art later without changing ids. */
 export const CRESTS = {
   dragon: { emoji: '🐉', title: 'Dragon' },
