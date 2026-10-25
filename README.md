@@ -18,8 +18,9 @@ Meta Model API (Muse Spark, Muse Image) · SerpApi (Google Maps, Google Events, 
 
 - Invite friends from **Friends → Invite**: the QR and share link are `https://questbound.expo.app/join/CODE`, which
   works in any browser (the native app still opens `questbound://join/CODE`).
-- Android APK (internal preview build): see the latest build on the
-  [EAS dashboard](https://expo.dev/accounts/hacktx/projects/questbound/builds).
+- Android APK (internal preview build, round 4):
+  [download the APK](https://expo.dev/artifacts/eas/LeCiYUc7188ea6hrjvHZzQyxnAEy-GoWcjiTlFKyNcc.apk) ·
+  [build page](https://expo.dev/accounts/hacktx/projects/questbound/builds/b9805674-3a5e-4d3a-aba5-2e6b5beac4ed).
 
 ### Deploying
 
