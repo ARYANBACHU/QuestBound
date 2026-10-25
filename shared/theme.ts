@@ -1,16 +1,17 @@
 /**
  * DESIGN TOKENS — SHARED (FROZEN). Look: a fairy-tale COLORING BOOK.
- * Bright paper, thick indigo-ink outlines, crayon colors as the only saturated color.
+ * Softly tinted paper (never plain white, never a grid/plaid/check pattern), thick indigo-ink outlines,
+ * crayon colors as the only saturated color.
  * The one signature moment in the app: a region filling with a player's crayon color.
  */
 
 export const ink = {
   ink: '#211A3B', // outlines, primary text
   inkSoft: '#4A4368', // secondary text
-  muted: '#8A84A3', // hints, locked states
-  paper: '#FCFBFF', // app background (cool white, NOT cream)
-  page: '#FFFFFF', // the coloring page itself
-  lavenderMist: '#EEEAFB', // sheets, chat background
+  muted: '#625B80', // hints, locked states (Round 3: darker so it stays AA on the tinted paper, ≥4.5:1)
+  paper: '#F5E6EA', // app background — Round 3: soft peach-lavender blush, NOT white (ink 13.6:1, inkSoft 7.6:1)
+  page: '#FFFFFF', // the coloring page itself (the only white surface: crayon fills pop on it)
+  lavenderMist: '#EADFF5', // sheets, chat background (ink 12.8:1)
   gold: '#C9A227', // royal seal, completion, rewards
   danger: '#C2413B',
 } as const;
@@ -55,11 +56,11 @@ export interface Mood {
   label: string;
   /** Two-stop gradient for headers / page frames (LinearGradient colors). ink.ink ≥7.5:1, inkSoft ≥4.9:1 on both stops. */
   gradient: readonly [string, string];
-  /** Soft screen background tint (ink.ink ≥14:1). */
+  /** Soft screen background tint — a real color, not white (ink.ink ≥13:1, muted ≥4.4:1). */
   tint: string;
-  /** Stronger tint for cards, chips, selected rows (ink.ink ≥12:1). */
+  /** Stronger tint for cards, chips, selected rows (ink.ink ≥11.6:1). */
   tintStrong: string;
-  /** Deep mood color for titles, icons, borders, or a filled button (≥5.8:1 on tint; onDeep text ≥6.3:1). */
+  /** Deep mood color for titles, icons, borders, or a filled button (≥5.3:1 on tint; onDeep text ≥6.3:1). */
   deep: string;
   onDeep: string;
 }
@@ -68,29 +69,48 @@ export interface Mood {
 export const MOODS: Record<MoodId, Mood> = {
   castle: {
     id: 'castle', label: 'Dusk at the castle',
-    gradient: ['#CDBDF5', '#F6B8CC'], tint: '#F4EFFF', tintStrong: '#E7DDFC', deep: '#5A3E9E', onDeep: '#FFFFFF',
+    gradient: ['#CDBDF5', '#F6B8CC'], tint: '#EFE3F4', tintStrong: '#E3D3F2', deep: '#5A3E9E', onDeep: '#FFFFFF',
   },
   forest: {
     id: 'forest', label: 'Deep in the forest',
-    gradient: ['#BDEDD6', '#86D4CB'], tint: '#EAF8F2', tintStrong: '#D2F0E6', deep: '#0E6B63', onDeep: '#FFFFFF',
+    gradient: ['#BDEDD6', '#86D4CB'], tint: '#E2F0E6', tintStrong: '#CFE8DA', deep: '#0E6B63', onDeep: '#FFFFFF',
   },
   dragon: {
     id: 'dragon', label: "Dragon's fire",
-    gradient: ['#F8AE88', '#F9D47E'], tint: '#FFF3EA', tintStrong: '#FDE2CF', deep: '#A33F18', onDeep: '#FFFFFF',
+    gradient: ['#F8AE88', '#F9D47E'], tint: '#FBE6D8', tintStrong: '#F7D5BF', deep: '#A33F18', onDeep: '#FFFFFF',
   },
   feast: {
     id: 'feast', label: 'The royal feast',
-    gradient: ['#F3D57E', '#D8B4D4'], tint: '#FCF2F8', tintStrong: '#F4DDEC', deep: '#7A2D5E', onDeep: '#FFFFFF',
+    gradient: ['#F3D57E', '#D8B4D4'], tint: '#F8E4E4', tintStrong: '#F0D2DE', deep: '#7A2D5E', onDeep: '#FFFFFF',
   },
 };
 export const MOOD_LIST = Object.keys(MOODS) as MoodId[];
 
-/** Which mood each coloring-page template uses (keys = TemplateId in shared/templates.ts). */
+/**
+ * Which mood each coloring-page template uses (keys = every TemplateId in shared/templates.ts).
+ * castle = dusk/night/sky/frost wonder · forest = water/green/swamp · dragon = fire/daring/light · feast = sweet/cozy/rose.
+ */
 export const MOOD_FOR_TEMPLATE = {
   castle_gate: 'castle',
   enchanted_forest: 'forest',
   dragon_peak: 'dragon',
   royal_feast: 'feast',
+  mermaid_lagoon: 'forest',
+  witch_cottage: 'feast',
+  beanstalk_sky: 'dragon',
+  fairy_glen: 'forest',
+  ice_palace: 'castle',
+  pirate_cove: 'dragon',
+  candy_village: 'feast',
+  starlit_tower: 'castle',
+  troll_bridge: 'forest',
+  cloud_kingdom: 'castle',
+  crystal_cave: 'castle',
+  owl_library: 'feast',
+  rose_garden: 'feast',
+  lantern_festival: 'dragon',
+  swamp_hollow: 'forest',
+  unicorn_meadow: 'castle',
 } as const satisfies Record<string, MoodId>;
 
 /** Mood for a template id (falls back to castle for unknown ids). */
@@ -143,8 +163,8 @@ export const scrim = {
   strong: 'rgba(33,26,59,0.45)', // tool panels, pickers
   heavy: 'rgba(33,26,59,0.7)', // full-screen viewers (montage, photo)
   black: 'rgba(0,0,0,0.85)', // camera / story playback
-  paperFade: 'rgba(252,251,255,0)', // transparent paper — start of "Read more" fade
-  paper: 'rgba(252,251,255,1)', // end of "Read more" fade (matches ink.paper)
+  paperFade: 'rgba(245,230,234,0)', // transparent paper — start of "Read more" fade
+  paper: 'rgba(245,230,234,1)', // end of "Read more" fade (matches ink.paper)
   glareClear: 'rgba(255,255,255,0)', // Magic Mirror shimmer
   glare: 'rgba(255,255,255,0.75)',
 } as const;
@@ -236,12 +256,15 @@ export const realm = {
   lanternMist: '#FFE6D2',
 } as const;
 
-/** Full-screen background gradients per chapter mood (top → bottom). Light enough for ink text (≥12:1). */
+/**
+ * Full-screen background gradients per chapter mood (top → bottom). Round 3: calm tinted color all the way down —
+ * no white stop, no pattern. Ink text ≥12.6:1, inkSoft ≥7:1, muted ≥4.2:1 on every stop.
+ */
 export const SCREEN_GRADIENTS: Record<MoodId, readonly [string, string, string]> = {
-  castle: ['#F4EFFF', '#FBEFF5', ink.paper],
-  forest: ['#E4F5EC', '#EAF8F2', ink.paper],
-  dragon: ['#FFF0E3', '#FFF6E6', ink.paper],
-  feast: ['#FDF4DA', '#FCF2F8', ink.paper],
+  castle: ['#E9DDF6', '#F3E1EC', '#F7E6E2'], // lavender → blush → peach
+  forest: ['#D9EEE2', '#E3F0E4', '#EEEEDF'], // mint → sage → warm linen
+  dragon: ['#FBDCC9', '#FBE5D2', '#F6E8DD'], // apricot → peach → sand
+  feast: ['#F8E5C6', '#F6DEE2', '#F1E2EA'], // honey → rose → lilac
 };
 
 /** One radius / shadow / spacing scale for the game look (radius/space above still apply). */
@@ -271,7 +294,7 @@ export type GameButtonTone = keyof typeof gameButton;
 
 /** Parchment / storybook panels. */
 export const panel = {
-  parchment: '#FFF9EC', // warm paper (ink 15.7:1, inkSoft 8.7:1)
+  parchment: '#FFF4E4', // warm paper card on the tinted screens (ink 15.1:1, inkSoft 8.4:1, muted 5.8:1)
   parchmentEdge: '#EADFC4', // inner rule / texture lines
   page: ink.page,
   border: ink.ink,
