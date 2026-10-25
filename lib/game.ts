@@ -320,7 +320,7 @@ export {
 
 // ---------------------------------------------------------------- extras (new exports, additive)
 
-/** What Muse used to write a book: SerpApi live/cached counts, how many real places, and (sequels) the adaptation note. */
+/** What Sage used to write a book: SerpApi live/cached counts, how many real places, and (sequels) the adaptation note. */
 export interface GenerationInfo {
   serp: { live: number; cached: number; stale: number; failed: number } | null;
   places_count: number;
@@ -329,7 +329,7 @@ export interface GenerationInfo {
 }
 const NO_INFO: GenerationInfo | null = null;
 
-/** For Demo tools ("SerpApi: 3 live / 1 cached") and the sequel card ("Muse noticed you love Duets…"). */
+/** For Demo tools ("SerpApi: 3 live / 1 cached") and the sequel card ("Sage noticed you love Duets…"). */
 export function useGenerationInfo(storylineId: string | null): { info: GenerationInfo | null; loading: boolean } {
   useMockTick();
   const live = useLive<GenerationInfo | null>(
@@ -358,7 +358,7 @@ export function useGenerationInfo(storylineId: string | null): { info: Generatio
 }
 
 const MOCK_ADAPTATION = {
-  note: 'Muse noticed you love Duets and Riddles, so this book has more of them.',
+  note: 'Sage noticed you love Duets and Riddles, so this book has more of them.',
   loved_types: ['duet', 'trial'],
   skipped_types: ['bard'],
   callbacks: ['Sir Bram and Lady Cleo crossed the drawbridge as the sun sank.', 'Aria the Fox caught the moon in a glass jar of pixels.'],

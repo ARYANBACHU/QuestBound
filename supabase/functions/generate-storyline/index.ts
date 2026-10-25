@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     .filter((p: Profile | null): p is Profile => !!p)
     .map((p: Profile) => memberCtx(p));
 
-  // Pre-warm (before judging): fill the SerpApi cache for this fellowship's themes + Muse's defaults. Writes no book.
+  // Pre-warm (before judging): fill the SerpApi cache for this fellowship's themes + Sage's defaults. Writes no book.
   if (body.prewarm === true) {
     const ia = analyzeInterests(members);
     const themes = [...new Set([...ia.themes, 'coffee', 'parks', 'live_music', 'board_games', 'food_trucks'])];
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     return json({ prewarmed: themes, places_count: places.length, serp: snapshotSerpStats() });
   }
 
-  // Idempotency: a double-tap while Muse is writing returns the same book.
+  // Idempotency: a double-tap while Sage is writing returns the same book.
   const generating = (books ?? []).find((b) => b.status === 'generating' && Date.now() - new Date(b.created_at).getTime() < 90_000);
   if (generating) return json({ storyline_id: generating.id, reused: true });
   const active = (books ?? []).find((b) => b.status === 'active');
@@ -426,9 +426,9 @@ function buildAdaptation(seq: SequelCtx, priorId: string, book: DraftBook) {
   const [a, b] = seq.loved_types;
   const wove = a && (after[a] ?? 0) >= 3;
   const note = a
-    ? `Muse noticed you love ${label(a)}${b ? ` and ${label(b)}` : ''}${wove ? ', so this book has more of them' : ''}.` +
+    ? `Sage noticed you love ${label(a)}${b ? ` and ${label(b)}` : ''}${wove ? ', so this book has more of them' : ''}.` +
       (seq.skipped_types[0] && (after[seq.skipped_types[0]] ?? 0) <= 2 ? ` Fewer ${label(seq.skipped_types[0])} this time.` : '')
-    : 'Muse remembered everything you did last time.';
+    : 'Sage remembered everything you did last time. Everything.';
   return {
     prior_storyline_id: priorId,
     loved_types: seq.loved_types,

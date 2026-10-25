@@ -2,8 +2,8 @@
 // CONTRACT: keep these export names/signatures. Mock versions behave like the real engine so UI can be built now.
 //
 // Behaviour both modes share (build UI against this):
-// - A failed verification is NOT a thrown error: submitProof resolves with verdict.pass=false + Muse's flavor_text.
-//   Thrown errors mean auth/network/server trouble; their message is readable ("Muse dropped the quill…").
+// - A failed verification is NOT a thrown error: submitProof resolves with verdict.pass=false + Sage's flavor_text.
+//   Thrown errors mean auth/network/server trouble; their message is readable ("Sage dropped the quill…").
 // - Gift missions are a handshake: the giver's submit (confirm_for = recipient) resolves with verdict.pass=true,
 //   verdict.reason='gift_pending', mission.status='pending'. The region colors when the recipient submits with
 //   confirm_for = giver. (Mock mode auto-confirms as the recipient after ~3 s so you can watch it happen.)
@@ -39,7 +39,7 @@ async function invoke<T>(fn: string, body: object): Promise<T> {
         /* not JSON */
       }
     } else if (/Failed to send|fetch/i.test(message)) {
-      message = "Can't reach Muse right now. Check your connection and try again.";
+      message = "Can't reach Sage right now. Check your connection and try again.";
     }
     throw new Error(message);
   }
@@ -80,7 +80,7 @@ export async function wizardChat(req: WizardChatRequest): Promise<WizardChatResp
   return invoke('wizard-chat', req);
 }
 
-/** Round 2: Muse swaps one OPEN mission for a fresh one on the same region. Throws a readable Error if it can't. */
+/** Round 2: Sage swaps one OPEN mission for a fresh one on the same region. Throws a readable Error if it can't. */
 export interface RerollMissionResponse { mission: Mission; source: 'llm' | 'fallback' }
 /** `difficulty` is relative to the old mission: 'easy' = easier (default), 'normal' = similar, 'hard' = harder. */
 export async function rerollMission(missionId: string, reason?: string, difficulty?: Difficulty): Promise<RerollMissionResponse> {
@@ -140,8 +140,8 @@ async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse>
   const mission = mock.missions.find((m) => m.id === req.mission_id);
   if (!mission) throw new Error('That mission has vanished from the book. Pull to refresh.');
   const nope = (flavor_text: string, reason: string) => respond({ pass: false, confidence: 1, reason, flavor_text }, mission);
-  if (mission.status === 'complete') return nope('This region is already colored! Pick another glowing spot on the page.', 'already_complete');
-  if (mission.status === 'locked') return nope('This chapter is still sealed. Finish the current page to turn to it.', 'locked');
+  if (mission.status === 'complete') return nope('This region is already colored! Sage admires the enthusiasm. Pick another glowing spot on the page.', 'already_complete');
+  if (mission.status === 'locked') return nope('No peeking! This chapter is still sealed. Finish the current page to turn to it.', 'locked');
 
   const me = mock.profiles.find((p) => p.id === ME)!;
   const name = (id: string) => mock.profiles.find((p) => p.id === id)?.display_name ?? 'a friend';
@@ -183,20 +183,20 @@ async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse>
     verdict = { pass: true, confidence: 1, reason: 'dev', flavor_text: 'The Magic Mirror nods. Your proof is true!', lens_titles: mission.proof_type.includes('photo') ? MOCK_LENS : undefined };
   } else if (mission.proof_type === 'answer') {
     const given = (req.proof_text ?? '').trim();
-    if (!given) return nope('The riddle waits for an answer. Type your best guess!', 'empty');
+    if (!given) return nope('The riddle taps its foot, waiting. Type your best guess!', 'empty');
     // Fixture riddle (m-5) is the UT Tower; UT demo riddles use their real answers; others accept anything 3+ letters.
     const norm = (x: string) => x.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').replace(/\b(a|an|the)\b/g, ' ').replace(/\s+/g, ' ').trim();
     const ok = mission.id === 'm-5' ? /tower/i.test(given)
       : mockAnswers[mission.id] ? mockAnswers[mission.id].split('|').some((a) => norm(a) === norm(given))
       : given.length >= 3;
     if (!ok) return nope(`"${given.slice(0, 40)}"? The lock doesn't budge. ${mission.id === 'm-5' ? 'Hint: it glows orange after victories.' : 'Read the riddle once more, slowly. The answer is nearby.'}`, 'mismatch');
-    verdict = { pass: true, confidence: 1, reason: 'exact', flavor_text: 'Correct! The lock clicks open.' };
+    verdict = { pass: true, confidence: 1, reason: 'exact', flavor_text: 'Correct! The lock clicks open and looks a little embarrassed.' };
   } else if (mission.proof_type === 'photo' || mission.proof_type === 'group_photo') {
-    if (!req.proof_url) return nope('The Magic Mirror needs a photo! Snap one and try again.', 'no_photo');
+    if (!req.proof_url) return nope('The Magic Mirror needs a photo. It is a mirror, after all! Snap one and try again.', 'no_photo');
     verdict = { pass: true, confidence: 0.92, reason: 'mock', flavor_text: 'The Magic Mirror nods. Your proof is true!', lens_titles: MOCK_LENS };
   } else {
-    if (!req.proof_text?.trim()) return nope('The page is blank! Write a few words and try again.', 'no_text');
-    verdict = { pass: true, confidence: 0.8, reason: 'mock', flavor_text: 'The ink accepts your words. Beautifully put!' };
+    if (!req.proof_text?.trim()) return nope('The page is blank! Even Sage needs a few words to work with. Try again.', 'no_text');
+    verdict = { pass: true, confidence: 0.8, reason: 'mock', flavor_text: 'The ink accepts your words. Sage may borrow them for a sequel.' };
   }
 
   if (geo.ok && geo.distance_m != null) verdict = { ...verdict, distance_m: geo.distance_m };

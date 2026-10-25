@@ -1,7 +1,7 @@
 // Owner: EV. POST { mission_id, reason?, difficulty? } -> { mission, source: 'llm' | 'fallback' }
 // difficulty is RELATIVE to the old mission: easy = easier, normal = similar, hard = harder (default easy: most
 // rerolls are "this is too much today"). Points follow it: size base × multiplier (_shared/points.ts).
-// Muse swaps one OPEN mission for a fresh one on the same region (same size rules). Used by AB's wizard.
+// Sage swaps one OPEN mission for a fresh one on the same region (same size rules). Used by AB's wizard.
 // Budget < 12 s; falls back to a handcrafted alternate if the LLM is slow, down or returns junk.
 import { preflight, json, fail } from '../_shared/cors.ts';
 import { admin, callerId, proclaim } from '../_shared/db.ts';

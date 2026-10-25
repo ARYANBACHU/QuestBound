@@ -116,7 +116,7 @@ export function advanceIfPageDone(pageId: string): { pageCompleted: boolean; boo
     patchPage(next.id, { status: 'active' });
     mock.missions = mock.missions.map((m) => (m.page_id === next.id && m.status === 'locked' ? { ...m, status: 'open' } : m));
     addMessage({ fellowship_id: mock.fellowship.id, user_id: null, kind: 'proclamation',
-      body: `Chapter ${roman[page.chapter_number]} is fully colored! The page turns… Chapter ${roman[next.chapter_number]}: ${next.title} begins.`,
+      body: `Chapter ${roman[page.chapter_number]} is fully colored, not a single white gap! The page turns… Chapter ${roman[next.chapter_number]}: ${next.title} begins.`,
       payload: { event: 'page_complete', page_id: page.id, storyline_id: page.storyline_id } });
     return { pageCompleted: true, bookCompleted: false };
   }

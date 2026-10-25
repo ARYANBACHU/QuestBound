@@ -156,7 +156,7 @@ export const MOCK_RECAP: BookRecap = {
     { user_id: 'u-cleo', title: 'Cleo the Far-Seeing', contribution: 'Caught the best moments in the Magic Mirror.' },
     { user_id: 'u-dax', title: 'Dax of the Trails', contribution: 'Found the paths no one else could.' },
   ],
-  next_book_hint: 'But far beyond the last page, a clockwork owl is stealing songs. Muse is already sharpening the quill.',
+  next_book_hint: 'But far beyond the last page, a clockwork owl is stealing songs. Sage is already sharpening the quill.',
 };
 
 /** Shape of what generate-storyline logs (lib/game.ts useGenerationInfo). */

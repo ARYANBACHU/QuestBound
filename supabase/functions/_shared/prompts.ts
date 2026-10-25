@@ -1,5 +1,6 @@
-// Owner: EV. Every prompt Muse uses, in one file so they're easy to tune.
-// AB's wizard-chat imports MUSE_PERSONA from here.
+// Owner: EV. Every prompt Sage uses, in one file so they're easy to tune.
+// NAMING: the in-app wizard is "Sage"; "Muse" is only Meta's model (the "✦ powered by Muse" credit).
+// AB's wizard-chat imports MUSE_PERSONA from here (kept as the export name; SAGE_PERSONA is the same string).
 import { interestLabel } from './interests.ts';
 import type { PointsDifficulty } from './points.ts';
 import {
@@ -7,11 +8,15 @@ import {
   TEMPLATE_REGIONS, type TemplateId,
 } from './types.ts';
 
-export const MUSE_PERSONA =
-  'You are Muse, a warm, witty wizard-narrator who writes fairy tales about real friend groups. You speak in short, ' +
-  'vivid sentences with gentle humor. You never mock anyone. You turn ordinary real-world activities (getting ' +
-  'coffee, walking a bridge, playing board games) into chapters of a fairy tale. You care about one thing: getting ' +
-  'friends to spend real time together.';
+export const SAGE_PERSONA =
+  'You are Sage, a warm, witty, slightly cheeky wizard-narrator who writes fairy tales about real friend groups. ' +
+  'You speak in short, vivid sentences with playful humor: a wink, a gentle tease of the situation (never of a ' +
+  'person), the occasional dramatic flourish. You never mock anyone and you are always kind. You turn ordinary ' +
+  'real-world activities (getting coffee, walking a bridge, playing board games) into chapters of a fairy tale. ' +
+  'You care about one thing: getting friends to spend real time together. Never use gendered pronouns for players ' +
+  '(he/she/his/her); use their names or they/them.';
+/** @deprecated name kept for imports (wizard-chat); same as SAGE_PERSONA. */
+export const MUSE_PERSONA = SAGE_PERSONA;
 
 // ---------------------------------------------------------------- storyline
 
@@ -22,7 +27,7 @@ export interface SequelCtx {
   skipped_types: string[]; // types never done or slowest
   photo_count: number;
   chat_snippets: string[]; // last ~40 chat texts (oldest -> newest)
-  callbacks: string[]; // specific moments (story lines) Muse should call back to
+  callbacks: string[]; // specific moments (story lines) Sage should call back to
 }
 
 export interface StoryCtx {
@@ -97,7 +102,7 @@ export function memberLines(members: MemberCtx[], unique: Record<string, string[
 }
 
 export function storylineSystem(mode: 'first' | 'sequel' = 'first'): string {
-  return `${MUSE_PERSONA}
+  return `${SAGE_PERSONA}
 
 You are writing ${mode === 'sequel' ? 'the SEQUEL to a book this fellowship already lived' : 'the first book'} of a fairy-tale coloring book
 that a real friend group will live out in their real city. Every region of every coloring page is one real-world mission.
@@ -158,7 +163,7 @@ Rules:
 - story_hook: 1 sentence of fairy-tale flavor tied to the book's plot.
 - trial missions MUST have trial_question (a riddle answerable from the place facts above or common knowledge) and a
   short trial_answer (1-3 words). Non-trials: both null.
-- verification_hint: what a photo/answer must show for Muse to accept it.
+- verification_hint: what a photo/answer must show for Sage to accept it.
 - Match the difficulty: ${DIFFICULTY_TEXT[ctx.difficulty]}
 - points: put 0 (the game sets points itself).
 - Chapter ${ch.chapter_number} should feel ${chapterIndex === 0 ? 'easy and welcoming' : chapterIndex === outline.chapters.length - 1 ? 'like a triumphant finale' : 'a bit more adventurous than the last'}.
@@ -238,7 +243,7 @@ export const CHAPTER_SCHEMA = {
 
 // ---------------------------------------------------------------- verification
 
-export const verifierSystem = `${MUSE_PERSONA}
+export const verifierSystem = `${SAGE_PERSONA}
 
 You are now the Magic Mirror: you judge whether a photo (or text) proves a real-world mission was done.
 Be generous to honest effort — friends are doing real things together — but fail clear mismatches
@@ -246,7 +251,7 @@ Be generous to honest effort — friends are doing real things together — but 
 Google Lens visual-match titles, when given, are hints about what is in the photo; they may be noisy.
 Respond with JSON only:
 {"pass": true|false, "confidence": 0.0-1.0, "reason": "short internal reason",
- "flavor_text": "1-2 sentences in Muse's voice shown to the players. On pass: delighted. On fail: playful and says exactly what to try next."}`;
+ "flavor_text": "1-2 sentences in Sage's voice shown to the players. On pass: delighted and a little cheeky. On fail: playful, kind, and says exactly what to try next."}`;
 
 export function verifierUser(args: {
   mission: Pick<Mission, 'title' | 'description' | 'verification_hint' | 'type' | 'place'>;
@@ -275,7 +280,7 @@ export function answerJudgeUser(question: string, answer: string, given: string)
 Correct answer: ${answer}
 Player answered: ${given}
 Is the player's answer acceptable (same meaning, synonym, minor misspelling, or more specific/less specific but clearly the same thing)?
-Respond with JSON only: {"pass": true|false, "flavor_text": "1 sentence in Muse's voice. If wrong, give a gentle hint WITHOUT revealing the answer."}`;
+Respond with JSON only: {"pass": true|false, "flavor_text": "1 sentence in Sage's voice, a little cheeky. If wrong, give a gentle hint WITHOUT revealing the answer."}`;
 }
 
 // ---------------------------------------------------------------- narration
@@ -292,7 +297,8 @@ export function storyLineFor(args: {
   return `Write ONE sentence (max 30 words${args.verse_first_line ? ', not counting the quote' : ''}), past tense, for the storybook: what these heroes just did, as a fairy tale.
 ${args.verse_first_line ? `They wrote a verse. Your sentence MUST end by quoting its first line exactly, in curly quotes: “${args.verse_first_line}”` : ''}
 Use their names with their crests as titles (e.g. "Bram the Dragon"). Mention the real place if there is one, transformed
-into fairy-tale language but still recognizable. No quotes around the sentence.
+into fairy-tale language but still recognizable. A touch of whimsy or a wink is welcome. No quotes around the sentence.
+Never use gendered pronouns (he/she/his/her): repeat names or use they/them.
 Chapter: ${args.chapterTitle ?? ''}
 Mission: ${args.mission.title} — ${args.mission.description}
 Story hook: ${args.mission.story_hook}
@@ -303,7 +309,7 @@ ${args.lens_titles?.length ? `The Magic Mirror saw: ${args.lens_titles.slice(0, 
 Respond with JSON only: {"story_line": "..."}`;
 }
 
-export const recapSystem = `${MUSE_PERSONA}
+export const recapSystem = `${SAGE_PERSONA}
 
 The fellowship just finished a whole book. Write their recap: a celebration of what they ACTUALLY did together.
 Use real names, real places and the story lines given. Give each member a fairy-tale title earned from their
@@ -348,7 +354,7 @@ Heroes as friendly animal companions: ${crests.join(', ')}.
 Style: hand-inked children's book art, thick deep-indigo outlines, watercolor washes, warm light, no text, no real faces.`;
 }
 
-/** Reroll: Muse swaps one open mission for a fresh one on the same region. */
+/** Reroll: Sage swaps one open mission for a fresh one on the same region. */
 export function rerollTask(args: {
   templateId: TemplateId;
   regionId: string;

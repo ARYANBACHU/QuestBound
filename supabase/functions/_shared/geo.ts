@@ -54,6 +54,6 @@ export function checkGeo(
     flavor: distance_m > 20_000
       ? `You're ${fmtDistance(distance_m)} from ${place.title}. Even dragons fly less than that! Head over there and try again.`
       : `You're about ${fmtDistance(distance_m)} from ${place.title}, roughly a ${walkMin}-minute stroll. ` +
-        `${place.title} won't come to you (Sage asked politely). Get closer and try again!`,
+        `It won't come to you (Sage asked politely). Get closer and try again!`,
   };
 }
