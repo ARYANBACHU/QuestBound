@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+    <title>%WEB_TITLE%</title>
+    <meta name="description" content="A fairy-tale coloring book your fellowship fills in by living it." />
+    <meta name="theme-color" content="#4B2E9A" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Questbound" />
+    <meta property="og:title" content="Questbound" />
+    <meta property="og:description" content="Join my fellowship — a fairy-tale coloring book we fill in by living it." />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        overflow: hidden;
+        background-color: #F5E6EA;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+      /* Desktop / tablet: show the app as a centered phone-width column (480px — keep in sync with lib/webFrame.ts).
+         The transform makes the body the containing block for fixed-position layers (modals, sheets, coach marks),
+         so they stay inside the column too. */
+      @media (min-width: 600px) {
+        html {
+          background: radial-gradient(circle at 50% 0%, #4B2E9A 0%, #1C1840 70%) fixed;
+        }
+        body {
+          max-width: 480px;
+          margin: 0 auto;
+          transform: translateZ(0);
+          box-shadow: 0 0 0 3px #211A3B, 0 24px 80px rgba(0, 0, 0, 0.45);
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>You need to enable JavaScript to run Questbound.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

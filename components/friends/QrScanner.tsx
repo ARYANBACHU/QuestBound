@@ -1,6 +1,6 @@
 // Owner: MP. Full-screen QR scanner for fellowship invites. Exported for AB's onboarding.
 //   <QrScanner onCode={(code) => joinByCode(code)} onCancel={() => …} onTypeCode={() => …} />
-// Accepts `questbound://join/ABC123` links or a raw 6-char code. Fires onCode once per mount
+// Accepts `https://…/join/ABC123` or `questbound://join/ABC123` links or a raw 6-char code. Fires onCode once per mount
 // (call `reset` via the `key` prop to scan again, e.g. after a failed join).
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';

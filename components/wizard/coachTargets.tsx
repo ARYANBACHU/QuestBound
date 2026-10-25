@@ -3,6 +3,7 @@
 //   measureCoachTarget(id) → its window rect, or null if it isn't on screen right now.
 import { useEffect, useRef, type ComponentRef, type ReactNode } from 'react';
 import { Dimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { webFrameOffsetX } from '@/lib/webFrame';
 
 export type Rect = { x: number; y: number; w: number; h: number };
 type ViewRef = ComponentRef<typeof View>;
@@ -29,7 +30,7 @@ export async function measureCoachTarget(id: string): Promise<Rect | null> {
       const node = r.current;
       if (!node?.measureInWindow) { resolve(null); return; }
       const t = setTimeout(() => resolve(null), 400);
-      node.measureInWindow((x, y, w, h) => { clearTimeout(t); resolve(w && h ? { x, y, w, h } : null); });
+      node.measureInWindow((x, y, w, h) => { clearTimeout(t); resolve(w && h ? { x: x - webFrameOffsetX(), y, w, h } : null); });
     });
     // visible = mostly on screen (hidden tabs measure off-screen or 0×0)
     if (rect && rect.x > -rect.w / 2 && rect.x + rect.w / 2 < width && rect.y >= 0 && rect.y + rect.h / 2 < height) return rect;

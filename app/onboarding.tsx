@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Modal, Pressable, StyleSheet, TextInput, View, useWindowDimensions,
+  Modal, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AvailabilityPicker, BudgetPicker } from '@/components/shell/BudgetTimePicker';
@@ -34,6 +34,9 @@ import {
   type CrayonColor, type CrestId, type SageExpression,
 } from '@/shared/theme';
 import { playSfx } from '@/components/shell/sfx';
+
+/** QR scanning needs the native camera scanner; on web friends type the code or open the invite link. */
+const CAN_SCAN = Platform.OS !== 'web';
 
 // A broken screen shows Sage's "Something went awry — tap to recover" instead of crashing (B1).
 export { RouteErrorBoundary as ErrorBoundary } from '@/components/shell/ErrorBoundary';
@@ -356,7 +359,10 @@ export default function Onboarding() {
         primary = { label: 'Found the fellowship', onPress: found };
         secondary = { label: 'Back', onPress: () => setFMode('choose') };
       } else if (fMode === 'join') {
-        bubble = 'Show me the invite. Scan your friend’s QR, or type their 6-letter code.';
+        // Web: typing is the reliable path (browser QR scanning is spotty; invite links open this screen pre-filled anyway).
+        bubble = CAN_SCAN
+          ? 'Show me the invite. Scan your friend’s QR, or type their 6-letter code.'
+          : 'Show me the invite. Type your friend’s 6-letter code, or open the invite link they sent you.';
         body = (
           <View style={{ gap: space.lg }}>
             <TextInput
@@ -371,7 +377,9 @@ export default function Onboarding() {
               style={[styles.input, styles.codeInput]}
               onSubmitEditing={() => code.length === 6 && join(code)}
             />
-            <Button label="Scan a QR code instead" icon="📷" variant="secondary" small onPress={() => setScanning(true)} />
+            {CAN_SCAN && (
+              <Button label="Scan a QR code instead" icon="📷" variant="secondary" small onPress={() => setScanning(true)} />
+            )}
           </View>
         );
         primary = { label: 'Join the fellowship', onPress: () => join(code), disabled: code.length !== 6 };
@@ -382,7 +390,7 @@ export default function Onboarding() {
         body = (
           <View style={{ gap: space.md }}>
             <ChoiceCard emoji="🏰" title="Found a fellowship" sub="Start a new one and invite your friends." onPress={() => setFMode('found')} />
-            <ChoiceCard emoji="🗝️" title="Join one" sub="Scan a friend’s QR or type their code." onPress={() => setFMode('join')} />
+            <ChoiceCard emoji="🗝️" title="Join one" sub={CAN_SCAN ? 'Scan a friend’s QR or type their code.' : 'Type the code a friend sent you.'} onPress={() => setFMode('join')} />
           </View>
         );
       }

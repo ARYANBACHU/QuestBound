@@ -14,7 +14,9 @@ import { AppErrorBoundary, installCrashNet } from '@/components/shell/ErrorBound
 import { MusicController } from '@/components/shell/music';
 import { preloadSfx } from '@/components/shell/sfx';
 import { ink } from '@/shared/theme';
+import { installWebFrame } from '@/lib/webFrame';
 
+installWebFrame(); // web: phone-width column on desktop (no-op on iOS/Android)
 SplashScreen.preventAutoHideAsync().catch(() => {});
 preloadSfx();
 installCrashNet();

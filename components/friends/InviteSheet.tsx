@@ -1,8 +1,8 @@
-// Owner: MP. Invite friends: QR (deep link questbound://join/CODE) + huge code + copy/share. Exported for AB.
+// Owner: MP. Invite friends: QR (https://<public app>/join/CODE; the app also opens questbound://join/CODE) + huge code + copy/share. Exported for AB.
 //   <InviteSheet visible onClose={() => …} />            // modal sheet, uses the active fellowship
 //   <InviteCard fellowship={f} />                        // same content inline (e.g. onboarding step)
 import { useState } from 'react';
-import { Modal, Pressable, Share, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Modal, Platform, Pressable, Share, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { haptic } from './haptics';
 import QRCode from 'react-native-qrcode-svg';
@@ -10,10 +10,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, ink, panel, radius, realm, scrim, shadow, space, type, ui } from '@/shared/theme';
 import type { Fellowship } from '@/shared/types';
 import { useFellowship } from '@/lib/fellowship';
+import { PUBLIC_APP_URL } from '@/lib/env';
 import GameButton from './GameButton';
 import { Sage } from './sage';
 
+/** https link that works for everyone: opens the web app in any browser (scans with any phone camera). */
 export function inviteLink(code: string): string {
+  const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : PUBLIC_APP_URL;
+  return `${origin}/join/${code}`;
+}
+
+/** Native-app deep link, kept for anyone who wants to open the installed app directly. */
+export function appInviteLink(code: string): string {
   return `questbound://join/${code}`;
 }
 
@@ -29,6 +37,7 @@ export function InviteCard({ fellowship: given, qrSize = 200, style }: InviteCar
   const { fellowship: active } = useFellowship();
   const f = given ?? active;
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   if (!f) {
     return (
@@ -47,8 +56,27 @@ export function InviteCard({ fellowship: given, qrSize = 200, style }: InviteCar
     setTimeout(() => setCopied(false), 1800);
   };
   const share = async () => {
+    const link = inviteLink(code);
+    const message = `Join our fellowship on Questbound: code ${code}\n${link}`;
+    if (Platform.OS === 'web') {
+      // Phones have the share sheet; desktop browsers don't, so copy the link instead.
+      const nav = typeof navigator !== 'undefined' ? (navigator as Navigator & { share?: (d: ShareData) => Promise<void> }) : null;
+      if (nav?.share) {
+        try {
+          await nav.share({ title: 'Questbound', text: `Join our fellowship on Questbound: code ${code}`, url: link });
+          return;
+        } catch (e) {
+          if (e instanceof Error && e.name === 'AbortError') return; // user closed the sheet
+        }
+      }
+      await Clipboard.setStringAsync(link);
+      haptic.success();
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1800);
+      return;
+    }
     try {
-      await Share.share({ message: `Join our fellowship on Questbound: code ${code}\n${inviteLink(code)}` });
+      await Share.share({ message });
     } catch {
       // user dismissed
     }
@@ -69,7 +97,7 @@ export function InviteCard({ fellowship: given, qrSize = 200, style }: InviteCar
       </Text>
       <View style={styles.buttons}>
         <GameButton label={copied ? 'Copied!' : 'Copy code'} tone="ghost" onPress={copy} style={styles.btn} />
-        <GameButton label="Share invite" tone="primary" onPress={share} style={styles.btn} />
+        <GameButton label={linkCopied ? 'Link copied!' : 'Share invite'} tone="primary" onPress={share} style={styles.btn} />
       </View>
     </View>
   );

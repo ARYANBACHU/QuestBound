@@ -37,7 +37,7 @@ export function heroName(profile: Pick<Profile, 'display_name' | 'crest'> | null
   return crest ? `${profile.display_name} the ${crest}` : profile.display_name;
 }
 
-/** Uppercase, strip spaces/punctuation, and accept a full `questbound://join/CODE` link. */
+/** Uppercase, strip spaces/punctuation, and accept a full `questbound://join/CODE` or `https://…/join/CODE` link. */
 export function normalizeInviteCode(raw: string): string {
   const s = raw.trim();
   const fromLink = s.match(/join\/([A-Za-z0-9]{4,12})/);
@@ -69,8 +69,9 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 async function deviceLocation(): Promise<{ lat: number; lng: number; label: string }> {
   try {
-    const perm = await Location.requestForegroundPermissionsAsync();
-    if (perm.status !== 'granted') return { ...DEFAULT_LOCATION };
+    // Web: the browser prompt can sit unanswered forever — never let it block founding a fellowship.
+    const perm = await withTimeout(Location.requestForegroundPermissionsAsync(), 12000).catch(() => null);
+    if (perm?.status !== 'granted') return { ...DEFAULT_LOCATION };
     const pos = await withTimeout(
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
       8000,

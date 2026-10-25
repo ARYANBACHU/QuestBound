@@ -1,4 +1,4 @@
-// Owner: MP. Deep-link landing for questbound://join/<CODE>: sign in, join, then onboarding or the Friends tab.
+// Owner: MP. Landing for https://<public app>/join/<CODE> (web) and questbound://join/<CODE> (app): sign in, join, then onboarding or the Friends tab.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';

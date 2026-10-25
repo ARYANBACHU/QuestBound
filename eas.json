@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_USE_MOCKS": "0",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://jhqkjfhtekermlbnqtxe.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_iojeHfMTA2zKUUxqS9KCqQ_g-j7gJFt",
+        "EXPO_PUBLIC_APP_URL": "https://questbound.expo.app"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_USE_MOCKS": "0",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://jhqkjfhtekermlbnqtxe.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_iojeHfMTA2zKUUxqS9KCqQ_g-j7gJFt",
+        "EXPO_PUBLIC_APP_URL": "https://questbound.expo.app"
+      }
+    }
+  }
+}

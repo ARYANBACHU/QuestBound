@@ -8,7 +8,7 @@ import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useIsFocused } from 'expo-router';
-import { AppState, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { useSession } from '@/lib/session';
@@ -69,6 +69,32 @@ export function MusicController() {
     } catch {
       // no audio on this device — the tale goes on in silence
     }
+  }, [music, active, ready]);
+
+  // Web: browsers block sound until the visitor interacts, so the play() above is refused on first load.
+  // Retry on the first tap / key press after music is on.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined' || !ready || !music || !active) return;
+    const kick = () => {
+      try {
+        if (!player.current) {
+          player.current = createAudioPlayer(require('@/assets/audio/bards-loop.mp3'));
+          player.current.loop = true;
+          player.current.volume = VOLUME;
+        }
+        // `playing` flips true as soon as play() is called, even if the browser then refuses it, so ask the media.
+        if (!player.current.currentStatus?.playing) player.current.play();
+      } catch {
+        // no audio in this browser
+      }
+    };
+    const opts = { capture: true } as const;
+    document.addEventListener('pointerdown', kick, opts);
+    document.addEventListener('keydown', kick, opts);
+    return () => {
+      document.removeEventListener('pointerdown', kick, opts);
+      document.removeEventListener('keydown', kick, opts);
+    };
   }, [music, active, ready]);
 
   useEffect(() => () => { try { player.current?.remove(); } catch {} player.current = null; }, []);

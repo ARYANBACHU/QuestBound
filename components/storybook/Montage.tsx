@@ -12,6 +12,7 @@ import Animated, {
 import { ink, radius, realm, scrim, space } from '@/shared/theme';
 import { Txt } from '@/components/coloring/ui';
 import type { Slide } from './bookData';
+import { webFrameOffsetX } from '@/lib/webFrame';
 
 export const SLIDE_MS = 5000; // B3: 5 s per photo
 export const TITLE_MS = 3000; // 3 s per title card
@@ -134,7 +135,7 @@ export function Montage({ visible, slides, onClose }: { visible: boolean; slides
         if (wasHolding) return; // a hold only pauses — releasing it never skips
         const tap = Date.now() - t0 < TAP_MS && Math.abs(g.dx) < 12 && Math.abs(g.dy) < 12;
         if (tap) {
-          if (e.nativeEvent.pageX < width / 3) nav.current.prev();
+          if (e.nativeEvent.pageX - webFrameOffsetX() < width / 3) nav.current.prev();
           else nav.current.next();
         } else if (g.dx < -60 && Math.abs(g.dy) < 80) nav.current.next();
         else if (g.dx > 60 && Math.abs(g.dy) < 80) nav.current.prev();

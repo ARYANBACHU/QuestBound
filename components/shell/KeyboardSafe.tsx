@@ -27,6 +27,10 @@ const HIDE = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 /** Breathing room between the focused input and the keyboard. */
 const REVEAL_MARGIN = 24;
 
+/** Reanimated's keyboard tracker is native-only (it warns on web). Web has no soft keyboard to follow → height 0. */
+const useKeyboardHeight: () => { height: SharedValue<number> } =
+  Platform.OS === 'web' ? () => ({ height: useSharedValue(0) }) : useAnimatedKeyboard;
+
 // ---------- shared keyboard state (one set of listeners for the whole app) ----------
 let kbVisible = false;
 let kbHeight = 0;
@@ -61,7 +65,7 @@ export function useKeyboardVisible(): boolean {
  * Compensates when Android resized the window itself. Runs on the UI thread (follows the keyboard frame by frame).
  */
 export function useKeyboardInset(offset: number | SharedValue<number> = 0): SharedValue<number> {
-  const kb = useAnimatedKeyboard();
+  const kb = useKeyboardHeight();
   const { height } = useWindowDimensions();
   const shrink = useSharedValue(0);
   useEffect(() => {
@@ -110,7 +114,7 @@ export function KeyboardSafe({
  * already resized the window, the real overlap if it didn't (edge-to-edge).
  */
 function useOverlap(ref: RefObject<ComponentRef<typeof View> | null>, offset?: number): SharedValue<number> {
-  const kb = useAnimatedKeyboard();
+  const kb = useKeyboardHeight();
   const rest = useSharedValue(offset ?? 0);
   const android = useSharedValue(0);
   const ios = Platform.OS === 'ios';
