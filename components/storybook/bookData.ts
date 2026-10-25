@@ -6,6 +6,30 @@ import { CRESTS } from '@/shared/theme';
 import type { BookRecap, Completion, FellowshipMember, Memory, Mission, Page, Storyline } from '@/shared/types';
 import { roman } from '@/components/coloring/pageUtils';
 
+/**
+ * B2: a book's state comes from its PAGES, never from storyline.status alone (a replaced book is also 'complete',
+ * with recap.abandoned). finished = every page colored; setAside = shelved before that.
+ */
+export interface BookProgress {
+  kind: 'writing' | 'reading' | 'finished' | 'setAside';
+  label: string; // shelf chip copy
+  chapter: number; // 1-based chapter the fellowship is on (or stopped at)
+  chapters: number;
+}
+
+export function bookProgress(book: Storyline, pages: Page[], missions: Mission[] = []): BookProgress {
+  const chapters = pages.length;
+  const colored = pages.filter((p) => p.status === 'complete').length;
+  const chapter = Math.min(colored + 1, Math.max(chapters, 1));
+  const regions = missions.filter((m) => m.status === 'complete').length;
+  if (chapters === 0) return { kind: 'writing', label: book.status === 'generating' ? 'Being written…' : 'Opening the book…', chapter: 1, chapters };
+  if (colored === chapters) return { kind: 'finished', label: 'Finished ✦', chapter: chapters, chapters };
+  if (book.recap?.abandoned || book.status === 'complete') {
+    return { kind: 'setAside', label: `Set aside · Chapter ${chapter} of ${chapters}`, chapter, chapters };
+  }
+  return { kind: 'reading', label: `Chapter ${chapter} of ${chapters}${regions ? ` · ${regions} colored` : ''}`, chapter, chapters };
+}
+
 export interface TaleEntry { mission: Mission; photo: Memory | null; verse: Completion | null }
 
 const byTime = (a: Mission, b: Mission) => (a.completed_at ?? '').localeCompare(b.completed_at ?? '') || a.id.localeCompare(b.id);
@@ -53,7 +77,11 @@ export function montageSlides(book: Storyline, pages: Page[], missions: Mission[
     for (const a of art) if (a.image_url !== p.illustration_url) slides.push({ kind: 'photo', key: a.id, uri: a.image_url, caption: a.caption });
     for (const e of entries) slides.push({ kind: 'photo', key: e.photo!.id, uri: e.photo!.image_url, caption: e.mission.story_line ?? e.photo!.caption });
   }
-  slides.push({ kind: 'title', key: 'end', eyebrow: 'The End… for now', title: book.title, line: recap?.next_book_hint ?? recap?.summary });
+  const setAside = bookProgress(book, pages, missions).kind === 'setAside';
+  slides.push({
+    kind: 'title', key: 'end', eyebrow: setAside ? 'A bookmark, for now' : 'The End… for now', title: book.title,
+    line: setAside ? recap?.summary : recap?.next_book_hint ?? recap?.summary,
+  });
   return slides;
 }
 

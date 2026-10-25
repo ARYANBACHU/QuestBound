@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SCREEN_GRADIENTS, ink, moodFor, radius, shadow, space } from '@/shared/theme';
+import { SCREEN_GRADIENTS, ink, moodFor, panel, radius, shadow, space } from '@/shared/theme';
 import type { BookRecap, Completion, FellowshipMember, Memory, Mission, Page, Storyline } from '@/shared/types';
 import { ColoringPage } from '@/components/coloring/ColoringPage';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
@@ -16,6 +16,10 @@ import { CoverSwing } from './BookCover';
 import { PageFlip } from '@/components/coloring/PageFlip';
 import { TaleEntry } from './TaleEntry';
 import { ExpandableStory } from '@/components/coloring/ExpandableStory';
+import { Sage } from '@/components/coloring/sage';
+import { CrestRow } from '@/components/coloring/Crests';
+import { MontageButton } from './MontageButton';
+import { useChapterPainting } from './paint';
 
 type Item = { kind: 'page'; page: Page } | { kind: 'recap' };
 
@@ -27,13 +31,14 @@ export interface BookReaderProps {
   completions: Completion[];
   members: FellowshipMember[];
   recap: BookRecap | null; // non-null → recap page appended
+  setAside?: boolean; // shelved unfinished: the last page is Sage's bookmark note, not "The End"
   onClose: () => void;
   onMontage: () => void;
   onSequel: () => void;
   summoning: boolean;
 }
 
-export function BookReader({ book, pages, missions, memories, completions, members, recap, onClose, onMontage, onSequel, summoning }: BookReaderProps) {
+export function BookReader({ book, pages, missions, memories, completions, members, recap, setAside = false, onClose, onMontage, onSequel, summoning }: BookReaderProps) {
   const { width } = useWindowDimensions();
   const items: Item[] = [...pages.map((page) => ({ kind: 'page' as const, page })), ...(recap ? [{ kind: 'recap' as const }] : [])];
   const [index, setIndex] = useState(0);
@@ -72,7 +77,7 @@ export function BookReader({ book, pages, missions, memories, completions, membe
     const content = it.kind === 'page' ? (
       <ChapterSpread page={it.page} missions={missions} memories={memories} completions={completions} members={members} width={width - 2 * space.lg} />
     ) : (
-      <RecapPage book={book} recap={recap!} members={members} onSequel={onSequel} onMontage={onMontage} summoning={summoning} />
+      <RecapPage book={book} recap={recap!} setAside={setAside} members={members} onSequel={onSequel} onMontage={onMontage} summoning={summoning} />
     );
     return (
       <View style={{ width, height: areaH || undefined, overflow: 'hidden' }}>
@@ -100,9 +105,7 @@ export function BookReader({ book, pages, missions, memories, completions, membe
           <Txt v="bodyBold">‹ Shelf</Txt>
         </Pressable>
         <Txt v="smallBold" numberOfLines={1} style={{ flex: 1, textAlign: 'center' }}>Book {roman(book.book_number)} · {book.title}</Txt>
-        <Pressable onPress={onMontage} hitSlop={12} accessibilityRole="button" accessibilityLabel="Play montage">
-          <Txt v="bodyBold">▶ Montage</Txt>
-        </Pressable>
+        <MontageButton onPress={onMontage} />
       </View>
 
       <View style={{ flex: 1, overflow: 'hidden' }} onLayout={(e) => setAreaH(e.nativeEvent.layout.height)} {...swipe.panHandlers}>
@@ -133,13 +136,30 @@ export function BookReader({ book, pages, missions, memories, completions, membe
   );
 }
 
+/**
+ * U3 — ONE organized chapter view (no more Coloring | Illustration toggle):
+ *   1. the chapter's Storybook painting by Muse as the hero (painted on demand, "Sage is painting…" meanwhile)
+ *   2. your colored page as a thumbnail beside it (tap to see it full size)
+ *   3. the tale entries: photos, verses and story lines, in the order they happened
+ * Unfinished chapters have no painting yet, so the coloring page itself is the hero.
+ */
 function ChapterSpread({ page, missions, memories, completions, members, width }: {
   page: Page; missions: Mission[]; memories: Memory[]; completions: Completion[]; members: FellowshipMember[]; width: number;
 }) {
-  const [mode, setMode] = useState<'coloring' | 'illustration'>(page.illustration_url ? 'illustration' : 'coloring');
   const entries = taleEntries(page, missions, memories, completions);
   const mood = moodFor(page.template_id);
   const locked = page.status === 'locked';
+  const finished = page.status === 'complete';
+  const pm = pageMissions(missions, page);
+  const stored = page.illustration_url ?? memories.find((m) => m.page_id === page.id && m.kind === 'illustration')?.image_url ?? null;
+  const { url: painting, painting: busy } = useChapterPainting(page.id, stored, finished);
+  const [bigPage, setBigPage] = useState(false);
+  const colored = pm.filter((m) => m.status === 'complete');
+  const heroes = [...new Set(colored.flatMap((m) => m.completed_by))];
+  const heroH = Math.round(width * 1.25);
+  const thumbW = Math.min(112, width * 0.3);
+  const paintingHero = !!painting || busy;
+
   return (
     <View style={{ gap: space.md }}>
       <View style={{ gap: space.xs }}>
@@ -148,23 +168,47 @@ function ChapterSpread({ page, missions, memories, completions, members, width }
         <ExpandableStory text={page.narrative} lines={3} mood={mood} fadeColor={SCREEN_GRADIENTS[mood.id][0]} />
       </View>
 
-      {page.illustration_url ? (
-        <View style={[styles.toggle, { borderColor: mood.deep }]}>
-          {(['coloring', 'illustration'] as const).map((m) => (
-            <Pressable key={m} onPress={() => setMode(m)} style={[styles.toggleBtn, mode === m && { backgroundColor: mood.deep }]} accessibilityRole="button" accessibilityState={{ selected: mode === m }}>
-              <Txt v="smallBold" color={mode === m ? mood.onDeep : mood.deep}>{m === 'coloring' ? 'Coloring' : 'Illustration'}</Txt>
-            </Pressable>
-          ))}
+      {painting ? (
+        <View style={[styles.hero, { width, height: heroH }]}>
+          <LinearGradient colors={mood.gradient} style={StyleSheet.absoluteFill} />
+          <Image source={{ uri: painting }} style={StyleSheet.absoluteFill} contentFit="cover" transition={500} accessibilityLabel={`Storybook painting of ${page.title}`} />
+          <View style={styles.heroTag}><Txt v="smallBold" color={ink.ink}>✦ Storybook · painted by Sage</Txt></View>
+        </View>
+      ) : busy ? (
+        <View style={[styles.hero, { width, height: heroH }]}>
+          <LinearGradient colors={mood.gradient} style={StyleSheet.absoluteFill} />
+          <View style={styles.painting}>
+            <Sage expression="thinking" size="md" still />
+            <Txt v="heading" center>Sage is painting…</Txt>
+            <Txt v="story" color={ink.inkSoft} center>A picture-book painting of this chapter, just for your fellowship.</Txt>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.pageCard}>
+          <ColoringPage templateId={page.template_id} missions={pm} members={members} interactive={false} animate={false} locked={locked} width={width} />
+        </View>
+      )}
+
+      {paintingHero ? (
+        <Pressable onPress={() => setBigPage((b) => !b)} style={styles.thumbRow} accessibilityRole="button" accessibilityLabel={bigPage ? 'Shrink your coloring page' : 'Show your coloring page full size'}>
+          <View style={styles.thumb}>
+            <ColoringPage templateId={page.template_id} missions={pm} members={members} interactive={false} animate={false} width={thumbW} />
+          </View>
+          <View style={{ flex: 1, gap: space.xs }}>
+            <Txt v="smallBold" color={mood.deep}>YOUR COLORING PAGE</Txt>
+            <Txt v="body">{colored.length} of {pm.length || 6} regions colored</Txt>
+            {heroes.length ? <CrestRow userIds={heroes} members={members} size={24} /> : null}
+            <Txt v="small" color={ink.inkSoft}>{bigPage ? 'Tap to tuck it away ▴' : 'Tap to see it full size ▾'}</Txt>
+          </View>
+        </Pressable>
+      ) : !locked && !finished ? (
+        <Txt v="small" color={ink.inkSoft} center>Sage paints this chapter for your Storybook once every region is colored.</Txt>
+      ) : null}
+      {paintingHero && bigPage ? (
+        <View style={styles.pageCard}>
+          <ColoringPage templateId={page.template_id} missions={pm} members={members} interactive={false} animate={false} width={width} />
         </View>
       ) : null}
-
-      <View style={styles.pageCard}>
-        {mode === 'illustration' && page.illustration_url ? (
-          <Image source={{ uri: page.illustration_url }} style={{ width, height: (width * 1400) / 1000 }} contentFit="cover" transition={300} />
-        ) : (
-          <ColoringPage templateId={page.template_id} missions={pageMissions(missions, page)} members={members} interactive={false} animate={false} locked={locked} width={width} />
-        )}
-      </View>
 
       {locked ? (
         <Txt v="story" color={ink.inkSoft} center>This chapter is still unwritten. Color the one before it to turn the page.</Txt>
@@ -184,8 +228,17 @@ const styles = StyleSheet.create({
   wrap: { flex: 1 },
   top: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.sm },
   spread: { padding: space.lg, paddingBottom: space.xxl * 2 },
-  toggle: { flexDirection: 'row', alignSelf: 'flex-start', borderWidth: 2, borderColor: ink.ink, borderRadius: radius.pill, overflow: 'hidden' },
-  toggleBtn: { paddingHorizontal: space.lg, paddingVertical: space.xs },
+  hero: { alignSelf: 'center', borderRadius: radius.md, borderWidth: 2.5, borderColor: ink.ink, overflow: 'hidden', backgroundColor: ink.page, ...shadow.md },
+  heroTag: {
+    position: 'absolute', left: space.sm, bottom: space.sm, paddingHorizontal: space.md, paddingVertical: 4,
+    borderRadius: radius.pill, backgroundColor: panel.parchment, borderWidth: 1.5, borderColor: ink.ink, overflow: 'hidden',
+  },
+  painting: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.xl },
+  thumbRow: {
+    flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.sm, borderRadius: radius.md,
+    backgroundColor: panel.parchment, borderWidth: 1.5, borderColor: ink.ink, overflow: 'hidden',
+  },
+  thumb: { borderRadius: 4, borderWidth: 1.5, borderColor: ink.ink, overflow: 'hidden' },
   pageCard: { alignSelf: 'center', backgroundColor: ink.page, borderRadius: radius.sm, ...shadow.md },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.xl, paddingVertical: space.sm },
   dots: { flexDirection: 'row', gap: space.sm },

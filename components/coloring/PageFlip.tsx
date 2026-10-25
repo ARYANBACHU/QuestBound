@@ -20,7 +20,7 @@ export function PageFlip({ under, over, mode = 'next', onDone, haptic = true }: 
   const p = useSharedValue(0); // 0 → 1 over the flip
   useEffect(() => {
     if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-    playSfx('page');
+    playSfx(mode === 'prev' ? 'pageBack' : 'page'); // B6: both directions always sound
     p.value = withTiming(1, { duration: FLIP_MS, easing: Easing.inOut(Easing.cubic) }, (done) => {
       if (done) runOnJS(onDone)();
     });

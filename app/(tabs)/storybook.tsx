@@ -19,7 +19,7 @@ import { SageSays } from '@/components/coloring/sage';
 import { useHideWizardFab } from '@/components/wizard/WizardProvider';
 import { BookReader } from '@/components/storybook/BookReader';
 import { Montage } from '@/components/storybook/Montage';
-import { fallbackRecap, montageSlides, withDemoMemories } from '@/components/storybook/bookData';
+import { bookProgress, fallbackRecap, montageSlides, withDemoMemories } from '@/components/storybook/bookData';
 
 export default function StorybookScreen() {
   const insets = useSafeAreaInsets();
@@ -40,8 +40,12 @@ export default function StorybookScreen() {
   const { completions } = useCompletions(open?.id ?? null);
   const { memories: rawMemories } = useMemories(fid, open?.id ?? null);
   const memories = withDemoMemories(rawMemories, missions);
-  const done = !!open && isBookDone(open, pages);
-  const recap = open && done ? open.recap ?? fallbackRecap(open, pages, missions, memories, members) : null;
+  const progress = open ? bookProgress(open, pages, missions) : null;
+  // finished books end on the recap; set-aside books end on Sage's bookmark note (the engine's abandoned recap)
+  const recap = !open || !progress ? null
+    : progress.kind === 'finished' ? open.recap ?? fallbackRecap(open, pages, missions, memories, members)
+    : progress.kind === 'setAside' ? open.recap ?? null
+    : null;
 
   const sequel = async () => {
     if (!fid) return;
@@ -67,6 +71,7 @@ export default function StorybookScreen() {
         ) : (
           <BookReader
             book={open} pages={pages} missions={missions} memories={memories} completions={completions} members={members} recap={recap}
+            setAside={progress?.kind === 'setAside'}
             onClose={() => setOpenId(null)} onMontage={() => setMontage(true)} onSequel={sequel} summoning={summoning}
           />
         )}
@@ -102,17 +107,13 @@ export default function StorybookScreen() {
   );
 }
 
-const isBookDone = (b: Storyline, pages: Page[]) => b.status === 'complete' || (pages.length > 0 && pages.every((p) => p.status === 'complete'));
-
 function BookCard({ book, members, onPress }: { book: Storyline; members: FellowshipMember[]; onPress: () => void }) {
   const { width } = useWindowDimensions();
   const { pages } = usePages(book.id);
   const { missions } = useMissions(book.id);
-  const done = isBookDone(book, pages);
+  const progress = bookProgress(book, pages, missions);
   const coverW = Math.min(132, width * 0.32);
   const first = pages[0];
-  const colored = missions.filter((m) => m.status === 'complete').length;
-  const chaptersDone = pages.filter((p) => p.status === 'complete').length;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: ui.pressScale }] }]} accessibilityRole="button" accessibilityLabel={`Open ${book.title}`}>
       <View style={[styles.spine, { backgroundColor: moodFor(first?.template_id).deep }]} />
@@ -126,11 +127,7 @@ function BookCard({ book, members, onPress }: { book: Storyline; members: Fellow
       <View style={styles.cardText}>
         <Txt v="smallBold" color={moodFor(first?.template_id).deep}>BOOK {roman(book.book_number)}</Txt>
         <Txt v="heading" numberOfLines={3}>{book.title}</Txt>
-        <Chip
-          tone={done ? 'gold' : 'neutral'}
-          label={done ? 'Complete ✦' : pages.length ? `Chapter ${Math.min(chaptersDone + 1, pages.length)} of ${pages.length} · ${colored} colored` : 'Being written'}
-          style={{ marginTop: space.xs }}
-        />
+        <Chip tone={progress.kind === 'finished' ? 'gold' : 'neutral'} label={progress.label} style={{ marginTop: space.xs }} />
       </View>
     </Pressable>
   );

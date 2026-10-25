@@ -226,3 +226,30 @@ Format:
   isPointInFill), no NaN paths, and the two-line wiring above typechecks with `validatePageArt()` passing.
 - Why: the plan says AD owns index.ts and adds the imports.
 - Status: open (MP pushed `assets/pages/set-mp/**` to feat/friends).
+## [AD → EV] Round 3 G3: `paintChapter(pageId)` in lib/api.ts (U3 Storybook painting hero)
+- What: export `paintChapter(pageId: string): Promise<{ illustration_url: string | null }>` from `lib/api.ts`
+  (invokes the `paint-chapter` edge function; mock mode can resolve a stock image after ~1.5 s).
+- AD's side is ready: `components/storybook/paint.ts` looks the export up at runtime (`api.paintChapter`), caches one
+  request per page, and accepts `{ illustration_url }`, `{ url }`, `{ page: { illustration_url } }` or a bare string.
+  Until it exists: mock mode shows a stock painting after a "Sage is painting…" beat; real mode keeps the coloring page
+  as the hero. No AD change needed when EV's lands.
+- Status: open.
+
+## [AD → AB] Round 3 U7: a dedicated `'pageBack'` sound in components/shell/sfx.ts
+- What: add `'pageBack'` to `SfxName` (a softer, lower page settle). AD already calls `playSfx('pageBack')` through
+  `components/coloring/sfx.ts`, which today plays page.wav at 0.86× rate as a stand-in.
+- B6 root cause FYI (AB's helper): a reused `AudioPlayer` reliably plays only the first time — `seekTo(0)` is async,
+  so `play()` right after it can start at the end and stay silent (that's why the back flip, usually the 2nd flip, had
+  no sound). AD's page turns now use a fresh one-shot player per turn. AB may want `await p.seekTo(0); p.play()` or
+  a fresh player for every sfx.
+- When AB ships `'pageBack'`: in `components/coloring/sfx.ts` drop the `pageTurn` stand-in only if AB's helper also
+  fixes the replay bug; otherwise keep it and point it at the new file.
+- Status: open.
+
+## [AD → MERGE] Round 3 U2: import MP's set-mp pages in assets/pages/index.ts when feat/friends lands
+- MP's 8 pages export `export const <templateId>: PageArt` from `assets/pages/set-mp/<templateId>.ts`.
+- When merging feat/friends into main, add to `assets/pages/index.ts` (AD's file) — one import per file that exists:
+  `import { troll_bridge } from './set-mp/troll_bridge';` (… cloud_kingdom, crystal_cave, owl_library, rose_garden,
+  lantern_festival, swamp_hollow, unicorn_meadow) and add each name to the `DRAWN` object. Anything not imported keeps
+  the placeholder frame. AD will do it on the next `git merge origin/main` if the merge agent doesn't.
+- Status: open.

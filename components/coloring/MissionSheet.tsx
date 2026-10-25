@@ -3,7 +3,7 @@ import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { regionDef } from '@/shared/templates';
-import { accent, ink, moodFor, radius, scrim, space, ui } from '@/shared/theme';
+import { accent, ink, moodFor, panel, radius, scrim, space, ui } from '@/shared/theme';
 import { openInMaps } from '@/lib/maps';
 import type { FellowshipMember, Mission, Page } from '@/shared/types';
 import { MISSION_TYPE_LABEL, MissionTypeIcon } from './MissionTypeIcon';
@@ -107,7 +107,7 @@ function PlaceRow({ mission }: { mission: Mission }) {
 const styles = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: scrim.base },
   sheet: {
-    backgroundColor: ink.page, borderTopLeftRadius: ui.cardRadius, borderTopRightRadius: ui.cardRadius, borderWidth: ui.borderWidth,
+    backgroundColor: panel.parchment, borderTopLeftRadius: ui.cardRadius, borderTopRightRadius: ui.cardRadius, borderWidth: ui.borderWidth,
     borderBottomWidth: 0, borderColor: ink.ink, maxHeight: '82%', overflow: 'hidden',
   },
   band: { paddingHorizontal: space.xl, paddingTop: space.sm, paddingBottom: space.md, gap: space.sm },

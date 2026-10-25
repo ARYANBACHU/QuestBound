@@ -7,9 +7,11 @@ import type { BookRecap, FellowshipMember, Storyline } from '@/shared/types';
 import { CrestBubble } from '@/components/coloring/Crests';
 import { roman } from '@/components/coloring/pageUtils';
 import { InkButton, Txt } from '@/components/coloring/ui';
+import { MontageButton } from './MontageButton';
 
-export function RecapPage({ book, recap, members, onSequel, onMontage, summoning }: {
+export function RecapPage({ book, recap, members, onSequel, onMontage, summoning, setAside = false }: {
   book: Storyline; recap: BookRecap; members: FellowshipMember[]; onSequel: () => void; onMontage: () => void; summoning: boolean;
+  setAside?: boolean; // shelved before every page was colored — a bookmark, not The End
 }) {
   const stats: [number, string][] = [
     [recap.stats.missions_completed, 'missions'],
@@ -19,8 +21,8 @@ export function RecapPage({ book, recap, members, onSequel, onMontage, summoning
   ];
   return (
     <View style={styles.wrap}>
-      <View style={{ alignItems: 'center' }}><Sage expression="proud" size="md" /></View>
-      <Txt v="smallBold" color={accent.gold} center>BOOK {roman(book.book_number)} · THE END</Txt>
+      <View style={{ alignItems: 'center' }}><Sage expression={setAside ? 'idle' : 'proud'} size="md" /></View>
+      <Txt v="smallBold" color={accent.gold} center>BOOK {roman(book.book_number)} · {setAside ? 'SET ASIDE' : 'THE END'}</Txt>
       <Txt v="hero" center>{book.title}</Txt>
       <Txt v="story" color={ink.ink}>{recap.summary}</Txt>
 
@@ -60,13 +62,15 @@ export function RecapPage({ book, recap, members, onSequel, onMontage, summoning
         </View>
       )}
 
-      <InkButton label="Play montage" variant="secondary" onPress={onMontage} />
+      <MontageButton big onPress={onMontage} />
 
-      <View style={styles.teaser}>
-        <Txt v="smallBold" color={accent.gold}>NEXT TIME…</Txt>
-        <Txt v="story" color={ink.ink}>{recap.next_book_hint}</Txt>
-        <InkButton label="Summon the next book" onPress={onSequel} loading={summoning} />
-      </View>
+      {setAside ? null : (
+        <View style={styles.teaser}>
+          <Txt v="smallBold" color={accent.gold}>NEXT TIME…</Txt>
+          <Txt v="story" color={ink.ink}>{recap.next_book_hint}</Txt>
+          <InkButton label="Summon the next book" onPress={onSequel} loading={summoning} />
+        </View>
+      )}
     </View>
   );
 }
