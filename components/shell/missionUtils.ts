@@ -2,6 +2,7 @@
 import type { FellowshipMember, Mission, Page } from '@/shared/types';
 import { TEMPLATES, regionDef } from '@/shared/templates';
 import { CRAYONS } from '@/shared/theme';
+import { leaderboard } from './engine';
 
 export type MissionGroup = 'whole' | 'pairs' | 'solo';
 
@@ -35,14 +36,13 @@ export function regionLabel(page: Page | null | undefined, m: Mission): string {
   return (page && regionDef(page.template_id, m.region_id)?.label) ?? m.region_id.replace(/_/g, ' ');
 }
 
+/** Leaderboard — delegates to EV's single source of truth (lib/game.ts pointsFor/leaderboard) via ./engine. */
 export function pointsByMember(missions: Mission[], members: FellowshipMember[]) {
-  return members
-    .map((mem) => ({
-      member: mem,
-      points: missions.filter((m) => m.status === 'complete' && m.completed_by.includes(mem.user_id)).reduce((s, m) => s + m.points, 0),
-    }))
-    .sort((a, b) => b.points - a.points);
+  return leaderboard(members, missions);
 }
+
+export const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+export const roman = (n: number) => ROMAN[n] ?? String(n);
 
 export function needsLabel(m: Mission): string | null {
   if (m.type === 'gathering') return 'Everyone';
