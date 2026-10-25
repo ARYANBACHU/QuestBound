@@ -7,7 +7,7 @@
 //      -> mission 'pending', verdict.pass=true (reason 'gift_pending'), completion null, proclamation "awaiting seal".
 //   2. recipient submits { mission_id, participant_ids:[recipient], confirm_for: <giver id> }
 //      -> mission 'complete', painted in the GIVER's crayon.
-import { preflight, json, fail } from '../_shared/cors.ts';
+import { preflight, json, fail, safe } from '../_shared/cors.ts';
 import { admin, callerId, DEMO_FORCE_PASS, proclaim } from '../_shared/db.ts';
 import { chatJSON, HAS_LLM, withTimeout } from '../_shared/llm.ts';
 import { lensTitles, resetSerpStats } from '../_shared/serp.ts';
@@ -27,7 +27,7 @@ const BUDGET_MS = 14_000;
 // (+ their reported GPS accuracy, up to 150 m of slack). Secret GEO_RADIUS_M, default 400.
 const GEO_RADIUS_M = Math.max(50, Number(Deno.env.get('GEO_RADIUS_M') ?? '') || GEO_DEFAULT_RADIUS_M);
 
-Deno.serve(async (req) => {
+Deno.serve(safe('submit-proof', async (req) => {
   const pre = preflight(req); if (pre) return pre;
   const t0 = Date.now();
   const left = () => BUDGET_MS - (Date.now() - t0);
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
   const [{ data: secret }, { data: page }, { data: storyline }, { data: memberRows }] = await Promise.all([
     admin.from('mission_secrets').select('*').eq('mission_id', mission.id).maybeSingle(),
     admin.from('pages').select('*').eq('id', mission.page_id).single<Page>(),
-    admin.from('storylines').select('id, title, synopsis, status, generation_context').eq('id', mission.storyline_id).single(),
+    admin.from('storylines').select('id, title, synopsis, status, generation_context, geo_enforced').eq('id', mission.storyline_id).single(),
     admin.from('fellowship_members').select('user_id, profile:profiles(*)').eq('fellowship_id', mission.fellowship_id),
   ]);
   const members: MemberCtx[] = (memberRows ?? [])
@@ -120,7 +120,8 @@ Deno.serve(async (req) => {
   }
 
   // ---------------------------------------------------------------- GPS (place missions)
-  const geo = checkGeo(mission.place, body, GEO_RADIUS_M, DEMO_FORCE_PASS);
+  // V2: books with geo_enforced = false (the UT Campus Demo) report the distance but never block on location.
+  const geo = checkGeo(mission.place, body, GEO_RADIUS_M, DEMO_FORCE_PASS || storyline.geo_enforced === false);
   if (!geo.ok) return nope(geo.flavor, geo.reason, geo.distance_m != null ? { distance_m: geo.distance_m } : {});
 
   // ---------------------------------------------------------------- verify
@@ -132,7 +133,8 @@ Deno.serve(async (req) => {
     case 'photo':
     case 'group_photo':
       if (!proof_url) return nope('The Magic Mirror needs a photo. It is a mirror, after all! Snap one and try again.', 'no_photo');
-      verdict = await verifyPhoto(mission, proof_url, need >= 2 ? need : undefined, left); // duets/trios: expect the crew
+      // People photos (gatherings, duets) expect the crew; object photos (a relic duet's sketch, the moon) don't.
+      verdict = await verifyPhoto(mission, proof_url, need >= 2 && (mission.type === 'gathering' || mission.type === 'duet') ? need : undefined, left);
       break;
     default: // text, voice
       if (!proof_text) return nope('The page is blank! Even Sage needs a few words to work with. Try again.', 'no_text');
@@ -208,7 +210,7 @@ Deno.serve(async (req) => {
     console.log('[submit-proof]', JSON.stringify({ mission: mission!.id, type: mission!.type, pass: true, page_completed, book_completed, ms: Date.now() - t0 }));
     return respond(v, done, completion ?? null, page_completed, book_completed);
   }
-});
+}));
 
 // ---------------------------------------------------------------- verifiers
 

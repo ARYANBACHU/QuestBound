@@ -5,7 +5,7 @@ import { admin } from './db.ts';
 import { crewOf, missionPoints, type PointsDifficulty } from './points.ts';
 import type { Outline, StoryCtx } from './prompts.ts';
 import {
-  ALTERNATES, crewFor, crewWord, DEFAULT_HINT, FALLBACK, FALLBACK_CHAPTER_TEXT, FALLBACK_TITLES, type FallbackSpec,
+  ALTERNATES, crewFor, crewWord, DEFAULT_HINT, withCrew, FALLBACK, FALLBACK_CHAPTER_TEXT, FALLBACK_TITLES, type FallbackSpec,
 } from './fallbacks.ts';
 import {
   type MemberCtx, type MissionType, type Place, PROOF_FOR_TYPE, type RegionSize, SIZE_RULES, TEMPLATE_META,
@@ -66,7 +66,7 @@ function fromSpec(spec: FallbackSpec, templateId: TemplateId, regionId: string, 
   const crew = crewOverride ?? planCrew(templateId, regionId, memberCount, spec.type);
   const p = spec.wantsPlace ? place : null;
   return {
-    region_id: regionId, type: spec.type, title: spec.title, description: spec.desc(p, crew), story_hook: spec.hook,
+    region_id: regionId, type: spec.type, title: spec.title, description: withCrew(spec.desc(p, crew), spec.type === 'gathering' || spec.type === 'gift' ? 1 : crew), story_hook: spec.hook,
     place: p, assignee_ids: [], trial_question: spec.trial?.q ?? null, trial_answer: spec.trial?.a ?? null,
     verification_hint: spec.hint, points: defaultPoints(spec.type, crew, difficulty), crew, source: 'fallback',
   };
@@ -187,7 +187,7 @@ export function repairMission(raw: any, templateId: TemplateId, regionId: string
   const crew = type === 'gift' ? 2 : type === 'gathering' ? Math.max(2, memberCount) : slotCrew;
   // Copy must match the crew: "Two of you…" on a trio slot becomes "Three of you…" (and vice versa).
   if (type !== 'gathering' && type !== 'gift') {
-    description = description.replace(/^(two|three|four|both|a pair|a duo|a trio) of you\b/i, crewWord(crew));
+    description = withCrew(description.replace(/^(two|three|four|both|a pair|a duo|a trio) of you\b/i, crewWord(crew)), crew);
   }
 
   let place = resolvePlace(raw.place_ref ?? raw.place, ctx.places);

@@ -1,8 +1,8 @@
-// Owner: EV. Round 3 G1/G2: every template has valid fallback missions with the group-play crew plan, and the
+// Owner: EV. Round 3 G1/G2 + V6: every template has valid fallback missions with the group-play crew plan, and the
 // template picker obeys its rules. Run: node fixtures/templates.test.mjs
 import assert from 'node:assert/strict';
 import { TEMPLATES } from '../shared/templates.ts';
-import { ALTERNATES, crewFor, FALLBACK, FALLBACK_CHAPTER_TEXT } from '../supabase/functions/_shared/fallbacks.ts';
+import { ALTERNATES, crewFor, FALLBACK, FALLBACK_CHAPTER_TEXT, withCrew } from '../supabase/functions/_shared/fallbacks.ts';
 import { CLASSICS, pickChapterTemplates, TEMPLATE_FIT } from '../supabase/functions/_shared/pick.ts';
 
 const SIZE_TYPES = { large: ['gathering'], medium: ['duet', 'gift', 'trial'], small: ['relic', 'bard', 'trial'] };
@@ -33,22 +33,40 @@ test('all 20 templates have fallback missions for exactly their regions, valid t
   }
 });
 
-test('G1 crew plan: one trio medium (never a gift) and one duet small per page → at most 2 solos', () => {
+test('V6 crew plan: one trio medium (never a gift), small regions are duets → max 1 solo per page (fallbacks: 0)', () => {
   for (const id of ids) {
     const regions = TEMPLATES[id].regions;
     const trio = regions.filter((r) => r.size === 'medium' && FALLBACK[id][r.id].crew === 3);
-    const duet = regions.filter((r) => r.size === 'small' && FALLBACK[id][r.id].crew === 2);
     assert.equal(trio.length, 1, `${id}: trio slots`);
     assert.notEqual(FALLBACK[id][trio[0].id].type, 'gift', `${id}: trio can't be a gift`);
-    assert.equal(duet.length, 1, `${id}: duet small slots`);
+    assert.ok(regions.filter((r) => FALLBACK[id][r.id].crew === 1).length <= 1, `${id}: at most one solo slot`);
     for (const size of [2, 3, 4, 6]) {
       const crews = regions.map((r) => crewFor(r.size, FALLBACK[id][r.id].crew, size, FALLBACK[id][r.id].type));
-      assert.ok(crews.filter((c) => c === 1).length <= 2, `${id} @${size}: solos`);
+      assert.equal(crews.filter((c) => c === 1).length, 0, `${id} @${size}: solos`);
       assert.equal(crews[0], Math.max(2, size), `${id} @${size}: gathering = everyone`);
       if (size >= 3) assert.ok(crews.includes(3), `${id} @${size}: has a trio`);
       else assert.ok(!crews.includes(3), `${id} @${size}: no trio in a fellowship of 2`);
     }
+    // a fellowship of one still gets playable solo missions
+    assert.ok(regions.filter((r) => r.size !== 'large').every((r) => crewFor(r.size, FALLBACK[id][r.id].crew, 1, FALLBACK[id][r.id].type) <= 2));
   }
+});
+
+test('V6 copy names its crew: every duet/trio fallback reads "Two of you…" / "Three of you…"', () => {
+  for (const id of ids) {
+    for (const r of TEMPLATES[id].regions) {
+      const s = FALLBACK[id][r.id];
+      if (s.type === 'gathering' || s.type === 'gift') continue;
+      const crew = crewFor(r.size, s.crew, 4, s.type);
+      const d = withCrew(s.desc(null, crew), crew);
+      assert.ok(/^(Two|Three) of you /.test(d), `${id}.${r.id}: "${d}"`);
+      assert.ok(!/ of you (Two|Three|You)\b/.test(d), `${id}.${r.id}: doubled crew`);
+    }
+  }
+  assert.equal(withCrew('Photograph the moon tonight.', 2), 'Two of you photograph the moon tonight.');
+  assert.equal(withCrew('Two of you solve it.', 3), 'Three of you solve it.');
+  assert.equal(withCrew('Two of you solve it.', 1), 'You solve it.');
+  assert.equal(withCrew('UT Tower selfie time.', 2), 'Two of you, together: UT Tower selfie time.');
 });
 
 test('reroll alternates exist for every size', () => {

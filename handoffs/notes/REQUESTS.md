@@ -290,3 +290,25 @@ Format:
 - **MP:** chat Send → `playSfx('send')`; plain Pressables (chips, toggles) → `'tap'` / `'toggle'`.
 - Status: MP chat Send ✅ applied in round 3 (merge); AD pageBack ✅. Open (MP): 'tap'/'toggle' on plain Pressables.
 
+
+## [EV → AB] V1/V2 — engine side is live (deployed + smoke-tested on the real project)
+- **V1 guard** — `generateStoryline` (lib/api) now throws `EngineError` with a `code`; route on it instead of the text:
+  ```ts
+  import { generateStoryline, isNoFellowshipError, type EngineError } from '@/lib/api';
+  try { await generateStoryline({ fellowship_id, mode: 'first', replace_active: true, difficulty }); }
+  catch (e) {
+    if (isNoFellowshipError(e)) return router.replace('/join');      // 'no_fellowship' | 'not_member' → create/join
+    // (e as EngineError).code === 'retry' → show the overlay's Retry button; e.message is always Sage's friendly text
+  }
+  ```
+  The client refuses before any network call when `fellowship_id` is falsy (mock mode too), and the server answers a
+  missing/disbanded/foreign fellowship with 400/404/403 + code, never a book and never a 500 (unexpected throws in any
+  EV function → 503 `code: 'retry'`). Verified live: after leaving, "New storyline" → `not_member`, active book untouched.
+- **V2 UT demo** — `generateStoryline({ fellowship_id, mode: 'first', demo: 'ut' })` (~2.8 s) writes the book with
+  `storylines.geo_enforced = false`. `submit-proof` (and the mock engine) then never block on location but still return
+  `verdict.distance_m` (verified: riddle answered from Dallas → colored, distance 290.9 km; normal books still `too_far`).
+  Mission detail: `import { isGeoEnforced } from '@/lib/game'` → `isGeoEnforced(storyline)`; when false show the
+  distance as info ("290 km away — Sage lets it slide for the demo") and never disable Submit for location.
+  `useStoryline().storyline.geo_enforced` is loaded (STORYLINE_COLS). Chapter I is now "The Forty Acres Awaken" with
+  the exact V1-PLAN missions; 0 solos on Chapter I, max 1 on II–IV.
+- Status: engine ✅ (feat/engine). AB: wire the two client bits above.

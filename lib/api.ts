@@ -16,7 +16,7 @@ import { ME, MOCK_RECAP } from '@/fixtures/demo';
 import { utMockBook } from '@/fixtures/ut-campus';
 import { asDifficulty, crewOf, missionPoints } from '@/supabase/functions/_shared/points';
 import { checkGeo, type GeoResult } from '@/supabase/functions/_shared/geo';
-import { crewFor, FALLBACK, FALLBACK_CHAPTER_TEXT } from '@/supabase/functions/_shared/fallbacks';
+import { crewFor, FALLBACK, FALLBACK_CHAPTER_TEXT, withCrew } from '@/supabase/functions/_shared/fallbacks';
 import { pickChapterTemplates } from '@/supabase/functions/_shared/pick';
 import * as PageArtModule from '@/assets/pages';
 import { isTemplateId, TEMPLATE_IDS, TEMPLATES, type TemplateId } from '@/shared/templates';
@@ -27,24 +27,53 @@ import type {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Calls an edge function with the user's JWT. Throws Error(<server's `error` text>) on failure. */
+/**
+ * A readable engine error. `code` (when the server sent one) lets screens route instead of just showing text:
+ * - 'no_fellowship' / 'not_member' → the player has no (or no longer has this) fellowship: send them to create/join.
+ * - 'retry' → transient (Sage's quill slipped); show a Retry button.
+ * - 'auth' → session lost; restart sign-in.
+ */
+export class EngineError extends Error {
+  code?: string;
+  status?: number;
+  constructor(message: string, code?: string, status?: number) {
+    super(message);
+    this.name = 'EngineError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+/** True when an error means "this player has no fellowship to write a book for" (route to create/join). */
+export function isNoFellowshipError(e: unknown): boolean {
+  const code = (e as { code?: unknown } | null)?.code;
+  return code === 'no_fellowship' || code === 'not_member';
+}
+
+/** Calls an edge function with the user's JWT. Throws EngineError(<server's `error` text>, code) on failure. */
 async function invoke<T>(fn: string, body: object): Promise<T> {
   const { data, error } = await supabase.functions.invoke(fn, { body: body as Record<string, unknown> });
   if (error) {
     let message = error.message;
+    let code: string | undefined;
+    let status: number | undefined;
     // FunctionsHttpError carries the Response: surface the server's friendly { error } text.
     const ctx = (error as { context?: unknown }).context;
     if (ctx && typeof (ctx as Response).json === 'function') {
       try {
+        status = (ctx as Response).status;
         const j = await (ctx as Response).clone().json();
         if (j?.error) message = String(j.error);
+        if (typeof j?.code === 'string') code = j.code;
       } catch {
         /* not JSON */
       }
     } else if (/Failed to send|fetch/i.test(message)) {
       message = "Can't reach Sage right now. Check your connection and try again.";
+      code = 'retry';
     }
-    throw new Error(message);
+    if (status && status >= 500 && !code) code = 'retry';
+    throw new EngineError(message, code, status);
   }
   return data as T;
 }
@@ -57,7 +86,14 @@ async function invoke<T>(fn: string, body: object): Promise<T> {
  * - mode 'first' without replace_active returns the active book (`reused: true`) if there is one.
  */
 export async function generateStoryline(req: GenerateStorylineRequest): Promise<GenerateStorylineResponse> {
+  // V1: never write a book without a fellowship (e.g. right after leaving one). Callers route on isNoFellowshipError.
+  if (!req?.fellowship_id) {
+    throw new EngineError("You're not in a fellowship yet. Create one or join your friends, then Sage can write your book.", 'no_fellowship');
+  }
   if (USE_MOCKS) {
+    if (req.fellowship_id !== mock.fellowship.id) {
+      throw new EngineError("You're not in this fellowship anymore. Join it again (or start your own) to summon a story.", 'not_member');
+    }
     await wait(req.demo ? 600 : 2500);
     if (req.demo === 'ut') return { storyline_id: mockUTBook(asDifficulty(req.difficulty)) };
     if (!mock.storyline) return { storyline_id: mockFirstBook() }; // join race: nobody had summoned yet
@@ -244,7 +280,9 @@ async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse>
   }
 
   // GPS gate, same rule as the server (missions whose place has lat/lng need you within ~400 m). 'dev' skips it.
-  const geo: GeoResult = req.proof_text === 'dev' ? { ok: true } : checkGeo(mission.place, req);
+  // V2: a book with geo_enforced = false (UT Campus Demo) shows the distance but never blocks.
+  const book = mock.storyline?.id === mission.storyline_id ? mock.storyline : null;
+  const geo: GeoResult = req.proof_text === 'dev' ? { ok: true } : checkGeo(mission.place, req, undefined, book?.geo_enforced === false);
   if (!geo.ok) return respond({ pass: false, confidence: 1, reason: geo.reason, flavor_text: geo.flavor, ...(geo.distance_m != null ? { distance_m: geo.distance_m } : {}) }, mission);
 
   let verdict: Verdict;
@@ -363,7 +401,7 @@ function mockSequel(difficulty: Difficulty = 'normal', abandonCurrent = false): 
     if (spec.trial) mockAnswers[id] = spec.trial.a;
     return {
       id, page_id: pg.id, storyline_id: sid, fellowship_id: mock.fellowship.id, region_id: r.id, title: spec.title,
-      description: spec.desc(null, crew), story_hook: spec.hook, type: spec.type, proof_type: PROOF_FOR_TYPE[spec.type],
+      description: withCrew(spec.desc(null, crew), spec.type === 'gathering' || spec.type === 'gift' ? 1 : crew), story_hook: spec.hook, type: spec.type, proof_type: PROOF_FOR_TYPE[spec.type],
       required_members: crew, assignee_ids: [], place: null, trial_question: spec.trial?.q ?? null, verification_hint: spec.hint,
       points: missionPoints(crewOf({ type: spec.type, required_members: crew }), difficulty),
       status: i === 0 ? 'open' : 'locked', completed_by: [], completed_at: null, story_line: null, created_at: now,

@@ -3,7 +3,7 @@
 // rerolls are "this is too much today"). Points follow it: crew base × multiplier (_shared/points.ts).
 // Sage swaps one OPEN mission for a fresh one on the same region (same size rules, same crew). Used by AB's wizard.
 // Budget < 12 s; falls back to a handcrafted alternate if the LLM is slow, down or returns junk.
-import { preflight, json, fail } from '../_shared/cors.ts';
+import { preflight, json, fail, safe } from '../_shared/cors.ts';
 import { admin, callerId, proclaim } from '../_shared/db.ts';
 import { chatJSON, HAS_LLM, withTimeout } from '../_shared/llm.ts';
 import { CHAPTER_SCHEMA, memberLines, placeLines, rerollTask, storylineSystem } from '../_shared/prompts.ts';
@@ -14,7 +14,7 @@ import {
   memberCtx, type MemberCtx, type Mission, type Page, type Place, PROOF_FOR_TYPE, type Profile, TEMPLATE_REGIONS,
 } from '../_shared/types.ts';
 
-Deno.serve(async (req) => {
+Deno.serve(safe('reroll-mission', async (req) => {
   const pre = preflight(req); if (pre) return pre;
   const uid = await callerId(req);
   if (!uid) return fail('Not signed in', 401);
@@ -91,4 +91,4 @@ Deno.serve(async (req) => {
   const how = difficulty === 'hard' ? 'a braver' : difficulty === 'normal' ? 'a different' : 'a gentler';
   await proclaim(mission.fellowship_id, `${who} asked Sage for ${how} quest. With a flick of the quill, "${mission.title}" became "${updated.title}".`, null, 'wizard');
   return json({ mission: updated, source });
-});
+}));

@@ -1,12 +1,13 @@
 // Owner: EV. Handcrafted fallback missions + chapter text for ALL 20 coloring-page templates, and reroll alternates.
 // Pure data with NO imports, so it runs in Deno (book.ts, reroll) AND in the app's mock engine (lib/api.ts).
 //
-// Round 3 G1 (more group play) — every page has at most 2 solo missions:
+// V6 (far more group quests than solo) — at most 1 solo mission per page, and by default 0:
 //   large  = gathering, the whole fellowship
 //   medium = duet | gift | co-op trial; ONE medium per page is a TRIO (crew 3) when the fellowship has ≥3
-//   small  = relic | bard | trial; ONE small per page is a DUET (crew 2) when the fellowship has ≥2
-// `crew` on a spec marks those slots. desc(p, n) gets the real crew size n (already capped to the fellowship),
-// so copy reads "Three of you…" / "Two of you…" / "You…" correctly.
+//   small  = relic | bard | trial; a DUET (crew 2) whenever the fellowship has ≥2. `crew: 1` marks a page's one
+//            allowed solo (none of the fallbacks use it; the UT book does on chapters II–IV).
+// desc(p, n) gets the real crew size n (already capped to the fellowship); copy that ignores n is fixed up by
+// withCrew(), so it always reads "Three of you…" / "Two of you…" / "You…" correctly.
 
 export type FbType = 'gathering' | 'duet' | 'relic' | 'bard' | 'trial' | 'gift';
 export type FbSize = 'small' | 'medium' | 'large';
@@ -20,7 +21,7 @@ export interface FallbackSpec {
   hint: string;
   wantsPlace?: boolean;
   trial?: { q: string; a: string }; // a may hold alternates separated by "|"
-  crew?: 1 | 2 | 3; // medium: 2 (default) or 3 = trio slot; small: 1 (default) or 2 = duet slot
+  crew?: 1 | 2 | 3; // medium: 2 (default) or 3 = trio slot; small: 2 (default) or 1 = the page's one solo slot
 }
 
 export const at = (p: FbPlace | null, fallback: string) => (p ? p.title : fallback);
@@ -30,12 +31,33 @@ export const crewWordLower = (n: number) => crewWord(n).toLowerCase();
 
 /**
  * Required members for a region slot. large = everyone (min 2). medium = 3 on the trio slot when the fellowship has
- * ≥3 (gifts are always 2: giver + recipient), else 2. small = 2 on the duet slot when the fellowship has ≥2, else 1.
+ * ≥3 (gifts are always 2: giver + recipient), else 2. small (V6) = 2 whenever the fellowship has ≥2, unless the slot is
+ * explicitly the page's one solo (`crew: 1`).
  */
 export function crewFor(size: FbSize, specCrew: number | undefined, memberCount: number, type?: FbType): number {
   if (size === 'large' || type === 'gathering') return Math.max(2, memberCount);
   if (size === 'medium') return specCrew === 3 && memberCount >= 3 && type !== 'gift' ? 3 : 2;
-  return specCrew === 2 && memberCount >= 2 ? 2 : 1;
+  return specCrew === 1 || memberCount < 2 ? 1 : 2;
+}
+
+const CREW_LEAD = /^(you|two of you|three of you|four of you|both of you|the two of you|the three of you|together|a pair|a duo|a trio)\b/i;
+// Imperatives a mission can open with: "Photograph the moon" → "Two of you photograph the moon".
+const VERB_LEAD = /^(photograph|write|answer|describe|invent|look|find|take|make|draw|sketch|visit|share|pick|name|snap|walk|spot|hunt|collect|list|tell|record|bring|buy|cook|bake|go|head|meet|play|sing|read|ask|count|try|build|craft|choose|create|plan|pay|grab|order|split|explore|search|stand|sit|climb|race|trade|swap|leave|learn|solve|capture|catch|recreate|pose|act|map|post|send|teach|show|compose|imagine|retell)\b/i;
+
+/**
+ * Make a description match its crew (V6): "Photograph the moon." on a duet → "Two of you photograph the moon.";
+ * "Two of you…" on a solo → "You…". Copy that already names its crew is left alone.
+ */
+export function withCrew(desc: string, crew: number): string {
+  const d = desc.trim();
+  if (crew <= 1) return d.replace(/^(two|three|four|both) of you\b/i, 'You');
+  const lead = crewWord(crew);
+  if (/^(two|three|four) of you\b/i.test(d)) return d.replace(/^(two|three|four) of you\b/i, lead);
+  if (CREW_LEAD.test(d)) return d;
+  if (VERB_LEAD.test(d)) return `${lead} ${d[0].toLowerCase()}${d.slice(1)}`;
+  // Not an imperative: keep proper nouns ("UT Tower…"), lowercase only a plain article/pronoun ("The…" → "the…").
+  const lower = /^(the|a|an|your|this|that|each|every|one|some|any|our|it|its)\b/i.test(d) ? d[0].toLowerCase() + d.slice(1) : d;
+  return `${lead}, together: ${lower}`;
 }
 
 export const FALLBACK: Record<string, Record<string, FallbackSpec>> = {
@@ -544,7 +566,7 @@ export const FALLBACK: Record<string, Record<string, FallbackSpec>> = {
     },
     toll_bell: {
       type: 'bard', title: 'Pay the Toll',
-      desc: () => 'The troll takes compliments as toll: write one honest compliment for each member of your fellowship.',
+      desc: () => 'Pay the troll\'s toll in compliments: write one honest compliment for each member of your fellowship.',
       hook: 'Trolls are secretly suckers for kind words.',
       hint: 'Compliments for the group.',
     },

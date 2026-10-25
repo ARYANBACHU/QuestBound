@@ -33,11 +33,11 @@ test('G1: crew base solo 10 / duet 20 / trio 30 / fellowship 40 × difficulty', 
   assert.equal(crewOf({ type: 'bard', required_members: 1 }), 'solo');
 });
 
-test('fixture missions are priced by their crew, and no page has more than 2 solo missions', () => {
+test('fixture missions are priced by their crew, and no page has more than 1 solo mission (V6)', () => {
   for (const m of MISSIONS) assert.equal(m.points, missionPoints(crewOf(m)), m.id);
   for (const p of PAGES) {
     const solos = MISSIONS.filter((m) => m.page_id === p.id && crewOf(m) === 'solo').length;
-    assert.ok(solos <= 2, `${p.id} has ${solos} solo missions`);
+    assert.ok(solos <= 1, `${p.id} has ${solos} solo missions`); // V6: max 1 solo per page
   }
 });
 
@@ -70,8 +70,8 @@ test('a whole book: member totals add up to what the missions paid out', () => {
   for (let k = 1; k < board.length; k++) assert.ok(board[k - 1].points >= board[k].points, 'sorted desc');
   assert.equal(board.length, MEMBERS.length);
   assert.equal(PAGES.length * 6, MISSIONS.length, 'every page has 6 missions');
-  // Grand total of the fixture book at normal difficulty: 3 pages × (40 + 30 + 20 + 20 + 2×10) = 390 mission points.
-  assert.equal(played.reduce((s, m) => s + m.points, 0), 390);
+  // Grand total of the fixture book at normal difficulty (V6): 3 pages × (40 + 30 + 20 + 20 + 20 + 10) = 420 mission points.
+  assert.equal(played.reduce((s, m) => s + m.points, 0), 420);
 });
 
 test('leaderboard ranks: ties share a rank, zero-point members included, works with profiles (id)', () => {

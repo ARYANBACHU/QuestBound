@@ -1,5 +1,35 @@
 # EV status — Story Engine (feat/engine)
 
+## V1 final round — DONE on feat/engine (deployed to the live project + smoke-tested, Oct 25)
+Every V1-PLAN item tagged EV: V1 (server guard), V2 (UT demo), V6 (group quests). Deployed: generate-storyline,
+submit-proof, reroll-mission, paint-chapter. `npm run typecheck` ✓, `deno check` ✓ (all functions incl. wizard-chat),
+`node fixtures/points.test.mjs` ✓ (6), `templates.test.mjs` ✓ (5), `ut-campus.test.mjs` ✓ (4, new).
+Live smoke scripts: `node supabase/functions/_dev/smoke-v1.mjs` (17 checks ✓), `smoke-v6.mjs llm|demo` ✓.
+
+**Types** — `geo_enforced?: boolean` on Storyline in `_shared/types.ts` (Deno mirror of shared/types.ts, migration 0005).
+**V1 guard** — generate-storyline: missing / malformed id → 400 `no_fellowship`; disbanded → 404 `no_fellowship`; not a
+member (e.g. just left) → 403 `not_member`; DB hiccup → 503 `retry`. Nothing is written on any of these (verified).
+All four EV functions are wrapped in `safe()` (`_shared/cors.ts`): an unexpected throw → 503 `{ error, code: 'retry' }`.
+Client: `EngineError { code, status }`, `isNoFellowshipError(e)` in lib/api; `generateStoryline` refuses locally when
+`fellowship_id` is falsy (and in mock mode when it isn't the mock fellowship). AB wiring: REQUESTS.md "[EV → AB] V1/V2".
+**V2 UT demo** — `demo: 'ut'` writes `geo_enforced = false` (~0.7–2.8 s). Chapter I "The Forty Acres Awaken" =
+The Great Tournament (fellowship, no place) · Salute the Tower (trio, UT Tower) · The Harvest Horns (duet, University
+Co-op — new place, SerpApi-verified pin) · The Royal Portraitist (duet, Blanton) · The Turtle Keepers' Riddle (duet
+trial, Turtle Pond, answer "red-eared slider") · March the South Mall (duet, Littlefield). 0 solos; II–IV 1 solo each.
+submit-proof (+ mock) never block on location when `geo_enforced === false` but still return `verdict.distance_m`
+(verified: riddle from Dallas → colored, 290.9 km; a normal book still says `too_far`). lib/game: `isGeoEnforced(book)`,
+`geo_enforced` in STORYLINE_COLS. Photo verifier now expects a crew only on people photos (gathering/duet).
+**V6** — `crewFor`: small regions are duets whenever the fellowship has ≥2; `crew: 1` marks a page's one solo
+(fallbacks use none). `withCrew()` makes every description name its crew. Prompt rule: max 1 solo, usually none.
+Fixture demo book: 1 solo per page. Live LLM book (4 members, 26 s): 4 pages, 0 solos, points 40/30/20.
+
+**Known limits / next**
+- AB must wire `isNoFellowshipError` → create/join and `isGeoEnforced` → "distance only" in mission detail (REQUESTS.md).
+- Mock `leave()` (MP) is a no-op, so the mock "left the fellowship" path is only reachable with a stale id.
+- LLM books still ~26 s; `demo: 'ut'` / `demo: true` are instant.
+- The Harvest Horns depends on the seasonal pumpkin display being up; the verifier only needs Hook 'em + pumpkins.
+
+
 ## Round 3 — DONE on feat/engine (deployed to the live project + smoke-tested, Oct 25)
 Every ROUND-3 item tagged EV: B1 (engine side + root cause for AB), B2, G1, G2, G3. Deployed: generate-storyline,
 submit-proof, reroll-mission, paint-chapter (new). `npm run typecheck` ✓, `deno check` ✓ (all functions incl. wizard-chat),

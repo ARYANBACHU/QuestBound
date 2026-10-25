@@ -6,7 +6,7 @@
 // Pipeline: auth -> load fellowship + members -> (sequel context) -> insert 'generating' storyline (UI shows the
 // loading ritual via realtime) -> [SerpApi grounding || LLM outline] -> LLM chapters in parallel -> validate/repair
 // -> write pages/missions/secrets -> flip storyline to 'active' -> proclaim.
-import { preflight, json, fail } from '../_shared/cors.ts';
+import { preflight, json, fail, failCode, isUuid, safe } from '../_shared/cors.ts';
 import { admin, callerId, proclaim } from '../_shared/db.ts';
 import { chat, HAS_LLM, parseJSON, withTimeout, type ChatMsg } from '../_shared/llm.ts';
 import { eventsSearch, geocodeEvent, mapsSearch, resetSerpStats, snapshotSerpStats } from '../_shared/serp.ts';
@@ -39,26 +39,38 @@ const TYPE_LABEL: Record<MissionType, string> = {
   gathering: 'Gatherings', duet: 'Duets', relic: 'Relic hunts', bard: 'Bard verses', trial: 'Riddles', gift: 'Gifts',
 };
 
-Deno.serve(async (req) => {
+Deno.serve(safe('generate-storyline', async (req) => {
   const pre = preflight(req); if (pre) return pre;
   const t0 = Date.now();
   const left = () => BUDGET_MS - (Date.now() - t0);
   resetSerpStats();
 
   const uid = await callerId(req);
-  if (!uid) return fail('Not signed in', 401);
-  const body = await req.json().catch(() => ({}));
+  if (!uid) return failCode('Sage lost track of who you are. Restart the app to sign in again.', 401, 'auth');
+  const body = (await req.json().catch(() => ({}))) ?? {};
   const fellowship_id: string | undefined = body.fellowship_id;
   const mode: 'first' | 'sequel' = body.mode === 'sequel' ? 'sequel' : 'first';
   const utDemo = body.demo === 'ut'; // E6: "The Legend of the Forty Acres" (real UT campus landmarks, GPS-gated)
   const demo = body.demo === true || utDemo;
   const replaceActive = body.replace_active === true;
-  if (!fellowship_id) return fail('fellowship_id required');
+  // V1 guard: no fellowship (left it, never joined, stale id) → a friendly coded error, never a book, never a 500.
+  // The app routes code 'no_fellowship' / 'not_member' to create/join.
+  if (!isUuid(fellowship_id)) {
+    return failCode("You're not in a fellowship yet. Create one or join your friends, then Sage can write your book.", 400, 'no_fellowship');
+  }
 
-  // 1. membership
-  const { data: me } = await admin.from('fellowship_members').select('user_id')
-    .eq('fellowship_id', fellowship_id).eq('user_id', uid).maybeSingle();
-  if (!me) return fail('Only members of this fellowship can summon its story.', 403);
+  // 1. membership (+ does the fellowship still exist?)
+  const [{ data: me, error: meErr }, { data: exists, error: exErr }] = await Promise.all([
+    admin.from('fellowship_members').select('user_id').eq('fellowship_id', fellowship_id).eq('user_id', uid).maybeSingle(),
+    admin.from('fellowships').select('id').eq('id', fellowship_id).maybeSingle(),
+  ]);
+  if (meErr || exErr) return failCode("Sage couldn't open the fellowship ledger. Try again in a moment.", 503, 'retry');
+  if (!exists) {
+    return failCode('That fellowship has disbanded. Create a new one or join your friends to start a book.', 404, 'no_fellowship');
+  }
+  if (!me) {
+    return failCode("You're not in this fellowship anymore. Join it again (or start your own) to summon a story.", 403, 'not_member');
+  }
 
   // 2. fellowship + members
   const [{ data: fellowship }, { data: memberRows }, { data: books }] = await Promise.all([
@@ -68,7 +80,7 @@ Deno.serve(async (req) => {
     admin.from('storylines').select('id, status, book_number, title, recap, created_at, difficulty').eq('fellowship_id', fellowship_id)
       .order('created_at', { ascending: false }),
   ]);
-  if (!fellowship) return fail('Fellowship not found', 404);
+  if (!fellowship) return failCode('That fellowship has disbanded. Create a new one or join your friends to start a book.', 404, 'no_fellowship');
   const members: MemberCtx[] = (memberRows ?? [])
     .map((r: { profile: Profile | Profile[] | null }) => (Array.isArray(r.profile) ? r.profile[0] : r.profile))
     .filter((p: Profile | null): p is Profile => !!p)
@@ -128,8 +140,13 @@ Deno.serve(async (req) => {
   const { data: row, error: insErr } = await admin.from('storylines').insert({
     fellowship_id, book_number: bookNumber, status: 'generating', title: 'Sage is writing…', synopsis: '',
     theme_tags: interests.themes, difficulty,
+    // V2: the UT Campus Demo shows distances but never blocks on location (judges play it from anywhere).
+    geo_enforced: !utDemo,
   }).select('id').single();
-  if (insErr || !row) return fail(`Could not start the book: ${insErr?.message}`, 500);
+  if (insErr || !row) {
+    console.error('[generate-storyline] insert failed', insErr?.message);
+    return failCode("Sage couldn't open a fresh book. Try again in a moment.", 503, 'retry');
+  }
   const storyline_id: string = row.id;
 
   // Join race: two friends can tap "Summon" in the same second. The check above is read-then-insert, so re-check
@@ -244,9 +261,9 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error('[generate-storyline] failed, rolling back', String(e));
     await admin.from('storylines').delete().eq('id', storyline_id);
-    return fail('Sage dropped the quill. Try summoning the story again.', 500);
+    return failCode('Sage dropped the quill. Try summoning the story again.', 503, 'retry');
   }
-});
+}));
 
 // ---------------------------------------------------------------- helpers
 

@@ -136,7 +136,15 @@ export function useBookStatus(book: Pick<Storyline, 'id' | 'status' | 'recap'> |
   return { ...bookStatus(book, pages), loading };
 }
 
-const STORYLINE_COLS ='id, fellowship_id, book_number, title, synopsis, theme_tags, status, difficulty, recap, created_at';
+const STORYLINE_COLS ='id, fellowship_id, book_number, title, synopsis, theme_tags, status, difficulty, geo_enforced, recap, created_at';
+
+/**
+ * V2: does this book block proofs on location? false for the UT Campus Demo (show the distance, never block).
+ * Missing (older rows, mocks) means true, like the db default. The server applies the same rule in submit-proof.
+ */
+export function isGeoEnforced(book: Pick<Storyline, 'geo_enforced'> | null | undefined): boolean {
+  return book?.geo_enforced !== false;
+}
 
 /** Region order of a template (for sorting a page's missions the way the page draws them). */
 type PageKey = Pick<Page, 'id' | 'chapter_number' | 'template_id'>;
