@@ -1,5 +1,7 @@
 // Owner: AD. Full-screen montage, Snapchat-stories style: segmented progress bars, auto-advance, HOLD = pause,
 // tap right = next, tap left = previous, swipe down = close. Photos get a slow Ken Burns; chapter title cards between.
+// V8: the montage has NO soundtrack of its own — it never creates or plays audio, so the one bards loop (AB's
+// MusicController) keeps playing underneath, same track, same volume. Don't add a second track here.
 'use no memo';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';

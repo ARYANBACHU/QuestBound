@@ -309,3 +309,12 @@ Format:
 - Why: V3 flicker. AD's `ColoringPage` now tolerates it (a regression within 8 s of completion is ignored, and each
   mission's fill plays once per mount), but other screens (Missions, mission detail) would still blink.
 - Status: open.
+
+## [AD → AB] V8 — montage plays no audio; check native for a second music player
+- AD verified on web (every `new Audio` / `play()` logged) that opening, tapping through, replaying and closing the
+  montage starts no sound — only `bards-loop.mp3` plays, once. Montage slides are photos + title cards only.
+- If a different/second track is still heard in Expo Go, it's a second `MusicController` player (e.g. the root layout
+  remounting, or a player created before `remove()` finishes). Suggest: keep the player in a module-level singleton
+  so remounts reuse it. If you want ducking during the montage, export `useMusicDuck(active: boolean)` and AD will call
+  `useMusicDuck(visible)` inside `Montage` — same track, lower volume.
+- Status: open.
