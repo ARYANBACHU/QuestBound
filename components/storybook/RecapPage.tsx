@@ -7,6 +7,7 @@ import type { BookRecap, FellowshipMember, Storyline } from '@/shared/types';
 import { CrestBubble } from '@/components/coloring/Crests';
 import { roman } from '@/components/coloring/pageUtils';
 import { InkButton, Txt } from '@/components/coloring/ui';
+import { MontageButton } from './MontageButton';
 
 export function RecapPage({ book, recap, members, onSequel, onMontage, summoning, setAside = false }: {
   book: Storyline; recap: BookRecap; members: FellowshipMember[]; onSequel: () => void; onMontage: () => void; summoning: boolean;
@@ -61,7 +62,7 @@ export function RecapPage({ book, recap, members, onSequel, onMontage, summoning
         </View>
       )}
 
-      <InkButton label="Play montage" variant="secondary" onPress={onMontage} />
+      <MontageButton big onPress={onMontage} />
 
       {setAside ? null : (
         <View style={styles.teaser}>
