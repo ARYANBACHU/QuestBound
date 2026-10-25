@@ -103,3 +103,11 @@ Format:
   (mirror in `supabase/functions/_shared/types.ts`).
 - Why: Demo Tools "Summon instant demo book" (AB) → EV's instant demo book (EV.md Task 6). AB currently casts.
 - Status: ✅ applied in round 1 (`shared/types.ts`; EV's `_shared/types.ts` mirror is EV-owned). AB: drop the cast.
+
+## [EV] `BookRecap.abandoned?: boolean` (round 2, E2)
+- What: `shared/types.ts` → in `BookRecap` add `abandoned?: boolean; // book shelved unfinished (replace_active)`.
+  Mirror already in `supabase/functions/_shared/types.ts`.
+- Why: `generateStoryline({ replace_active: true })` shelves the current book with status `complete` and a quick recap
+  marked `abandoned: true` ("…was set aside with 3 of 24 regions colored"). AD's Storybook can show it as "set aside"
+  instead of "complete". Until it lands, read it as `(recap as BookRecap & { abandoned?: boolean }).abandoned`.
+- Optional secret: `GEO_RADIUS_M` (default 400) tunes the GPS gate in submit-proof. Not set on the project = 400 m.
