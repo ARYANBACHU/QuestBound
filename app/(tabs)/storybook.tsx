@@ -1,9 +1,9 @@
 // Owner: AD. The Storybook: a shelf of every book → reader (pages + photos + story lines) → recap → montage.
 'use no memo';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFellowship } from '@/lib/fellowship';
@@ -33,6 +33,15 @@ export default function StorybookScreen() {
   const [error, setError] = useState<string | null>(null);
   // Sage's FAB covers the reader's arrows and the montage — hide it while either is open (AB's A10 hook).
   useHideWizardFab(!!openId || montage);
+  // V9: the Storybook tab always opens on the shelf — leaving the tab closes the book (and its montage), so coming
+  // back never lands mid-book.
+  const focused = useIsFocused();
+  useEffect(() => {
+    if (focused) return;
+    setMontage(false);
+    setOpenId(null);
+    setError(null);
+  }, [focused]);
 
   // Any book on the shelf (current or older) loads its own pages, missions, memories and verses.
   const open = books.find((b) => b.id === openId) ?? null;
