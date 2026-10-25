@@ -51,7 +51,9 @@ export default function MissionDetail() {
   const { mission, loading } = useMission(id ?? null);
   const { userId } = useSession();
   const fs = useFellowship();
-  const { pages } = useStoryline(fs.fellowship?.id ?? null);
+  const { pages, storyline } = useStoryline(fs.fellowship?.id ?? null);
+  // V2: demo books (UT campus) show the distance but never block on location.
+  const geoFree = storyline?.geo_enforced === false;
   const { messages } = useChat(fs.fellowship?.id ?? null);
   const page = pages.find((p) => p.id === mission?.page_id) ?? null;
   const mood = moodFor(page?.template_id);
@@ -174,6 +176,7 @@ export default function MissionDetail() {
       <Result
         mood={mood}
         res={phase.res}
+        geoFree={geoFree}
         mission={mission}
         photo={photo}
         page={page}
@@ -228,7 +231,7 @@ export default function MissionDetail() {
             {mission.assignee_ids.length ? <CrestRow userIds={mission.assignee_ids} members={fs.members} size={24} /> : null}
           </View>
 
-          {mission.place ? <PlaceCard place={mission.place} prox={actionable ? prox : null} /> : null}
+          {mission.place ? <PlaceCard place={mission.place} prox={actionable ? prox : null} geoFree={geoFree} /> : null}
 
           {mission.trial_question ? (
             <View style={[styles.panel, { backgroundColor: mood.tint }]}>
@@ -362,7 +365,7 @@ export default function MissionDetail() {
 }
 
 // ---------- place ----------
-function PlaceCard({ place, prox }: { place: Place; prox: Proximity | null }) {
+function PlaceCard({ place, prox, geoFree }: { place: Place; prox: Proximity | null; geoFree: boolean }) {
   const meta = [place.rating ? `★ ${place.rating}` : null, place.category, place.when].filter(Boolean).join(' · ');
   return (
     <View style={styles.place}>
@@ -398,19 +401,21 @@ function PlaceCard({ place, prox }: { place: Place; prox: Proximity | null }) {
           </Pressable>
         ) : null}
         <View style={styles.fill} />
-        {prox ? <ProximityBadge prox={prox} /> : null}
+        {prox ? <ProximityBadge prox={prox} geoFree={geoFree} /> : null}
       </View>
     </View>
   );
 }
 
-function ProximityBadge({ prox }: { prox: Proximity }) {
+function ProximityBadge({ prox, geoFree }: { prox: Proximity; geoFree: boolean }) {
   switch (prox.status) {
     case 'off': return null;
     case 'asking':
     case 'locating': return <T variant="small">Finding you…</T>;
     case 'denied':
     case 'error':
+      // Location isn't needed for a demo book — no warning, just a quiet note.
+      if (geoFree) return <T variant="small" color={ink.inkSoft}>Counts from anywhere</T>;
       return (
         <Pressable onPress={prox.retry} hitSlop={8} accessibilityRole="button"
           accessibilityLabel="Location is off. Tap to try again">
@@ -423,14 +428,17 @@ function ProximityBadge({ prox }: { prox: Proximity }) {
           <T variant="smallBold" color={chips.secondary.fg}>✨ You're close!</T>
         </View>
       ) : (
-        <T variant="smallBold" color={ink.inkSoft}>{prox.distance_m != null ? `${formatDistance(prox.distance_m)} away` : ''}</T>
+        <T variant="smallBold" color={ink.inkSoft}>
+          {prox.distance_m != null ? `${formatDistance(prox.distance_m)} away` : ''}
+          {geoFree ? <T variant="small" color={ink.inkSoft}>{prox.distance_m != null ? ' · ' : ''}counts from anywhere</T> : null}
+        </T>
       );
   }
 }
 
 // ---------- result ----------
-function Result({ mood, res, mission, photo, page, color, onRetry, onPage, onMissions }: {
-  mood: Mood; res: SubmitProofResponse; mission: Mission; photo: string | null; page: Page | null; color: string;
+function Result({ mood, res, geoFree, mission, photo, page, color, onRetry, onPage, onMissions }: {
+  mood: Mood; res: SubmitProofResponse; geoFree: boolean; mission: Mission; photo: string | null; page: Page | null; color: string;
   onRetry: () => void; onPage: () => void; onMissions: () => void;
 }) {
   const { verdict } = res;
@@ -438,7 +446,7 @@ function Result({ mood, res, mission, photo, page, color, onRetry, onPage, onMis
   const storyLine = res.mission.story_line ?? res.completion?.story_line ?? verdict.flavor_text;
   const [revealed, setRevealed] = useState(false); // the reward pack finished (or was skipped)
   const lens = (verdict.lens_titles ?? []).filter(Boolean).slice(0, 3);
-  const far = !verdict.pass && verdict.distance_m != null && verdict.distance_m > 0
+  const far = !geoFree && !verdict.pass && verdict.distance_m != null && verdict.distance_m > 0
     ? `You were about ${formatDistance(verdict.distance_m)} from the spot.` : null;
 
   useEffect(() => {
