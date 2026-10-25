@@ -20,7 +20,7 @@ import { useWizard } from '@/components/wizard/WizardProvider';
 import { useFellowship } from '@/lib/fellowship';
 import { useSession } from '@/lib/session';
 import type { Budget } from '@/shared/types';
-import { CRAYONS, CRESTS, INTERESTS, fonts, ink, radius, space, type, type CrayonColor, type CrestId } from '@/shared/theme';
+import { CRAYONS, CRESTS, INTERESTS, fonts, ink, radius, scrim, space, type, type CrayonColor, type CrestId } from '@/shared/theme';
 
 type Editing = null | 'identity' | 'crayon' | 'interests' | 'time';
 const NOTIFY_KEY = 'qb.notify';
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   swatch: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: ink.ink },
   mono: { fontFamily: fonts.display, fontSize: type.body, letterSpacing: 3, color: ink.ink },
   sectionButtons: { flexDirection: 'row', gap: space.sm, padding: space.md, borderTopWidth: 1.5, borderTopColor: ink.lavenderMist },
-  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(33,26,59,0.4)' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: scrim.base },
   sheet: {
     position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: ink.paper, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     borderWidth: 2, borderBottomWidth: 0, borderColor: ink.ink, padding: space.xl, paddingBottom: space.xxl,

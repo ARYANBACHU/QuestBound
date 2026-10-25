@@ -12,7 +12,7 @@ import { USE_MOCKS } from '@/lib/env';
 import { useFellowship } from '@/lib/fellowship';
 import { useMissions, useStoryline } from '@/lib/game';
 import { useSession } from '@/lib/session';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
+import { fonts, ink, radius, scrim, space, type } from '@/shared/theme';
 import { T } from '@/components/shell/T';
 import { localMuse } from './localMuse';
 import { MuseAvatar } from './MuseAvatar';
@@ -212,7 +212,7 @@ function Bubble({ role, content, animate }: { role: 'user' | 'assistant'; conten
 }
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(33,26,59,0.35)' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: scrim.soft },
   sheetWrap: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '82%', minHeight: '60%', backgroundColor: ink.lavenderMist, borderTopLeftRadius: 28, borderTopRightRadius: 28,

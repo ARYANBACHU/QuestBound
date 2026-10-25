@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import { ink, space } from '@/shared/theme';
+import { ink, scrim, space } from '@/shared/theme';
 import { T } from './T';
 
 const W = 200;
@@ -33,7 +33,7 @@ export function MagicMirror({ photoUri, pondering = true, caption = 'The Mirror 
           {pondering ? (
             <Animated.View style={[styles.shimmer, shimmer]} pointerEvents="none">
               <LinearGradient
-                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.75)', 'rgba(255,255,255,0)']}
+                colors={[scrim.glareClear, scrim.glare, scrim.glareClear]}
                 start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill}
               />
             </Animated.View>

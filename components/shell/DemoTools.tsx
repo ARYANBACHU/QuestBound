@@ -8,7 +8,7 @@ import { USE_MOCKS } from '@/lib/env';
 import { useFellowship } from '@/lib/fellowship';
 import { useSession } from '@/lib/session';
 import type { GenerateStorylineRequest } from '@/shared/types';
-import { ink, radius, space } from '@/shared/theme';
+import { ink, radius, scrim, space } from '@/shared/theme';
 import { resetCoachMarks } from '@/components/wizard/coachMarks';
 import { useWizard } from '@/components/wizard/WizardProvider';
 import { Button } from './Button';
@@ -102,7 +102,7 @@ export function DemoTools() {
 }
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(33,26,59,0.45)' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: scrim.strong },
   center: { flex: 1, justifyContent: 'center', padding: space.lg },
   card: { maxHeight: '86%', backgroundColor: ink.paper, borderRadius: radius.lg, borderWidth: 2.5, borderColor: ink.ink, padding: space.xl },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: space.md, flexWrap: 'wrap' },
