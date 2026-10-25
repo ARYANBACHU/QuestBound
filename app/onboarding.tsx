@@ -24,7 +24,7 @@ import { Crest, InviteCard, QrScanner, parseInviteCode } from '@/components/shel
 import { SageBubble } from '@/components/wizard/SageBubble';
 import { interestQuip } from '@/components/wizard/quips';
 import { SummonRitual } from '@/components/wizard/SummonRitual';
-import { generateStoryline } from '@/lib/api';
+import { generateStoryline, isNoFellowshipError } from '@/lib/api';
 import { useFellowship } from '@/lib/fellowship';
 import { useStoryline } from '@/lib/game';
 import { useSession } from '@/lib/session';
@@ -196,6 +196,8 @@ export default function Onboarding() {
       router.replace('/(tabs)/coloring');
     } catch (e) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
+      // EV's V1 guard: no (or no longer this) fellowship → back to create/join, never a book
+      if (isNoFellowshipError(e)) { setSummoning(false); go('fellowship'); return; }
       setError(`The ink ran dry: ${msg(e)}. Try again, or let me write a quick demo book.`);
       setSummoning(false);
     }

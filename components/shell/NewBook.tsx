@@ -20,7 +20,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { SageBubble } from '@/components/wizard/SageBubble';
 import { SummonRitual } from '@/components/wizard/SummonRitual';
 import { useHideWizardFab, useWizard } from '@/components/wizard/WizardProvider';
-import { generateStoryline } from '@/lib/api';
+import { generateStoryline, isNoFellowshipError } from '@/lib/api';
 import { useFellowship } from '@/lib/fellowship';
 import { useStoryline } from '@/lib/game';
 import type { Difficulty, GenerateStorylineRequest } from '@/shared/types';
@@ -64,7 +64,8 @@ function friendly(e: unknown): string {
   if (/non-2xx|500|internal/i.test(m)) return 'Sage’s quill slipped. Your current book is safe — try again.';
   return `${m.replace(/\.$/, '')}. Your current book is safe — try again.`;
 }
-const isFellowshipError = (e: unknown) =>
+// EV's coded errors ('no_fellowship' | 'not_member') first; the text match covers older servers.
+const isFellowshipError = (e: unknown) => isNoFellowshipError(e) ||
   /fellowship (not found|first)|only members|not a member|no fellowship/i.test(e instanceof Error ? e.message : String(e));
 
 export function NewBookProvider({ children }: { children: ReactNode }) {
