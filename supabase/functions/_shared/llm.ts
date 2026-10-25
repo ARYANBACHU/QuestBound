@@ -124,30 +124,40 @@ export async function withTimeout<T>(p: Promise<T>, ms: number, fallback: T, lab
 /** Muse Image. Returns a URL or base64 data; caller uploads base64 to the 'art' bucket. */
 export async function generateImage(
   prompt: string,
-  opts: { size?: string; timeoutMs?: number } = {},
+  opts: { size?: string; timeoutMs?: number; format?: 'jpeg' | 'png' } = {},
 ): Promise<{ url?: string; b64?: string; mime: string } | null> {
   if (!HAS_LLM) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 90_000);
+  // G3: JPEG keeps paintings phone-sized (a 1600² PNG is ~4.5 MB). If the API rejects jpeg options, retry as PNG.
+  const call = (format: 'jpeg' | 'png') => fetch(`${BASE}/images/generations`, {
+    method: 'POST',
+    signal: ctrl.signal,
+    headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: IMAGE_MODEL,
+      prompt,
+      n: 1,
+      size: opts.size ?? '1024x1024',
+      response_format: 'b64_json',
+      output_format: format,
+      ...(format === 'jpeg' ? { output_compression: 82 } : {}),
+    }),
+  });
   try {
-    const res = await fetch(`${BASE}/images/generations`, {
-      method: 'POST',
-      signal: ctrl.signal,
-      headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: IMAGE_MODEL,
-        prompt,
-        n: 1,
-        size: opts.size ?? '1024x1024',
-        response_format: 'b64_json',
-        output_format: 'png',
-      }),
-    });
+    const want = opts.format ?? 'jpeg';
+    let res = await call(want);
+    if (!res.ok && want !== 'png' && (res.status === 400 || res.status === 422)) {
+      console.warn('[generateImage] jpeg rejected, retrying as png:', (await res.text()).slice(0, 200));
+      res = await call('png');
+    }
     if (!res.ok) throw new Error(`IMG ${res.status}: ${(await res.text()).slice(0, 500)}`);
     const data = await res.json();
     const item = data.data?.[0] ?? {};
-    const fmt = (data.output_format as string | undefined) ?? 'png';
-    return { url: item.url, b64: item.b64_json, mime: `image/${fmt === 'jpg' ? 'jpeg' : fmt}` };
+    const b64: string | undefined = item.b64_json;
+    // Trust the bytes over the declared format (JPEG starts with /9j/, PNG with iVBOR).
+    const fmt = b64?.startsWith('/9j/') ? 'jpeg' : b64?.startsWith('iVBOR') ? 'png' : ((data.output_format as string | undefined) ?? want);
+    return { url: item.url, b64, mime: `image/${fmt === 'jpg' ? 'jpeg' : fmt}` };
   } catch (e) {
     console.error('[generateImage]', String(e));
     return null;

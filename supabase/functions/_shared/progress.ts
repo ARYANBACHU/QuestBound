@@ -105,16 +105,37 @@ function b64ToBytes(b64: string): Uint8Array {
 }
 
 /** Generate an image and store it in the public 'art' bucket. Signed URLs expire, so we always re-host. */
+/**
+ * G3: Muse Image returns ~1600² PNGs (~4.5 MB) whatever format we ask for. Phones on hackathon Wi-Fi want ~350 KB:
+ * re-encode as a 1024² JPEG (≈250 ms CPU with imagescript, loaded lazily). Any failure keeps the original bytes.
+ */
+async function phoneSized(bytes: Uint8Array, mime: string): Promise<{ bytes: Uint8Array; mime: string }> {
+  if (mime !== 'image/png' || bytes.length < 800_000) return { bytes, mime };
+  try {
+    const { Image } = await import('https://deno.land/x/imagescript@1.3.0/mod.ts');
+    const img = await Image.decode(bytes);
+    if (img.width > 1024) img.resize(1024, Image.RESIZE_AUTO);
+    return { bytes: await img.encodeJPEG(80), mime: 'image/jpeg' };
+  } catch (e) {
+    console.warn('[paint] jpeg re-encode failed, keeping png', String(e));
+    return { bytes, mime };
+  }
+}
+
 export async function paintToBucket(prompt: string, path: string): Promise<string | null> {
   const img = await generateImage(prompt);
   if (!img) return null;
-  if (img.b64) return uploadArt(path, b64ToBytes(img.b64), img.mime);
-  if (img.url) {
+  let raw: { bytes: Uint8Array; mime: string } | null = null;
+  if (img.b64) raw = { bytes: b64ToBytes(img.b64), mime: img.mime };
+  else if (img.url) {
     const res = await fetch(img.url);
     if (!res.ok) return null;
-    return uploadArt(path, new Uint8Array(await res.arrayBuffer()), res.headers.get('content-type') ?? img.mime);
+    raw = { bytes: new Uint8Array(await res.arrayBuffer()), mime: res.headers.get('content-type') ?? img.mime };
   }
-  return null;
+  if (!raw) return null;
+  const out = await phoneSized(raw.bytes, raw.mime);
+  path = path.replace(/\.(png|jpe?g)$/, out.mime === 'image/jpeg' ? '.jpg' : '.png'); // extension follows the bytes
+  return uploadArt(path, out.bytes, out.mime);
 }
 
 /**
