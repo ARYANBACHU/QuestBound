@@ -12,7 +12,7 @@ import { CrayonSquiggle, TabIcon, type TabName } from './TabIcons';
 import { useUnreadProclamations } from './useUnreadProclamations';
 
 export const TAB_BAR_HEIGHT = 64;
-/** Screens pad their scroll content with this so nothing hides behind the Muse FAB. */
+/** Screens pad their scroll content with this so nothing hides behind Sage's FAB. */
 export const TAB_CONTENT_BOTTOM_PAD = 96;
 
 const LABELS: Record<TabName, string> = {

@@ -1,4 +1,4 @@
-// Owner: AB. Muse plans a meetup from members' availability + the open missions that need company.
+// Owner: AB. Sage plans a meetup from members' availability + the open missions that need company.
 // Pure + local (no LLM) so it works offline; the chat post is a normal message from the user.
 import type { FellowshipMember, Mission } from '@/shared/types';
 
@@ -7,7 +7,7 @@ export interface MeetupPlan {
   slot: string;
   free: string[]; // display names free then
   mission: Mission | null;
-  reply: string; // what Muse says in the sheet
+  reply: string; // what Sage says in the sheet
   post: string; // the message posted to the fellowship chat
 }
 
@@ -55,8 +55,8 @@ export function planMeetup(members: FellowshipMember[], missions: Mission[], meI
     ? `${cap(list)} are free ${slotPhrase(best.s)}. How about ${when}${where} for "${mission.title}"? Shall I post it to the fellowship?`
     : `${cap(list)} are free ${slotPhrase(best.s)}. How about ${when}? Shall I post it to the fellowship?`;
   const post = mission
-    ? `🧙 Muse proposes a quest: "${mission.title}"${where}, ${when}. Who's in? Reply 👍 or suggest another time!`
-    : `🧙 Muse proposes a fellowship meetup ${when}. Who's in? Reply 👍 or suggest another time!`;
+    ? `🧙 Sage proposes a quest: "${mission.title}"${where}, ${when}. Who's in? Reply 👍 or suggest another time!`
+    : `🧙 Sage proposes a fellowship meetup ${when}. Who's in? Reply 👍 or suggest another time!`;
   return { when, slot: best.s, free, mission, reply, post };
 }
 

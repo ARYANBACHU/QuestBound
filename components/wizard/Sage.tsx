@@ -157,7 +157,7 @@ export function Sage({ expression = 'idle', size = 'md', variant, still, speakKe
   );
 }
 
-/** "Sage" with the Muse credit line underneath. Use wherever Sage's name is shown. */
+/** "Sage" with the "powered by Muse" credit line underneath. Use wherever Sage's name is shown. */
 export function SageTitle({ size = 'heading', color, style }: {
   size?: 'heading' | 'bodyBold'; color?: string; style?: StyleProp<ViewStyle>;
 }) {

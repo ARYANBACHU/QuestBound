@@ -12,7 +12,7 @@ const GROUPS = INTERESTS.reduce<string[]>((acc, i) => (acc.includes(i.group) ? a
 export function InterestPicker({ value, onChange, onPick }: {
   value: string[];
   onChange: (next: string[]) => void;
-  onPick?: (id: string, next: string[]) => void; // fired when an interest is added (Muse quips)
+  onPick?: (id: string, next: string[]) => void; // fired when an interest is added (Sage quips)
 }) {
   const toggle = (id: string) => {
     if (value.includes(id)) {
