@@ -18,6 +18,8 @@ import { MissionSheet } from '@/components/coloring/MissionSheet';
 import { BlankBook, ChapterRibbon, SageWriting, PageTurnOverlay, TheEndBanner } from '@/components/coloring/PageStates';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { InkButton, Txt } from '@/components/coloring/ui';
+import { Sage, SageSays } from '@/components/coloring/sage';
+import { Celebration } from '@/components/coloring/Celebration';
 
 const HOLD_MS = FILL_MS + 700; // let the last region's fill + sparkle play before the page turns
 
@@ -60,10 +62,12 @@ export default function ColoringScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePage?.id]);
 
+  const [party, setParty] = useState<{ kind: 'page' | 'book'; at: number } | null>(null);
   const onTurnDone = useCallback(() => {
     setTurning(null);
     const next = prevActive.current;
     if (next) setRibbon(`Chapter ${roman(next.chapter_number)} · ${next.title}`);
+    setParty({ kind: 'page', at: Date.now() });
   }, []);
   useEffect(() => {
     if (!ribbon) return;
@@ -75,6 +79,17 @@ export default function ColoringScreen() {
   const shownMissions = pageMissions(missions, shown);
   const sheetMission = missions.find((m) => m.id === sheetId) ?? null;
   const bookDone = !!storyline && (storyline.status === 'complete' || (pages.length > 0 && pages.every((p) => p.status === 'complete')));
+
+  // the book just finished while we watched → confetti for the whole fellowship (after the last fill plays)
+  const wasDone = useRef<boolean | null>(null);
+  useEffect(() => {
+    const before = wasDone.current;
+    wasDone.current = bookDone;
+    if (before === false && bookDone) {
+      const t = setTimeout(() => setParty({ kind: 'book', at: Date.now() }), HOLD_MS);
+      return () => clearTimeout(t);
+    }
+  }, [bookDone]);
 
   const summon = async (mode: 'first' | 'sequel') => {
     if (!fellowship) return;
@@ -104,6 +119,7 @@ export default function ColoringScreen() {
   if (loading) {
     body = (
       <View style={styles.fill}>
+        <Sage expression="thinking" size="md" />
         <ActivityIndicator color={ink.ink} />
         <Txt v="story" center>Opening your book…</Txt>
       </View>
@@ -111,9 +127,8 @@ export default function ColoringScreen() {
   } else if (!fellowship) {
     body = (
       <View style={styles.fill}>
-        <Txt v="heading" center>No fellowship, no tale.</Txt>
-        <Txt v="story" center>Sage writes for a band of friends. Gather yours first.</Txt>
-        <InkButton label="Find your fellowship" onPress={() => router.push('/(tabs)/friends')} />
+        <SageSays expression="sleepy" size="md" title="No fellowship, no tale." line="I write for a band of friends. Gather yours first." />
+        <InkButton label="Find your fellowship" onPress={() => router.push('/(tabs)/friends')} style={{ alignSelf: 'stretch' }} />
       </View>
     );
   } else if (summoning || storyline?.status === 'generating') {
@@ -175,6 +190,7 @@ export default function ColoringScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <LinearGradient colors={SCREEN_GRADIENTS[mood.id]} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={{ paddingBottom: space.xxl * 2, flexGrow: 1 }}>{body}</ScrollView>
+      {party && <Celebration key={party.at} kind={party.kind} onDone={() => setParty(null)} />}
       <MissionSheet mission={sheetMission} page={pages.find((p) => p.id === sheetMission?.page_id) ?? null} members={members} onClose={() => setSheetId(null)} />
     </View>
   );

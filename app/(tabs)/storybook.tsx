@@ -14,6 +14,7 @@ import type { FellowshipMember, Page, Storyline } from '@/shared/types';
 import { ColoringPage } from '@/components/coloring/ColoringPage';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { InkButton, Txt } from '@/components/coloring/ui';
+import { SageSays } from '@/components/coloring/sage';
 import { BookReader } from '@/components/storybook/BookReader';
 import { Montage } from '@/components/storybook/Montage';
 import { fallbackRecap, montageSlides, withDemoMemories } from '@/components/storybook/bookData';
@@ -80,9 +81,8 @@ export default function StorybookScreen() {
           <ActivityIndicator color={ink.ink} style={{ marginTop: space.xxl }} />
         ) : books.length === 0 ? (
           <View style={styles.empty}>
-            <Txt v="heading" center>The shelf is empty.</Txt>
-            <Txt v="story" center>Books appear here as Sage writes them. Summon your first tale on the Page tab.</Txt>
-            <InkButton label="Go to the page" onPress={() => router.push('/(tabs)/coloring')} />
+            <SageSays expression="idle" size="md" title="The shelf is empty." line="Books appear here as I write them. Summon your first tale on the Page tab." />
+            <InkButton label="Go to the page" onPress={() => router.push('/(tabs)/coloring')} style={{ alignSelf: 'stretch' }} />
           </View>
         ) : (
           <View style={styles.shelf}>
@@ -136,7 +136,7 @@ function BookCard({ book, members, onPress }: { book: Storyline; members: Fellow
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: ink.paper },
   shelfWrap: { padding: space.lg, gap: space.sm, paddingBottom: space.xxl * 2 },
-  empty: { marginTop: space.xxl, alignItems: 'center', gap: space.md, padding: space.xl },
+  empty: { marginTop: space.xl, gap: space.lg },
   shelf: { marginTop: space.lg, gap: space.lg },
   plank: { height: 10, borderRadius: 5, backgroundColor: ink.ink, opacity: 0.12 },
   card: {

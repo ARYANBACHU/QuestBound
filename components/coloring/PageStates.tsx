@@ -9,6 +9,7 @@ import { INK_STROKE, MOODS, ink, radius, space } from '@/shared/theme';
 import { frameBand, storybookFrame } from '@/assets/pages/shapes';
 import { MissionTypeGlyph } from './MissionTypeIcon';
 import { InkButton, Txt } from './ui';
+import { Sage, SageSays } from './sage';
 
 export const TURN_MS = 1100;
 
@@ -38,7 +39,8 @@ export function ChapterRibbon({ text }: { text: string }) {
   return (
     <Animated.View entering={SlideInUp.duration(450)} exiting={FadeOut.duration(300)} style={styles.ribbonWrap} pointerEvents="none">
       <View style={styles.ribbon}>
-        <Txt v="heading" color={ink.page} center>{text}</Txt>
+        <Sage expression="happy" size="sm" />
+        <Txt v="heading" color={ink.page} style={{ flex: 1 }}>{text}</Txt>
       </View>
     </Animated.View>
   );
@@ -70,9 +72,10 @@ export function BlankBook({ width, onSummon, loading, error }: { width: number; 
       <View>
         <BlankFrame width={width} />
         <View style={[StyleSheet.absoluteFill, styles.overlay]}>
-          <Txt v="heading" center>Your book is blank.</Txt>
-          <Txt v="story" center>Summon a story to begin. Sage will weave your interests and real places nearby into a tale.</Txt>
-          <InkButton label="Summon a story" onPress={onSummon} loading={loading} style={{ marginTop: space.md }} />
+          <Sage expression="idle" size="lg" />
+          <Txt v="title" center>Your book is blank.</Txt>
+          <Txt v="story" center>Summon a story to begin. I’ll weave your interests and real places nearby into a tale.</Txt>
+          <InkButton label="Summon a story" onPress={onSummon} loading={loading} style={{ marginTop: space.md, alignSelf: 'stretch' }} />
           {error ? <Txt v="small" color={ink.danger} center>{error} Check your connection and try again.</Txt> : null}
         </View>
       </View>
@@ -109,6 +112,9 @@ export function SageWriting({ width }: { width: number }) {
             <G><MissionTypeGlyph type="bard" strokeWidth={1.6} /></G>
           </Svg>
         </Animated.View>
+        <View style={[StyleSheet.absoluteFill, styles.writingTop]} pointerEvents="none">
+          <Sage expression="thinking" size="lg" />
+        </View>
         <View style={[StyleSheet.absoluteFill, styles.writingText]} pointerEvents="none">
           <Txt v="heading" center>Sage is writing your book…</Txt>
           <Txt v="story" center>Gathering your interests, scouting real places nearby, and inking the first page.</Txt>
@@ -121,8 +127,7 @@ export function SageWriting({ width }: { width: number }) {
 export function TheEndBanner({ onOpenStorybook, onSequel, loading }: { onOpenStorybook: () => void; onSequel: () => void; loading: boolean }) {
   return (
     <View style={styles.end}>
-      <Txt v="title" center>The End… for now</Txt>
-      <Txt v="story" center>Every page is colored. Sage is already dreaming up what comes next.</Txt>
+      <SageSays expression="happy" size="md" title="The End… for now" line="Every page is colored. I’m already dreaming up what comes next." />
       <View style={{ gap: space.sm, alignSelf: 'stretch' }}>
         <InkButton label="Open the Storybook" onPress={onOpenStorybook} />
         <InkButton label="Summon the next book" variant="secondary" onPress={onSequel} loading={loading} />
@@ -134,15 +139,13 @@ export function TheEndBanner({ onOpenStorybook, onSequel, loading }: { onOpenSto
 const styles = StyleSheet.create({
   center: { alignItems: 'center' },
   overlay: { alignItems: 'center', justifyContent: 'center', padding: space.xxl, gap: space.sm },
+  writingTop: { alignItems: 'center', paddingTop: '22%' },
   writingText: { justifyContent: 'flex-end', alignItems: 'center', padding: space.xxl, paddingBottom: '30%', gap: space.sm },
   quill: { position: 'absolute', left: 0, top: 0 },
   ribbonWrap: { position: 'absolute', top: space.md, left: space.lg, right: space.lg, zIndex: 10 },
   ribbon: {
-    backgroundColor: ink.ink, borderRadius: radius.sm, paddingVertical: space.md, paddingHorizontal: space.lg,
-    borderWidth: 2, borderColor: ink.gold,
+    flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: ink.ink, borderRadius: radius.md, overflow: 'hidden',
+    paddingVertical: space.sm, paddingHorizontal: space.md, borderWidth: 2, borderColor: ink.gold,
   },
-  end: {
-    margin: space.lg, padding: space.xl, gap: space.md, alignItems: 'center', borderRadius: radius.lg,
-    borderWidth: 2.5, borderColor: ink.gold, backgroundColor: ink.page,
-  },
+  end: { margin: space.lg, gap: space.md },
 });
