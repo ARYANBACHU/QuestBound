@@ -17,7 +17,7 @@ import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { Chip, InkButton, Txt } from '@/components/coloring/ui';
 import { SageSays } from '@/components/coloring/sage';
 import { useHideWizardFab } from '@/components/wizard/WizardProvider';
-import { HeaderMusicToggle } from '@/components/shell/music';
+import { HeaderMusicToggle, useMusicDuck } from '@/components/shell/music';
 import { BookReader } from '@/components/storybook/BookReader';
 import { Montage } from '@/components/storybook/Montage';
 import { bookProgress, fallbackRecap, montageSlides, withDemoMemories } from '@/components/storybook/bookData';
@@ -33,6 +33,8 @@ export default function StorybookScreen() {
   const [error, setError] = useState<string | null>(null);
   // Sage's FAB covers the reader's arrows and the montage — hide it while either is open (AB's A10 hook).
   useHideWizardFab(!!openId || montage);
+  // V8: the montage keeps the same bards track, just lower (AB's hook)
+  useMusicDuck(montage);
   // V9: the Storybook tab always opens on the shelf — leaving the tab closes the book (and its montage), so coming
   // back never lands mid-book.
   const focused = useIsFocused();
