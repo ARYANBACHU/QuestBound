@@ -81,6 +81,7 @@ export function NewBookProvider({ children }: { children: ReactNode }) {
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const resolver = useRef<((ok: boolean) => void) | null>(null);
   const alive = useRef(true);
+  const succeeded = useRef(false); // this write already succeeded (promise + realtime may both report it)
   // keep the latest values for the async flow without re-creating callbacks
   const live = useRef({ fellowship, storyline, wizard });
   live.current = { fellowship, storyline, wizard };
@@ -114,6 +115,8 @@ export function NewBookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const succeed = useCallback(() => {
+    if (succeeded.current) return;
+    succeeded.current = true;
     attemptRef.current++; // the promise and the realtime watcher may both report success — handle it once
     clearTimers();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -152,6 +155,7 @@ export function NewBookProvider({ children }: { children: ReactNode }) {
     if (inFlight.current) return Promise.resolve(false);
     if (!live.current.fellowship) { toFellowshipStep(); return Promise.resolve(false); }
     inFlight.current = true;
+    succeeded.current = false;
     optsRef.current = opts;
     startedFrom.current = live.current.storyline?.id ?? null;
     closeAll();
