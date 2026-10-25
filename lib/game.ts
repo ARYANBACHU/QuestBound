@@ -92,7 +92,51 @@ export function isStaleGenerating(b: Pick<Storyline, 'status' | 'created_at'>): 
   return b.status === 'generating' && Date.now() - new Date(b.created_at).getTime() > GENERATING_STALE_MS;
 }
 
-const STORYLINE_COLS = 'id, fellowship_id, book_number, title, synopsis, theme_tags, status, difficulty, recap, created_at';
+// ---------------------------------------------------------------- book status (B2)
+
+/**
+ * What a book really is, derived from its pages (status alone is ambiguous: a shelved book is also 'complete').
+ * - 'writing'   Sage is still writing it (status 'generating')
+ * - 'reading'   in progress (some chapter still open)
+ * - 'finished'  every page colored
+ * - 'set_aside' shelved unfinished by "New storyline" (recap.abandoned) or any complete book with uncolored pages
+ */
+export type BookState = 'writing' | 'reading' | 'finished' | 'set_aside';
+export interface BookStatus {
+  state: BookState;
+  label: string; // shelf label: "Sage is writing…" | "Chapter 2 of 3" | "Finished" | "Set aside"
+  chapter: number; // current chapter (reading), chapters colored + 1 capped (others)
+  chapters: number; // total chapters (0 while unknown)
+  colored: number; // pages fully colored
+}
+
+/**
+ * Pass the book's pages when you have them (usePages); without pages the label falls back to the storyline row.
+ * Never says "Finished" unless every page is complete.
+ */
+export function bookStatus(book: Pick<Storyline, 'status' | 'recap'> | null | undefined, pages?: readonly Pick<Page, 'status' | 'chapter_number'>[]): BookStatus {
+  const chapters = pages?.length ?? 0;
+  const colored = pages?.filter((p) => p.status === 'complete').length ?? 0;
+  const active = pages?.find((p) => p.status === 'active');
+  const chapter = active?.chapter_number ?? Math.min(colored + 1, Math.max(1, chapters));
+  if (!book || book.status === 'generating') return { state: 'writing', label: 'Sage is writing…', chapter: 0, chapters, colored };
+  const allColored = chapters > 0 && colored === chapters;
+  if (book.status === 'complete') {
+    if (book.recap?.abandoned || (pages && !allColored)) {
+      return { state: 'set_aside', label: chapters ? `Set aside · ${colored} of ${chapters} chapters` : 'Set aside', chapter, chapters, colored };
+    }
+    return { state: 'finished', label: 'Finished', chapter: chapters, chapters, colored };
+  }
+  return { state: 'reading', label: chapters ? `Chapter ${chapter} of ${chapters}` : 'In progress', chapter, chapters, colored };
+}
+
+/** bookStatus() for any storyline id, kept live (loads its pages). */
+export function useBookStatus(book: Pick<Storyline, 'id' | 'status' | 'recap'> | null | undefined): BookStatus & { loading: boolean } {
+  const { pages, loading } = usePages(book?.id ?? null);
+  return { ...bookStatus(book, pages), loading };
+}
+
+const STORYLINE_COLS ='id, fellowship_id, book_number, title, synopsis, theme_tags, status, difficulty, recap, created_at';
 
 /** Region order of a template (for sorting a page's missions the way the page draws them). */
 type PageKey = Pick<Page, 'id' | 'chapter_number' | 'template_id'>;
@@ -313,9 +357,11 @@ export function useCompletions(storylineId: string | null): { completions: Compl
 // re-add points by hand. Each participant in a complete mission's completed_by earns mission.points.
 //   pointsFor(userId, missions) -> number
 //   leaderboard(members, missions) -> { member, user_id, points, missions, rank }[] (desc, ties share a rank)
+//   crewOf(mission) -> 'solo' | 'duet' | 'trio' | 'fellowship'; CREW_LABEL[crew] -> "Trio" (G1: label missions by crew,
+//   NOT by type — a 3-person mission still has type 'duet'). Points: solo 10 / duet 20 / trio 30 / fellowship 40 × difficulty.
 export {
-  asDifficulty, DIFFICULTY_MULTIPLIER, leaderboard, missionPoints, missionsCompletedBy, pointsFor, SIZE_POINTS,
-  type LeaderboardEntry,
+  asDifficulty, CREW_LABEL, CREW_POINTS, crewOf, DIFFICULTY_MULTIPLIER, leaderboard, missionPoints, missionsCompletedBy,
+  pointsFor, pointsForMission, SIZE_POINTS, type Crew, type LeaderboardEntry,
 } from '@/supabase/functions/_shared/points';
 
 // ---------------------------------------------------------------- extras (new exports, additive)

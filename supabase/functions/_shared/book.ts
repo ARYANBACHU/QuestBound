@@ -2,12 +2,17 @@
 // deterministic fallback missions, validate+repair of LLM output, and the DB writer.
 // Rule: never trust the model. Everything that reaches the DB passes through repairMission().
 import { admin } from './db.ts';
-import { missionPoints, type PointsDifficulty } from './points.ts';
+import { crewOf, missionPoints, type PointsDifficulty } from './points.ts';
 import type { Outline, StoryCtx } from './prompts.ts';
+import {
+  ALTERNATES, crewFor, crewWord, DEFAULT_HINT, FALLBACK, FALLBACK_CHAPTER_TEXT, FALLBACK_TITLES, type FallbackSpec,
+} from './fallbacks.ts';
 import {
   type MemberCtx, type MissionType, type Place, PROOF_FOR_TYPE, type RegionSize, SIZE_RULES, TEMPLATE_META,
   TEMPLATE_REGIONS, type TemplateId,
 } from './types.ts';
+
+export { ALTERNATES, FALLBACK };
 
 export interface DraftMission {
   region_id: string;
@@ -21,196 +26,30 @@ export interface DraftMission {
   trial_answer: string | null;
   verification_hint: string;
   points: number;
+  crew: number; // required_members (G1): everyone for gatherings, 2–3 for mediums, 1–2 for smalls
   source: 'llm' | 'fallback';
 }
 export interface DraftChapter { chapter_number: number; template_id: TemplateId; title: string; narrative: string; missions: DraftMission[] }
 export interface DraftBook { title: string; synopsis: string; theme_tags: string[]; chapters: DraftChapter[] }
 
-// ------------------------------------------------------------------ fallback content
+// ------------------------------------------------------------------ fallback content (_shared/fallbacks.ts)
 
-interface FallbackSpec {
-  type: MissionType;
-  title: string;
-  desc: (p: Place | null) => string;
-  hook: string;
-  hint: string;
-  wantsPlace?: boolean;
-  trial?: { q: string; a: string }; // a may hold alternates separated by "|"
+const sizeOf = (t: TemplateId, regionId: string): RegionSize =>
+  TEMPLATE_REGIONS[t].find((r) => r.id === regionId)?.size ?? 'small';
+
+/** Required members for a region of a page, for a fellowship of `memberCount` (G1 crew plan). */
+export function planCrew(templateId: TemplateId, regionId: string, memberCount: number, type?: MissionType): number {
+  return crewFor(sizeOf(templateId, regionId), FALLBACK[templateId]?.[regionId]?.crew, memberCount, type);
 }
 
-const at = (p: Place | null, fallback: string) => (p ? p.title : fallback);
+/** Mission types a region slot allows: a trio can't be a gift (a gift is giver + recipient). */
+export function allowedTypes(size: RegionSize, crew: number): MissionType[] {
+  return SIZE_RULES[size].types.filter((t) => !(crew >= 3 && t === 'gift'));
+}
 
-export const FALLBACK: Record<TemplateId, Record<string, FallbackSpec>> = {
-  castle_gate: {
-    castle: {
-      type: 'gathering', title: 'Council at the Gate', wantsPlace: true,
-      desc: (p) => `Meet all together at ${at(p, 'a spot you all love')} and take one group photo with your hands stacked like a pact.`,
-      hook: 'Every great fellowship begins with a shared table and a promise.',
-      hint: 'Group photo with most of the fellowship visible, hands stacked or drinks raised.',
-    },
-    drawbridge: {
-      type: 'duet', title: 'Cross the Bridge Together', wantsPlace: true,
-      desc: (p) => `Two of you walk to ${at(p, 'a bridge or crosswalk nearby')} together and photograph your two pairs of shoes side by side.`,
-      hook: 'The drawbridge only lowers for those who cross it side by side.',
-      hint: 'Photo showing two people (or two pairs of shoes) together outdoors.',
-    },
-    banners: {
-      type: 'gift', title: 'Stitch the Banner',
-      desc: () => 'Make or buy a tiny surprise (under $5) for another member: a doodle, a snack, a note. They confirm when they get it.',
-      hook: 'A banner is stitched from small kindnesses.',
-      hint: 'The recipient confirms they received it.',
-    },
-    moon: {
-      type: 'relic', title: 'Capture the Moon',
-      desc: () => 'Photograph the moon tonight. No moon? The brightest light in the night sky will do.',
-      hook: 'The moon keeps the first lantern safe.',
-      hint: 'Photo of the moon or a night sky.',
-    },
-    tower_flag: {
-      type: 'trial', title: 'The Riddle of the Tower',
-      desc: () => 'Answer the riddle carved into the tower door.',
-      hook: 'The flag will not rise for a fool.',
-      hint: 'The correct answer.',
-      trial: { q: 'I have keys but open no locks, I have space but no room, and you can enter but never go inside. What am I?', a: 'keyboard|a keyboard|computer keyboard' },
-    },
-    moat: {
-      type: 'bard', title: 'Verse of the Moat',
-      desc: () => 'Write two lines of a poem about your fellowship. The best lines are written into the book.',
-      hook: 'The moat only lets poets pass.',
-      hint: 'Two lines of verse about the group.',
-    },
-  },
-  enchanted_forest: {
-    great_tree: {
-      type: 'gathering', title: 'Beneath the Great Tree', wantsPlace: true,
-      desc: (p) => `Gather everyone at ${at(p, 'a nearby park')} and take a group photo under the biggest tree you can find.`,
-      hook: 'The Great Tree remembers every friend who has stood beneath it.',
-      hint: 'Group photo outdoors with a tree or greenery.',
-    },
-    mushroom_ring: {
-      type: 'duet', title: 'The Mushroom Ring', wantsPlace: true,
-      desc: (p) => `Two of you share a snack picnic at ${at(p, 'a patch of grass nearby')} and photograph your spread laid out in a circle.`,
-      hook: 'Sit inside the ring and the forest will share its secrets.',
-      hint: 'Photo of snacks or food arranged together, ideally outdoors.',
-    },
-    river: {
-      type: 'trial', title: 'The Riddle of the River',
-      desc: () => 'Two of you solve the river spirit\'s riddle together.',
-      hook: 'The river spirit lets only clever pairs cross.',
-      hint: 'The correct answer.',
-      trial: { q: 'I run but never walk, I have a mouth but never talk, and a bed but never sleep. What am I?', a: 'river|a river|stream' },
-    },
-    fireflies: {
-      type: 'relic', title: 'Catch a Firefly',
-      desc: () => 'Photograph a small glowing light: string lights, a lantern, a candle or a neon sign.',
-      hook: 'Each firefly carries a spark of the stolen light.',
-      hint: 'Photo of a small glowing light source.',
-    },
-    owl: {
-      type: 'bard', title: 'The Owl\'s Question',
-      desc: () => 'Write the wisest thing someone in this fellowship has ever told you, in one or two sentences.',
-      hook: 'The Wise Owl trades directions for wisdom.',
-      hint: 'A sentence or two of wisdom from a friend.',
-    },
-    path: {
-      type: 'relic', title: 'The Winding Path', wantsPlace: true,
-      desc: (p) => `Photograph an interesting path, trail or staircase${p ? ` at ${p.title}` : ' on your way somewhere today'}.`,
-      hook: 'The path rearranges itself for the curious.',
-      hint: 'Photo of a path, trail or staircase.',
-    },
-  },
-  dragon_peak: {
-    dragon: {
-      type: 'gathering', title: 'Face the Dragon', wantsPlace: true,
-      desc: (p) => `Everyone meets at ${at(p, 'the most adventurous spot you can agree on')} and takes a group photo in your fiercest dragon pose.`,
-      hook: 'Dragons are only defeated by friends who show up together.',
-      hint: 'Group photo, people posing dramatically.',
-    },
-    mountain: {
-      type: 'duet', title: 'Climb the Mountain', wantsPlace: true,
-      desc: (p) => `Two of you climb to the highest point you can reach${p ? ` near ${p.title}` : ' nearby'} (a hill, a top floor, a rooftop deck) and photograph the view together.`,
-      hook: 'From the summit you can see where the thief has gone.',
-      hint: 'Photo of a view from up high, two people if possible.',
-    },
-    treasure: {
-      type: 'gift', title: 'Share the Hoard',
-      desc: () => 'Give another member a treasure: a sticker, a snack, a book to borrow. They confirm when they get it.',
-      hook: 'A dragon hoards. A fellowship shares.',
-      hint: 'The recipient confirms they received it.',
-    },
-    clouds: {
-      type: 'trial', title: 'The Storm\'s Riddle',
-      desc: () => 'Answer the riddle thundered from the storm clouds.',
-      hook: 'The clouds part only for the wise.',
-      hint: 'The correct answer.',
-      trial: { q: 'The more of me you take, the more you leave behind. What am I?', a: 'footsteps|steps|footprints' },
-    },
-    shield: {
-      type: 'relic', title: 'The Knight\'s Shield',
-      desc: () => 'Photograph something round and brave-looking out in the world: a clock, a manhole cover, a round sign.',
-      hook: 'Every knight needs a shield, even a borrowed one.',
-      hint: 'Photo of a round object.',
-    },
-    lantern: {
-      type: 'bard', title: 'Light the Lantern',
-      desc: () => 'Write one sentence about a moment this week when a friend made things brighter.',
-      hook: 'The last lantern is lit with a true story.',
-      hint: 'One sentence about a friend.',
-    },
-  },
-  royal_feast: {
-    feast_table: {
-      type: 'gathering', title: 'The Royal Feast', wantsPlace: true,
-      desc: (p) => `Share a meal all together at ${at(p, 'someone\'s place or a favorite cheap eat')} and take a group photo with the table full.`,
-      hook: 'Every tale worth telling ends at a crowded table.',
-      hint: 'Group photo with food on a table.',
-    },
-    throne: {
-      type: 'duet', title: 'Crown a Friend',
-      desc: () => 'Two of you crown each other (a paper crown counts) and take a royal portrait together.',
-      hook: 'The throne is shared in this kingdom.',
-      hint: 'Photo of two people, at least one wearing a crown.',
-    },
-    chandelier: {
-      type: 'trial', title: 'The Chandelier\'s Riddle',
-      desc: () => 'Two of you solve the riddle glittering in the chandelier.',
-      hook: 'The chandelier lights only when its riddle is answered.',
-      hint: 'The correct answer.',
-      trial: { q: 'I am tall when I am young and short when I am old. What am I?', a: 'candle|a candle' },
-    },
-    goblet: {
-      type: 'relic', title: 'Raise the Goblet', wantsPlace: true,
-      desc: (p) => `Photograph a fancy drink${p ? ` from ${p.title}` : ''}. Any drink in a nice cup counts.`,
-      hook: 'Fill the goblet and toast the tale.',
-      hint: 'Photo of a drink.',
-    },
-    cake: {
-      type: 'relic', title: 'The Enchanted Cake', wantsPlace: true,
-      desc: (p) => `Photograph a dessert worthy of a royal feast${p ? ` at ${p.title}` : ''}.`,
-      hook: 'One bite and every curse is lifted.',
-      hint: 'Photo of a dessert.',
-    },
-    lute: {
-      type: 'bard', title: 'The Bard\'s Lute',
-      desc: () => 'Write a four-word toast to your fellowship.',
-      hook: 'The bard needs one last verse to end the song.',
-      hint: 'A short toast.',
-    },
-  },
-};
-
-const DEFAULT_HINT: Record<MissionType, string> = {
-  gathering: 'Group photo with most of the fellowship visible.',
-  duet: 'Photo showing two members together doing the task.',
-  relic: 'Photo of the thing described.',
-  bard: 'A short piece of writing on the topic.',
-  trial: 'The correct answer.',
-  gift: 'The recipient confirms they received it.',
-};
-
-/** Points are always set server-side: size base × difficulty multiplier (_shared/points.ts). */
-export function defaultPoints(size: RegionSize, difficulty: PointsDifficulty = 'normal'): number {
-  return missionPoints(size, difficulty);
+/** Points are always set server-side: crew base × difficulty multiplier (_shared/points.ts). */
+export function defaultPoints(type: MissionType, crew: number, difficulty: PointsDifficulty = 'normal'): number {
+  return missionPoints(crewOf({ type, required_members: crew }), difficulty);
 }
 
 export function requiredMembers(size: RegionSize, memberCount: number): number {
@@ -218,14 +57,18 @@ export function requiredMembers(size: RegionSize, memberCount: number): number {
   return rule === 'all' ? Math.max(2, memberCount) : rule;
 }
 
-export function fallbackMission(templateId: TemplateId, regionId: string, _chapterIndex: number, place: Place | null, difficulty: PointsDifficulty = 'normal'): DraftMission {
-  const spec = FALLBACK[templateId][regionId];
-  const size = TEMPLATE_REGIONS[templateId].find((r) => r.id === regionId)!.size;
+export function fallbackMission(templateId: TemplateId, regionId: string, _chapterIndex: number, place: Place | null, difficulty: PointsDifficulty = 'normal', memberCount = 4): DraftMission {
+  const spec = FALLBACK[templateId]?.[regionId] ?? ALTERNATES[sizeOf(templateId, regionId)][0];
+  return fromSpec(spec, templateId, regionId, place, difficulty, memberCount);
+}
+
+function fromSpec(spec: FallbackSpec, templateId: TemplateId, regionId: string, place: Place | null, difficulty: PointsDifficulty, memberCount: number, crewOverride?: number): DraftMission {
+  const crew = crewOverride ?? planCrew(templateId, regionId, memberCount, spec.type);
   const p = spec.wantsPlace ? place : null;
   return {
-    region_id: regionId, type: spec.type, title: spec.title, description: spec.desc(p), story_hook: spec.hook,
+    region_id: regionId, type: spec.type, title: spec.title, description: spec.desc(p, crew), story_hook: spec.hook,
     place: p, assignee_ids: [], trial_question: spec.trial?.q ?? null, trial_answer: spec.trial?.a ?? null,
-    verification_hint: spec.hint, points: defaultPoints(size, difficulty), source: 'fallback',
+    verification_hint: spec.hint, points: defaultPoints(spec.type, crew, difficulty), crew, source: 'fallback',
   };
 }
 
@@ -255,20 +98,12 @@ export function preferredPlaces(places: Place[], chapterIndex: number, chapterCo
   return places.map((_, i) => i).filter((i) => i % chapterCount === chapterIndex);
 }
 
-export function fallbackChapterMissions(templateId: TemplateId, chapterIndex: number, picker: PlacePicker, prefer: number[], difficulty: PointsDifficulty = 'normal'): DraftMission[] {
+export function fallbackChapterMissions(templateId: TemplateId, chapterIndex: number, picker: PlacePicker, prefer: number[], difficulty: PointsDifficulty = 'normal', memberCount = 4): DraftMission[] {
   return TEMPLATE_REGIONS[templateId].map((r) => {
-    const spec = FALLBACK[templateId][r.id];
-    return fallbackMission(templateId, r.id, chapterIndex, spec.wantsPlace ? picker.pick(spec.type, prefer) : null, difficulty);
+    const spec = FALLBACK[templateId]?.[r.id];
+    return fallbackMission(templateId, r.id, chapterIndex, spec?.wantsPlace ? picker.pick(spec.type, prefer) : null, difficulty, memberCount);
   });
 }
-
-const FALLBACK_TITLES = ['The Lantern Thief', 'The Stolen Crayons', 'The Sleeping Dragon', 'The Lost Song', 'The Clockwork Crown'];
-const FALLBACK_CHAPTER_TEXT: Record<TemplateId, { title: string; narrative: string }> = {
-  castle_gate: { title: 'The Gathering at the Gate', narrative: 'The castle gate creaks open. Before any quest can begin, the fellowship must prove they can find each other in a city of a million lights.' },
-  enchanted_forest: { title: 'Whispers in the Wood', narrative: 'A trail of dimmed lanterns leads into the green places of the city, where the trees remember everything.' },
-  dragon_peak: { title: 'The Thief on the Peak', narrative: 'At the top of the world the thief waits, and so does the last lantern. Only a fellowship that climbs together can reach it.' },
-  royal_feast: { title: 'The Feast of Lanterns', narrative: 'The lights are home. The kingdom sets a long table, and every seat is saved for a friend.' },
-};
 
 export function fallbackOutline(ctx: StoryCtx, seed: number): Outline {
   const city = ctx.areaLabel.split(',')[0] || 'the City';
@@ -280,7 +115,7 @@ export function fallbackOutline(ctx: StoryCtx, seed: number): Outline {
     title,
     synopsis: `Something precious has gone missing from ${city}. ${who} must follow the clues across cafés, parks and stages before the Long Night falls.`,
     theme_tags: ctx.themes.slice(0, 3),
-    chapters: ctx.chapters.map((t, i) => ({ chapter_number: i + 1, template_id: t, ...FALLBACK_CHAPTER_TEXT[t] })),
+    chapters: ctx.chapters.map((t, i) => ({ chapter_number: i + 1, template_id: t, ...(FALLBACK_CHAPTER_TEXT[t] ?? { title: TEMPLATE_META[t].title, narrative: `The tale turns to ${TEMPLATE_META[t].title.toLowerCase()}.` }) })),
   };
 }
 
@@ -317,10 +152,13 @@ export function resolveAssignees(names: unknown, members: MemberCtx[]): string[]
 
 /** Coerce one raw LLM mission into a valid DraftMission for (template, region). Returns null if unusable. */
 // deno-lint-ignore no-explicit-any
-export function repairMission(raw: any, templateId: TemplateId, regionId: string, _chapterIndex: number, ctx: Pick<StoryCtx, 'places' | 'members'> & { difficulty?: PointsDifficulty }): DraftMission | null {
+export function repairMission(raw: any, templateId: TemplateId, regionId: string, _chapterIndex: number, ctx: Pick<StoryCtx, 'places' | 'members'> & { difficulty?: PointsDifficulty; crew?: number }): DraftMission | null {
   const size = TEMPLATE_REGIONS[templateId].find((r) => r.id === regionId)?.size;
   if (!size || !raw || typeof raw !== 'object') return null;
-  const allowed = SIZE_RULES[size].types;
+  const memberCount = Math.max(1, ctx.members.length);
+  // G1: the crew of this slot is decided by the page plan (or kept from the old mission on a reroll), not the model.
+  const slotCrew = ctx.crew ?? planCrew(templateId, regionId, memberCount);
+  const allowed = allowedTypes(size, slotCrew);
   let type: MissionType = allowed.includes(raw.type) ? raw.type : allowed[0];
   // The model sometimes leaks our place indexes ("… Mural (P6)") into player-facing text: drop "(P6)", name bare "P6".
   const deref = (t: string) => t.replace(/\s*\(\s*P\d+\s*\)/g, '')
@@ -329,7 +167,7 @@ export function repairMission(raw: any, templateId: TemplateId, regionId: string
     if (typeof raw[k] === 'string') raw = { ...raw, [k]: deref(raw[k]) };
   }
   const title = str(raw.title, 60);
-  const description = str(raw.description, 400);
+  let description = str(raw.description, 400);
   if (!title || !description) return null;
 
   let trial_question: string | null = null;
@@ -346,6 +184,12 @@ export function repairMission(raw: any, templateId: TemplateId, regionId: string
   }
   if (type === 'relic' && /riddle|answer the/i.test(description)) return null; // converted trial reads as nonsense
 
+  const crew = type === 'gift' ? 2 : type === 'gathering' ? Math.max(2, memberCount) : slotCrew;
+  // Copy must match the crew: "Two of you…" on a trio slot becomes "Three of you…" (and vice versa).
+  if (type !== 'gathering' && type !== 'gift') {
+    description = description.replace(/^(two|three|four|both|a pair|a duo|a trio) of you\b/i, crewWord(crew));
+  }
+
   let place = resolvePlace(raw.place_ref ?? raw.place, ctx.places);
   // Events are for groups (a solo relic at a concert is weird); gifts happen wherever.
   if (place?.source === 'google_events' && type !== 'gathering' && type !== 'duet') place = null;
@@ -354,13 +198,14 @@ export function repairMission(raw: any, templateId: TemplateId, regionId: string
     type,
     title,
     description,
-    story_hook: str(raw.story_hook, 240, FALLBACK[templateId][regionId].hook),
+    story_hook: str(raw.story_hook, 240, FALLBACK[templateId]?.[regionId]?.hook ?? 'The page waits for its color.'),
     place: type === 'gift' ? null : place,
     assignee_ids: type === 'gathering' ? [] : resolveAssignees(raw.assignee_names ?? raw.assignees, ctx.members),
     trial_question,
     trial_answer,
     verification_hint: str(raw.verification_hint, 240, DEFAULT_HINT[type]),
-    points: defaultPoints(size, ctx.difficulty), // never trust the model with the score
+    points: defaultPoints(type, crew, ctx.difficulty), // never trust the model with the score
+    crew,
     source: 'llm',
   };
 }
@@ -379,8 +224,8 @@ export function repairChapter(rawMissions: any, templateId: TemplateId, chapterI
       return fixed;
     }
     repaired++;
-    const spec = FALLBACK[templateId][r.id];
-    return fallbackMission(templateId, r.id, chapterIndex, spec.wantsPlace ? picker.pick(spec.type, prefer) : null, ctx.difficulty);
+    const spec = FALLBACK[templateId]?.[r.id];
+    return fallbackMission(templateId, r.id, chapterIndex, spec?.wantsPlace ? picker.pick(spec.type, prefer) : null, ctx.difficulty, ctx.members.length);
   });
   return { missions, repaired };
 }
@@ -415,11 +260,11 @@ export async function writeBookRows(storylineId: string, fellowshipId: string, b
 
   const rows = book.chapters.flatMap((c, i) =>
     c.missions.map((m) => {
-      const size = TEMPLATE_REGIONS[c.template_id].find((r) => r.id === m.region_id)!.size;
+      const size = sizeOf(c.template_id, m.region_id);
       return {
         page_id: pageId.get(i + 1), storyline_id: storylineId, fellowship_id: fellowshipId, region_id: m.region_id,
         title: m.title, description: m.description, story_hook: m.story_hook, type: m.type,
-        proof_type: PROOF_FOR_TYPE[m.type], required_members: requiredMembers(size, memberCount),
+        proof_type: PROOF_FOR_TYPE[m.type], required_members: m.crew ?? requiredMembers(size, memberCount),
         assignee_ids: m.assignee_ids, place: m.place, trial_question: m.trial_question,
         verification_hint: m.verification_hint, points: m.points, status: i === 0 ? 'open' : 'locked',
       };
@@ -448,33 +293,13 @@ export function templateTitle(t: TemplateId) {
 
 // ------------------------------------------------------------------ reroll alternates
 
-/** Extra region-agnostic missions per size, used when a reroll can't reach the LLM. */
-export const ALTERNATES: Record<RegionSize, FallbackSpec[]> = {
-  large: [
-    { type: 'gathering', title: 'The Round Table', wantsPlace: true, desc: (p) => `Everyone meets at ${at(p, 'someone\'s place')} and plays one game together, any game. Take a group photo mid-game.`, hook: 'Even kings settle things over a good game.', hint: 'Group photo of people playing a game.' },
-    { type: 'gathering', title: 'The Long Walk', wantsPlace: true, desc: (p) => `Take a 20-minute walk all together${p ? ` around ${p.title}` : ''} and snap a group selfie at the halfway point.`, hook: 'Quests are mostly walking, and the best ones are walked together.', hint: 'Group selfie outdoors.' },
-  ],
-  medium: [
-    { type: 'duet', title: 'Two-Person Feast', wantsPlace: true, desc: (p) => `Two of you split a snack or drink${p ? ` at ${p.title}` : ''} and photograph it before the first bite.`, hook: 'Bread broken in two tastes twice as good.', hint: 'Photo of food or drinks for two.' },
-    { type: 'duet', title: 'Mirror Match', desc: () => 'Two of you strike the exact same pose somewhere fun and take one photo of it.', hook: 'Twin knights confuse any dragon.', hint: 'Two people in matching poses.' },
-    { type: 'gift', title: 'A Note in the Satchel', desc: () => 'Write a short kind note for another member and give it to them in person. They confirm when they read it.', hook: 'Some magic is just ink and honesty.', hint: 'The recipient confirms.' },
-  ],
-  small: [
-    { type: 'relic', title: 'The Colored Relic', desc: () => 'Photograph something in the wild that matches your crayon color exactly.', hook: 'Your color is hiding everywhere, waiting to be found.', hint: 'Photo of an object in the player\'s color.' },
-    { type: 'bard', title: 'Tavern Review', desc: () => 'Write a three-sentence fairy-tale review of the last place you ate.', hook: 'Every inn deserves a ballad, good or bad.', hint: 'A short playful review.' },
-    { type: 'relic', title: 'The Sky Today', desc: () => 'Photograph the sky right now, wherever you are.', hook: 'The sky keeps a diary of every quest.', hint: 'Photo of the sky.' },
-  ],
-};
-
-export function alternateMission(templateId: TemplateId, regionId: string, _chapterIndex: number, currentTitle: string, place: Place | null, seed: number, difficulty: PointsDifficulty = 'normal'): DraftMission {
-  const size = TEMPLATE_REGIONS[templateId].find((r) => r.id === regionId)!.size;
-  const base = FALLBACK[templateId][regionId];
-  const pool = [base, ...ALTERNATES[size]].filter((s) => s.title !== currentTitle);
+/** A handcrafted replacement for one region (reroll without the LLM). Keeps the old mission's crew. */
+export function alternateMission(templateId: TemplateId, regionId: string, _chapterIndex: number, currentTitle: string, place: Place | null, seed: number, difficulty: PointsDifficulty = 'normal', crew?: number): DraftMission {
+  const size = sizeOf(templateId, regionId);
+  const base = FALLBACK[templateId]?.[regionId];
+  const slot = crew ?? planCrew(templateId, regionId, 4);
+  const pool = [...(base ? [base] : []), ...ALTERNATES[size]]
+    .filter((s) => s.title !== currentTitle && !(slot >= 3 && s.type === 'gift'));
   const spec = pool[Math.abs(seed) % pool.length];
-  const p = spec.wantsPlace ? place : null;
-  return {
-    region_id: regionId, type: spec.type, title: spec.title, description: spec.desc(p), story_hook: spec.hook, place: p,
-    assignee_ids: [], trial_question: spec.trial?.q ?? null, trial_answer: spec.trial?.a ?? null,
-    verification_hint: spec.hint, points: defaultPoints(size, difficulty), source: 'fallback',
-  };
+  return fromSpec(spec, templateId, regionId, place, difficulty, 4, spec.type === 'gift' ? 2 : slot);
 }

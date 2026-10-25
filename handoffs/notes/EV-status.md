@@ -1,5 +1,46 @@
 # EV status — Story Engine (feat/engine)
 
+## Round 3 — DONE on feat/engine (deployed to the live project + smoke-tested, Oct 25)
+Every ROUND-3 item tagged EV: B1 (engine side + root cause for AB), B2, G1, G2, G3. Deployed: generate-storyline,
+submit-proof, reroll-mission, paint-chapter (new). `npm run typecheck` ✓, `deno check` ✓ (all functions incl. wizard-chat),
+`node fixtures/points.test.mjs` ✓ (6), `node fixtures/templates.test.mjs` ✓ (4). Migration 0004 is already live (20 ids).
+
+**B1 new-book crash** — not reproducible on web (7 real + 6 mock books, every difficulty, Missions "…" and Settings,
+zero JS errors; all 482 SVG paths parse). Root cause is native-only in AB's NewStorylineSheet (one `<Modal>` swapped for
+another in one commit; iOS rejects the 2nd present). Fix diff for AB: `handoffs/notes/EV-B1-fix-for-AB.diff`, written up
+in REQUESTS.md. Engine side: a double-fired replace (same difficulty, <2 min, nothing colored) reuses the fresh book.
+**B2 status transitions** — live data showed the bug: Book 2 (unplayed) was shelved 90 s after it was written by a
+`mode:'sequel'` summon. Now: sequels never shelve an unfinished book (they return it, `reused`); only `replace_active`
+or `demo` shelve (status `complete` + `recap.abandoned`). submit-proof closes a book ONLY when every page is complete
+(reads all pages; a read error no longer looks like "last page"). Client: `bookStatus(book, pages)` /
+`useBookStatus(book)` in lib/game → `writing | reading | finished | set_aside` + label ("Chapter 2 of 3", "Finished",
+"Set aside · 1 of 3 chapters"). Mock engine follows the same rules.
+**G1 group play** — `_shared/fallbacks.ts` (pure, shared with the mock engine): fallback missions + chapter text for all
+20 templates. Per page: large = everyone; ONE medium is a TRIO when the fellowship has ≥3 (never a gift); ONE small is a
+DUET when ≥2 → at most 2 solos. `crewFor()` decides; prompts tell the model each region's crew; repair rewrites
+"Two of you" ↔ "Three of you" to match; reroll keeps the crew. Points (`_shared/points.ts`): solo 10 / duet 20 / trio 30 /
+fellowship 40 × difficulty (`crewOf`, `CREW_POINTS`, `CREW_LABEL`, `pointsForMission`; `missionPoints(size)` still works).
+UT book + fixture book + mock books follow it. Photo verifier expects the crew size in duet/trio photos.
+**G2 template variety** — `_shared/pick.ts` (pure): mood-fit score from members' interests + slot fit (opener/middle/
+finale) + seeded variety; no repeats in a book; previous book's templates avoided (older ones mildly). Only ART-READY
+templates: the app sends `art_ready` (lib/api `drawnTemplates()`: AD's `DRAWN_TEMPLATES` export if present, else detects
+the placeholder path); old clients → `ART_READY_TEMPLATES` secret (unset) → the 4 classics. Verified live: art_ready with
+candy_village/starlit_tower → "castle_gate → candy_village → starlit_tower"; no art_ready → classics; next book avoided
+the previous one's pages. `generation_context.templates = { picked, art_ready, avoided }`.
+**G3 paint-chapter** — `POST paint-chapter { page_id }` (completed pages only; 409 "Finish this page first!") or
+`{ storyline_id }` (back-fill). Client: `paintChapter(pageId)`, `paintBook(storylineId)` (mock paints a picsum image).
+Concurrent callers converge on one url; one illustration memory; repeat calls cached (~0.4 s). New picture-book style
+(`PAINT_STYLE` in prompts.ts) for chapter art + montage frames. Muse Image returns 1600² PNGs (~4.5 MB) whatever format
+is asked, so paintings are re-encoded to 1024² JPEG (~370 KB, ~250 ms CPU, imagescript loaded lazily, PNG fallback).
+Measured: 14–32 s per painting.
+
+**Known limits / next**
+- Template art: as of this session only the 4 classics are drawn on main, so real books stay on classics until AD/MP's
+  art merges (then automatic via `art_ready`). Ask AD for the `DRAWN_TEMPLATES` export (REQUESTS.md).
+- Two simultaneous first-time paint calls both pay for a painting (same result). Fine for the demo.
+- LLM books still take ~26 s (one chapter may fall back). `demo: true` / `demo: 'ut'` are instant.
+- B1 fix itself is AB's (their files); verify on a real iPhone.
+
 ## Round 2 — DONE on feat/engine (all deployed to the live project + smoke-tested, Oct 25)
 Every item for EV in ROUND-2-PLAN (E1–E7, P11, P12, NAMING, MAPS LINKS). Functions deployed: generate-storyline,
 submit-proof, reroll-mission. `npm run typecheck` ✓, `deno check` ✓ on every function, `node fixtures/points.test.mjs` ✓.

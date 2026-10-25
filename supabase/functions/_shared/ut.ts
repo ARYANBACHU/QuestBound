@@ -4,7 +4,8 @@
 import { type DraftBook, type DraftMission, ensureCoverage } from './book.ts';
 import { withTimeout } from './llm.ts';
 import { haversineM, isCoord } from './geo.ts';
-import { missionPoints, type PointsDifficulty } from './points.ts';
+import { crewOf, missionPoints, type PointsDifficulty } from './points.ts';
+import { crewFor, crewWord } from './fallbacks.ts';
 import { googleMapsLink, mapsSearch } from './serp.ts';
 import { UT_BOOK, UT_CENTER, UT_PLACES, UT_VERIFY_MAX_M, type UTPlace } from './ut-campus.ts';
 import type { MemberCtx, Place } from './types.ts';
@@ -70,11 +71,13 @@ export function buildUTBook(places: Record<string, Place>, difficulty: PointsDif
     const missions: DraftMission[] = c.missions.map((m) => {
       const size = TEMPLATE_REGIONS[c.template_id].find((r) => r.id === m.region_id)!.size;
       if (m.type === 'trial') secrets++;
+      const crew = crewFor(size, m.crew, members.length, m.type);
       return {
-        region_id: m.region_id, type: m.type, title: m.title, description: m.description, story_hook: m.story_hook,
-        place: m.place ? places[m.place] ?? null : null, assignee_ids: [],
+        region_id: m.region_id, type: m.type, title: m.title, description: m.description.replace('{Crew}', crewWord(crew)),
+        story_hook: m.story_hook, place: m.place ? places[m.place] ?? null : null, assignee_ids: [],
         trial_question: m.trial_question ?? null, trial_answer: m.trial_answer ?? null,
-        verification_hint: m.verification_hint, points: missionPoints(size, difficulty), source: 'fallback',
+        verification_hint: m.verification_hint, points: missionPoints(crewOf({ type: m.type, required_members: crew }), difficulty),
+        crew, source: 'fallback',
       };
     });
     ensureCoverage(missions, members, {});

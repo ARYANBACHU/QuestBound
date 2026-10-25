@@ -105,29 +105,65 @@ function b64ToBytes(b64: string): Uint8Array {
 }
 
 /** Generate an image and store it in the public 'art' bucket. Signed URLs expire, so we always re-host. */
+/**
+ * G3: Muse Image returns ~1600² PNGs (~4.5 MB) whatever format we ask for. Phones on hackathon Wi-Fi want ~350 KB:
+ * re-encode as a 1024² JPEG (≈250 ms CPU with imagescript, loaded lazily). Any failure keeps the original bytes.
+ */
+async function phoneSized(bytes: Uint8Array, mime: string): Promise<{ bytes: Uint8Array; mime: string }> {
+  if (mime !== 'image/png' || bytes.length < 800_000) return { bytes, mime };
+  try {
+    const { Image } = await import('https://deno.land/x/imagescript@1.3.0/mod.ts');
+    const img = await Image.decode(bytes);
+    if (img.width > 1024) img.resize(1024, Image.RESIZE_AUTO);
+    return { bytes: await img.encodeJPEG(80), mime: 'image/jpeg' };
+  } catch (e) {
+    console.warn('[paint] jpeg re-encode failed, keeping png', String(e));
+    return { bytes, mime };
+  }
+}
+
 export async function paintToBucket(prompt: string, path: string): Promise<string | null> {
   const img = await generateImage(prompt);
   if (!img) return null;
-  if (img.b64) return uploadArt(path, b64ToBytes(img.b64), img.mime);
-  if (img.url) {
+  let raw: { bytes: Uint8Array; mime: string } | null = null;
+  if (img.b64) raw = { bytes: b64ToBytes(img.b64), mime: img.mime };
+  else if (img.url) {
     const res = await fetch(img.url);
     if (!res.ok) return null;
-    return uploadArt(path, new Uint8Array(await res.arrayBuffer()), res.headers.get('content-type') ?? img.mime);
+    raw = { bytes: new Uint8Array(await res.arrayBuffer()), mime: res.headers.get('content-type') ?? img.mime };
   }
-  return null;
+  if (!raw) return null;
+  const out = await phoneSized(raw.bytes, raw.mime);
+  path = path.replace(/\.(png|jpe?g)$/, out.mime === 'image/jpeg' ? '.jpg' : '.png'); // extension follows the bytes
+  return uploadArt(path, out.bytes, out.mime);
 }
 
-export async function paintChapter(page: Page, fellowshipId: string, members: MemberCtx[]) {
+/**
+ * Paint a chapter's illustration (Muse Image -> 'art' bucket), set pages.illustration_url and add ONE illustration
+ * memory. Returns the url (or null when the image model is unavailable). Safe to call twice: the second caller
+ * reuses the first one's art (re-checked right before painting and before writing).
+ */
+export async function paintChapter(page: Page, fellowshipId: string, members: MemberCtx[]): Promise<string | null> {
+  const { data: fresh } = await admin.from('pages').select('illustration_url').eq('id', page.id).maybeSingle();
+  if (fresh?.illustration_url) return fresh.illustration_url as string;
   const { data: missions } = await admin.from('missions').select('story_line').eq('page_id', page.id);
   const lines = (missions ?? []).map((m) => m.story_line).filter((x): x is string => !!x);
   const crests = members.map((m) => `${m.crest_title.toLowerCase()} ${m.crest_emoji}`);
   const url = await paintToBucket(illustrationPrompt(page, lines, crests), `${page.storyline_id}/${page.id}.png`);
-  if (!url) return;
-  await admin.from('pages').update({ illustration_url: url }).eq('id', page.id);
+  if (!url) return null;
+  // Cache-bust: the path is stable (upsert), so add a version so phones don't keep an old copy.
+  const versioned = `${url}?v=${Date.now().toString(36)}`;
+  const { data: won } = await admin.from('pages').update({ illustration_url: versioned }).eq('id', page.id)
+    .is('illustration_url', null).select('id').maybeSingle();
+  if (!won) {
+    const { data: other } = await admin.from('pages').select('illustration_url').eq('id', page.id).maybeSingle();
+    return (other?.illustration_url as string | undefined) ?? versioned;
+  }
   await admin.from('memories').insert({
-    fellowship_id: fellowshipId, storyline_id: page.storyline_id, page_id: page.id, image_url: url,
+    fellowship_id: fellowshipId, storyline_id: page.storyline_id, page_id: page.id, image_url: versioned,
     caption: page.title, kind: 'illustration',
   });
+  return versioned;
 }
 
 /** Round 2: 3-5 storybook frames of the best moments, for AD's montage player. */

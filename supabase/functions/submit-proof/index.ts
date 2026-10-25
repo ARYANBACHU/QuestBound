@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
     case 'photo':
     case 'group_photo':
       if (!proof_url) return nope('The Magic Mirror needs a photo. It is a mirror, after all! Snap one and try again.', 'no_photo');
-      verdict = await verifyPhoto(mission, proof_url, mission.proof_type === 'group_photo' ? need : undefined, left);
+      verdict = await verifyPhoto(mission, proof_url, need >= 2 ? need : undefined, left); // duets/trios: expect the crew
       break;
     default: // text, voice
       if (!proof_text) return nope('The page is blank! Even Sage needs a few words to work with. Try again.', 'no_text');
@@ -178,20 +178,27 @@ Deno.serve(async (req) => {
         .eq('id', page!.id).eq('status', 'active').select('*').maybeSingle<Page>();
       if (closed) {
         page_completed = true;
-        const { data: next } = await admin.from('pages').select('*').eq('storyline_id', page!.storyline_id)
-          .eq('chapter_number', page!.chapter_number + 1).maybeSingle<Page>();
-        if (next) {
+        // B2: the book is complete ONLY when every page is complete. Read all pages (not maybeSingle on the next
+        // chapter: a read error there used to look like "no next page" and closed the book after chapter 1).
+        const { data: allPages, error: pagesErr } = await admin.from('pages').select('*')
+          .eq('storyline_id', page!.storyline_id).order('chapter_number');
+        const later = (allPages ?? []).filter((p: Page) => p.chapter_number > page!.chapter_number);
+        const next = later[0] ?? null;
+        const unfinished = (allPages ?? []).filter((p: Page) => p.id !== page!.id && p.status !== 'complete');
+        if (pagesErr || !allPages) {
+          console.error('[submit-proof] page read failed; not closing the book', pagesErr?.message);
+        } else if (next) {
           await admin.from('missions').update({ status: 'open' }).eq('page_id', next.id).eq('status', 'locked');
           await admin.from('pages').update({ status: 'active' }).eq('id', next.id);
           await proclaim(mission!.fellowship_id,
             `Chapter ${roman(page!.chapter_number)} is fully colored, not a single white gap! The page turns… Chapter ${roman(next.chapter_number)}: ${next.title} begins.`,
             { event: 'page_complete', page_id: page!.id, storyline_id: page!.storyline_id });
-        } else {
+        } else if (unfinished.length === 0) {
           book_completed = true;
           await proclaim(mission!.fellowship_id, `Chapter ${roman(page!.chapter_number)} is fully colored! The final page turns…`,
             { event: 'page_complete', page_id: page!.id, storyline_id: page!.storyline_id });
           const recap = await buildRecap(storyline!, members, Math.max(2_000, left() - 500));
-          await admin.from('storylines').update({ status: 'complete', recap }).eq('id', storyline!.id);
+          await admin.from('storylines').update({ status: 'complete', recap }).eq('id', storyline!.id).eq('status', 'active');
           await announceBook(mission!.fellowship_id, storyline!.id, storyline!.title, recap);
           background(paintMontage(storyline!.id, mission!.fellowship_id, members));
         }

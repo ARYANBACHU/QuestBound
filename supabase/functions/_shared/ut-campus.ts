@@ -27,6 +27,7 @@ export interface UTMission {
   trial_question?: string;
   trial_answer?: string; // alternates separated by "|"
   verification_hint: string;
+  crew?: 2 | 3; // G1: medium trio slot (3) / small duet slot (2). Description starts with {Crew} ("Three of you").
 }
 
 export interface UTChapter {
@@ -119,7 +120,7 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
         },
         {
           region_id: 'drawbridge', type: 'duet', title: 'March the South Mall', place: 'littlefield',
-          description: 'Two of you walk down the South Mall from the Tower to Littlefield Fountain, then take a photo together with the fountain behind you.',
+          description: '{Crew} walk down the South Mall from the Tower to Littlefield Fountain, then take a photo together with the fountain behind you.', crew: 3,
           story_hook: 'The old road between tower and fountain only opens for pairs.',
           verification_hint: 'Two people with a large fountain (bronze figures, horses) behind them.',
         },
@@ -139,7 +140,7 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
         },
         {
           region_id: 'tower_flag', type: 'trial', title: 'How Tall the Tower', place: 'tower',
-          description: 'Stand at the foot of the Tower, look up, and answer its riddle.',
+          description: '{Crew} stand at the foot of the Tower, look up, and answer its riddle together.', crew: 2,
           story_hook: 'The flag rises only for those who know how far it must climb.',
           trial_question: 'The UT Tower rises over the Forty Acres. How tall is it, in feet?',
           trial_answer: '307|307 feet|307 ft|three hundred seven|three hundred and seven',
@@ -168,7 +169,7 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
         },
         {
           region_id: 'mushroom_ring', type: 'duet', title: 'The Chapel of Color', place: 'blanton',
-          description: "Two of you visit the Blanton and find Ellsworth Kelly's “Austin”, the white stone chapel with colored windows. Take a photo together outside it.",
+          description: "{Crew} visit the Blanton and find Ellsworth Kelly's “Austin”, the white stone chapel with colored windows. Take a photo together outside it.", crew: 3,
           story_hook: 'A chapel built of pure color, waiting for two travelers to notice.',
           verification_hint: 'Two people outside a small white stone building with colored glass windows.',
         },
@@ -194,7 +195,7 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
         },
         {
           region_id: 'path', type: 'relic', title: 'The Speedway Path', place: 'gdc',
-          description: 'Walk the Speedway Mall to the Gates Dell Complex and photograph the long path stretching ahead of you.',
+          description: '{Crew} walk the Speedway Mall to the Gates Dell Complex and photograph the long path stretching ahead of you.', crew: 2,
           story_hook: 'The path rearranges itself for anyone who walks it curious.',
           verification_hint: 'Photo of a wide campus walkway or path.',
         },
@@ -215,7 +216,7 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
         },
         {
           region_id: 'mountain', type: 'duet', title: 'Climb the Library Steps', place: 'lbj',
-          description: 'Two of you climb the wide plaza steps of the LBJ Library and photograph the campus view from the top together.',
+          description: '{Crew} climb the wide plaza steps of the LBJ Library and photograph the campus view from the top together.', crew: 3,
           story_hook: 'From the summit of the steps, you can see the whole quest below.',
           verification_hint: 'Photo from a high plaza or steps, two people if possible.',
         },
@@ -227,7 +228,7 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
         },
         {
           region_id: 'clouds', type: 'trial', title: "The President's Number", place: 'lbj',
-          description: 'At the LBJ Library, answer the riddle thundered from the storm clouds.',
+          description: '{Crew} head to the LBJ Library and answer the riddle thundered from the storm clouds.', crew: 2,
           story_hook: 'The clouds part only for those who know their history.',
           trial_question: 'The LBJ Library honors Lyndon Baines Johnson. Which number president of the United States was he?',
           trial_answer: '36|36th|thirty sixth|thirty-sixth|the 36th',
@@ -264,7 +265,7 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
         },
         {
           region_id: 'throne', type: 'duet', title: 'Royal Portrait at the Fountain', place: 'littlefield',
-          description: 'Two of you strike your most royal pose in front of Littlefield Fountain and take a portrait together.',
+          description: '{Crew} strike your most royal pose in front of Littlefield Fountain and take a portrait together.', crew: 3,
           story_hook: 'The throne of the Forty Acres is shared, as all good thrones are.',
           verification_hint: 'Two people posing grandly in front of a fountain.',
         },
@@ -278,7 +279,7 @@ export const UT_BOOK: { title: string; synopsis: string; theme_tags: string[]; c
         },
         {
           region_id: 'goblet', type: 'relic', title: 'Raise the Goblet', place: 'union',
-          description: 'Photograph a drink from anywhere in the Texas Union. Any cup is a goblet if you hold it proudly.',
+          description: '{Crew} raise a drink anywhere in the Texas Union and photograph the toast. Any cup is a goblet if you hold it proudly.', crew: 2,
           story_hook: 'Fill the goblet and toast the tale.',
           verification_hint: 'Photo of a drink.',
         },

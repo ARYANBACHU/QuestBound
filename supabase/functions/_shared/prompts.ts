@@ -2,6 +2,7 @@
 // NAMING: the in-app wizard is "Sage"; "Muse" is only Meta's model (the "✦ powered by Muse" credit).
 // AB's wizard-chat imports MUSE_PERSONA from here (kept as the export name; SAGE_PERSONA is the same string).
 import { interestLabel } from './interests.ts';
+import { crewFor, FALLBACK } from './fallbacks.ts';
 import type { PointsDifficulty } from './points.ts';
 import {
   type BookRecap, type MemberCtx, type Mission, type Page, type Place, SIZE_RULES, TEMPLATE_META,
@@ -70,12 +71,19 @@ const SAFETY_RULES = [
 function sizeRulesText(): string {
   return [
     `large regions -> type "gathering" (the WHOLE fellowship together; proof is a group photo)`,
-    `medium regions -> one of ${SIZE_RULES.medium.types.map((t) => `"${t}"`).join(', ')} (exactly 2 members together). ` +
-      `duet = two people do something together (photo). gift = one member makes/buys a tiny surprise for another, who confirms. ` +
-      `trial = a co-op riddle two people solve on location.`,
-    `small regions -> one of ${SIZE_RULES.small.types.map((t) => `"${t}"`).join(', ')} (solo). relic = find/photograph ` +
-      `a specific thing. bard = write a short verse/story/review (text). trial = a riddle with one short answer.`,
+    `medium regions -> one of ${SIZE_RULES.medium.types.map((t) => `"${t}"`).join(', ')}, done by a DUET (2 members) or a TRIO ` +
+      `(3 members) — each region says which. duet = the members do something together (photo). gift = one member makes/buys a ` +
+      `tiny surprise for another, who confirms (always 2 people, never on a trio region). trial = a co-op riddle solved together on location.`,
+    `small regions -> one of ${SIZE_RULES.small.types.map((t) => `"${t}"`).join(', ')}, SOLO or a DUET of 2 — each region says which. ` +
+      `relic = find/photograph a specific thing. bard = write a short verse/story/review (text). trial = a riddle with one short answer.`,
+    `GROUP PLAY: at most 2 solo missions per page. The description of every duet/trio mission starts with "Two of you" / "Three of you".`,
   ].join('\n- ');
+}
+
+/** "TRIO (exactly 3 members together)" etc. for one region slot. */
+export function crewText(size: 'small' | 'medium' | 'large', crew: number): string {
+  if (size === 'large') return 'GATHERING (everyone)';
+  return crew >= 3 ? 'TRIO (exactly 3 members together)' : crew === 2 ? 'DUET (exactly 2 members together)' : 'SOLO (1 member)';
 }
 
 export function placeLines(places: Place[]): string {
@@ -152,7 +160,11 @@ ALL CHAPTERS: ${outline.chapters.map((c) => `${c.chapter_number}. ${c.title}`).j
 
 NOW WRITE CHAPTER ${ch.chapter_number} of ${outline.chapters.length}: "${ch.title}" — ${ch.narrative}
 Page: ${ch.template_id} (${TEMPLATE_META[ch.template_id].mood}). It has exactly these regions — write EXACTLY ONE mission per region:
-${regions.map((r) => `- region_id "${r.id}" (${r.label}, ${r.size}) -> ${SIZE_RULES[r.size].types.join(' | ')}`).join('\n')}
+${regions.map((r) => {
+    const crew = crewFor(r.size, FALLBACK[ch.template_id]?.[r.id]?.crew, n);
+    const types = SIZE_RULES[r.size].types.filter((t) => !(crew >= 3 && t === 'gift'));
+    return `- region_id "${r.id}" (${r.label}, ${r.size}) -> ${crewText(r.size, crew)} -> ${types.join(' | ')}`;
+  }).join('\n')}
 
 Rules:
 - At least 3 of the 6 missions use a real place_ref ("P#"). Prefer these places for this chapter: ${preferredPlaces.map((i) => `P${i}`).join(', ') || 'any'}.
@@ -339,19 +351,23 @@ STORY LINES (in order):
 ${args.missions.filter((m) => m.story_line).map((m) => `- ${m.story_line}`).join('\n')}`;
 }
 
+/** G3: the storybook look for every Muse Image painting (chapter illustrations + montage frames). */
+export const PAINT_STYLE = 'Style: lush, vibrant, classic best-selling fairy-tale picture-book art; a rich storybook painting with ' +
+  'warm golden light, saturated jewel colors, soft painterly textures, charming details and a cozy, joyful mood. ' +
+  'Full-bleed illustration. No text, no letters, no words, no logos, no watermarks, no real human faces.';
+
 export function illustrationPrompt(page: Pick<Page, 'title' | 'narrative' | 'template_id'>, storyLines: string[], crests: string[]): string {
-  return `A whimsical storybook illustration for a fairy-tale chapter titled "${page.title}". ${page.narrative}
-Scene: ${TEMPLATE_META[page.template_id].title.toLowerCase()} — ${TEMPLATE_META[page.template_id].mood}.
-What happened: ${storyLines.slice(0, 4).join(' ')}
-The heroes appear as friendly animal companions: ${crests.join(', ')}.
-Style: hand-inked children's book art, thick deep-indigo outlines, soft watercolor washes, warm golden light,
-cozy and joyful, no text, no letters, no logos, no real human faces.`;
+  return `A storybook painting for a fairy-tale chapter titled "${page.title}". ${page.narrative}
+Setting: ${TEMPLATE_META[page.template_id].title.toLowerCase()} — ${TEMPLATE_META[page.template_id].mood}.
+What happened in this chapter: ${storyLines.slice(0, 4).join(' ')}
+The heroes appear as friendly storybook animal companions, together in the scene: ${crests.join(', ')}.
+${PAINT_STYLE}`;
 }
 
 export function montagePrompt(storyLine: string, crests: string[]): string {
-  return `Storybook illustration of this moment: ${storyLine}
-Heroes as friendly animal companions: ${crests.join(', ')}.
-Style: hand-inked children's book art, thick deep-indigo outlines, watercolor washes, warm light, no text, no real faces.`;
+  return `A storybook painting of this moment: ${storyLine}
+The heroes appear as friendly storybook animal companions: ${crests.join(', ')}.
+${PAINT_STYLE}`;
 }
 
 /** Reroll: Sage swaps one open mission for a fresh one on the same region. */
@@ -365,6 +381,7 @@ export function rerollTask(args: {
   bookTitle: string;
   reason?: string;
   difficulty?: PointsDifficulty; // relative to the old mission: easy = easier, normal = similar, hard = harder
+  crew?: number; // required members (kept from the old mission)
 }): string {
   const want = args.difficulty === 'hard'
     ? 'Make it MORE ambitious than the old one (farther, longer or more creative), still safe and cheap.'
@@ -373,6 +390,7 @@ export function rerollTask(args: {
     : 'Make it noticeably EASIER and quicker to do today than the old one (closer, shorter, free).';
   return `BOOK: "${args.bookTitle}" — chapter "${args.chapterTitle}".
 The fellowship wants a DIFFERENT mission for region "${args.regionId}" (${args.size}; allowed types: ${args.allowedTypes.join(' | ')}).
+${args.crew && args.size !== 'large' ? `It is a ${crewText(args.size as 'small' | 'medium', args.crew)} mission${args.crew > 1 ? `: the description starts with "${args.crew >= 3 ? 'Three' : 'Two'} of you"` : ''}.` : ''}
 Old mission (do NOT repeat it): ${args.old.title} — ${args.old.description} (${args.old.type})
 ${args.reason ? `Why they rerolled: ${args.reason}` : ''}
 ${want} Same JSON shape as one element of "missions":
