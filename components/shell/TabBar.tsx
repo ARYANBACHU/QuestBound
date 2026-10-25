@@ -1,11 +1,11 @@
-// Owner: AB. Custom coloring-book tab bar: white, 2px ink top border, inked icons, crayon squiggle under the active tab.
+// Owner: AB. Custom coloring-book tab bar: parchment, 2px ink top border, inked icons, crayon squiggle under the active tab.
 import type { BottomTabBarProps } from 'expo-router/build/layouts/Tabs';
 import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useFellowship } from '@/lib/fellowship';
 import { useSession } from '@/lib/session';
-import { CRAYONS, fonts, ink, radius, space } from '@/shared/theme';
+import { CRAYONS, fonts, ink, panel, radius, space } from '@/shared/theme';
 import { CoachTarget } from '@/components/wizard/coachTargets';
 import { T } from './T';
 import { CrayonSquiggle, TabIcon, type TabName } from './TabIcons';
@@ -75,7 +75,7 @@ export function TabBar({ state, navigateToTab, emitter, insets }: BottomTabBarPr
 
 const styles = StyleSheet.create({
   bar: {
-    flexDirection: 'row', backgroundColor: ink.page, borderTopWidth: 2, borderTopColor: ink.ink,
+    flexDirection: 'row', backgroundColor: panel.parchment, borderTopWidth: 2, borderTopColor: ink.ink, // U8: no plain white
     paddingTop: space.sm,
   },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: TAB_BAR_HEIGHT - space.sm },
