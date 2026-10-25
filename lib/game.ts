@@ -34,13 +34,17 @@ function useLive<T>(key: string | null, empty: T, loader: (key: string) => Promi
     if (USE_MOCKS || !key) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // AD's V3 request: loads can resolve out of order — only the latest one may write, so a stale refetch can never
+    // flip a just-completed mission back to open (and replay its fill).
+    let seq = 0;
     const load = async () => {
+      const mine = ++seq;
       try {
         const data = await loader(key);
-        if (alive) setState({ key, data, loading: false });
+        if (alive && mine === seq) setState({ key, data, loading: false });
       } catch (e) {
         console.warn('[game] load failed', key, String(e));
-        if (alive) setState((s) => ({ key, data: s.key === key ? s.data : empty, loading: false }));
+        if (alive && mine === seq) setState((s) => ({ key, data: s.key === key ? s.data : empty, loading: false }));
       }
     };
     const reload = () => {
