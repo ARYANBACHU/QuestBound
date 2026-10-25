@@ -1,5 +1,5 @@
 // Owner: AB. Mission detail + proof submission — the core loop's action.
-// Photo → uploadProof → submitProof (+ GPS for place missions) → Magic Mirror → wax seal (pass) or Sage's hint (fail).
+// Photo → uploadProof → submitProof (+ GPS for place missions) → Magic Mirror → reward pack (pass) or Sage's hint (fail).
 // One primary action pinned at the bottom; secondary actions (reroll, maps) in the "…" menu.
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -21,17 +21,16 @@ import { playSfx } from '@/components/shell/sfx';
 import { T } from '@/components/shell/T';
 import { CrestRow, MissionTypeIcon, MISSION_TYPE_LABEL } from '@/components/shell/teammates';
 import { formatDistance, hasCoords, useProximity, type Proximity } from '@/components/shell/useProximity';
+import { RewardPack, crayonHex } from '@/components/shell/RewardPack';
 import { WaxSeal } from '@/components/shell/WaxSeal';
-import { Sage } from '@/components/wizard/Sage';
 import { SageBubble } from '@/components/wizard/SageBubble';
-import { useTypewriter } from '@/components/wizard/useTypewriter';
 import { submitProof, uploadProof } from '@/lib/api';
 import { useChat } from '@/lib/chat';
 import { useFellowship, profileOf } from '@/lib/fellowship';
 import { useMission, useStoryline } from '@/lib/game';
 import { openInMaps } from '@/lib/maps';
 import { useSession } from '@/lib/session';
-import type { Mission, Place, SubmitProofRequest, SubmitProofResponse } from '@/shared/types';
+import type { Mission, Page, Place, SubmitProofRequest, SubmitProofResponse } from '@/shared/types';
 import {
   SCREEN_GRADIENTS, accent, chips, fonts, ink, moodFor, panel, radius, shadow, space, type, ui, type Mood,
 } from '@/shared/theme';
@@ -177,6 +176,8 @@ export default function MissionDetail() {
         res={phase.res}
         mission={mission}
         photo={photo}
+        page={page}
+        color={crayonHex(profileOf(fs.members, phase.res.mission.completed_by[0] ?? userId)?.color)}
         onRetry={() => setPhase({ kind: 'form' })}
         onPage={() => router.navigate('/(tabs)/coloring')}
         onMissions={() => router.navigate('/(tabs)/missions')}
@@ -428,25 +429,27 @@ function ProximityBadge({ prox }: { prox: Proximity }) {
 }
 
 // ---------- result ----------
-function Result({ mood, res, mission, photo, onRetry, onPage, onMissions }: {
-  mood: Mood; res: SubmitProofResponse; mission: Mission; photo: string | null;
+function Result({ mood, res, mission, photo, page, color, onRetry, onPage, onMissions }: {
+  mood: Mood; res: SubmitProofResponse; mission: Mission; photo: string | null; page: Page | null; color: string;
   onRetry: () => void; onPage: () => void; onMissions: () => void;
 }) {
   const { verdict } = res;
   const giftPending = verdict.pass && res.mission.status === 'pending';
   const storyLine = res.mission.story_line ?? res.completion?.story_line ?? verdict.flavor_text;
-  const [landed, setLanded] = useState(false);
-  const { shown } = useTypewriter(storyLine ?? '', 28, landed);
+  const [revealed, setRevealed] = useState(false); // the reward pack finished (or was skipped)
   const lens = (verdict.lens_titles ?? []).filter(Boolean).slice(0, 3);
   const far = !verdict.pass && verdict.distance_m != null && verdict.distance_m > 0
     ? `You were about ${formatDistance(verdict.distance_m)} from the spot.` : null;
 
   useEffect(() => {
-    if (!res.page_completed) return;
+    if (!verdict.pass) playSfx('error');
+  }, [verdict.pass]);
+  useEffect(() => {
+    if (!res.page_completed || !revealed) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-    const t = setTimeout(onPage, 3200); // AD plays the page turn on the coloring tab
+    const t = setTimeout(onPage, 2600); // after the reward pack; AD plays the page turn on the coloring tab
     return () => clearTimeout(t);
-  }, [res.page_completed, onPage]);
+  }, [res.page_completed, revealed, onPage]);
 
   const lensBox = lens.length ? (
     <View style={[styles.panel, styles.stretch, { backgroundColor: mood.tint }]}>
@@ -487,26 +490,29 @@ function Result({ mood, res, mission, photo, onRetry, onPage, onMissions }: {
   return (
     <Shell mood={mood} onClose={onMissions}>
       <ScrollView contentContainerStyle={[styles.content, styles.resultContent]}>
-        {res.page_completed ? (
+        <T variant="title" center>{res.book_completed ? 'The book is finished!' : 'Region colored!'}</T>
+        <T variant="small" center>{mission.title}</T>
+        <RewardPack
+          templateId={page?.template_id}
+          regionId={res.mission.region_id}
+          regionLabel={regionLabel(page, res.mission)}
+          color={color}
+          points={res.mission.points ?? mission.points ?? 0}
+          storyLine={storyLine ?? ''}
+          onDone={() => setRevealed(true)}
+        />
+        {res.page_completed && revealed ? (
           <View style={[styles.banner, styles.stretch]}>
             <T variant="heading" center>Chapter complete!</T>
             <T variant="small" center color={ink.ink}>The page is turning…</T>
           </View>
         ) : null}
-        <View style={styles.sealRow}>
-          <Sage expression={res.book_completed || res.page_completed ? 'happy' : 'proud'} size="md" speakKey={`pass-${mission.id}-${res.completion?.id ?? ''}`} silent />
-          <WaxSeal size={120} onLanded={() => { setLanded(true); playSfx('seal'); }} />
-        </View>
-        <T variant="title" center>{res.book_completed ? 'The book is finished!' : 'Region colored!'}</T>
-        <T variant="small" center>{mission.title}</T>
-        <View style={styles.storyBox}>
-          <T variant="story" center color={ink.ink}>{shown || ' '}</T>
-        </View>
-        {lensBox}
+        {revealed ? lensBox : null}
       </ScrollView>
       <Footer>
-        <Button label={res.page_completed ? 'Turn the page' : 'See it on the page'} onPress={onPage} tone={res.page_completed ? 'gold' : undefined} />
-        <Button label="Back to missions" variant="ghost" onPress={onMissions} />
+        <Button label={res.page_completed ? 'Turn the page' : 'See it on the page'} onPress={onPage} tone={res.page_completed ? 'gold' : undefined}
+          sfx={res.page_completed ? 'page' : 'open'} />
+        <Button label="Back to missions" variant="ghost" sfx="close" onPress={onMissions} />
       </Footer>
     </Shell>
   );
