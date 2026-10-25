@@ -16,6 +16,7 @@ import { ColoringPage } from '@/components/coloring/ColoringPage';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { Chip, InkButton, Txt } from '@/components/coloring/ui';
 import { SageSays } from '@/components/coloring/sage';
+import { useHideWizardFab } from '@/components/wizard/WizardProvider';
 import { BookReader } from '@/components/storybook/BookReader';
 import { Montage } from '@/components/storybook/Montage';
 import { fallbackRecap, montageSlides, withDemoMemories } from '@/components/storybook/bookData';
@@ -29,6 +30,8 @@ export default function StorybookScreen() {
   const [montage, setMontage] = useState(false);
   const [summoning, setSummoning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sage's FAB covers the reader's arrows and the montage — hide it while either is open (AB's A10 hook).
+  useHideWizardFab(!!openId || montage);
 
   // Any book on the shelf (current or older) loads its own pages, missions, memories and verses.
   const open = books.find((b) => b.id === openId) ?? null;
