@@ -13,6 +13,7 @@ import { CrayonPicker, crayonName } from '@/components/shell/CrayonPicker';
 import { CrestPicker } from '@/components/shell/CrestPicker';
 import { INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
 import { useMusicToggle } from '@/components/shell/music';
+import { NewStorylineSheet } from '@/components/shell/NewStorylineSheet';
 import { setSoundSetting, useSoundSettings } from '@/components/shell/soundSettings';
 import { T } from '@/components/shell/T';
 import { TAB_CONTENT_BOTTOM_PAD } from '@/components/shell/TabBar';
@@ -34,6 +35,7 @@ export default function SettingsScreen() {
   const { openDemoTools } = useWizard();
   const [editing, setEditing] = useState<Editing>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [newBookOpen, setNewBookOpen] = useState(false);
   const [notify, setNotify] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const taps = useRef<number[]>([]);
@@ -120,7 +122,8 @@ export default function SettingsScreen() {
             <>
               <Row label="Name" value={fs.fellowship.name} />
               <Row label="Invite code" value={fs.fellowship.invite_code} mono onPress={() => setInviteOpen(true)} />
-              <Row label="Members" value={`${fs.members.length} hero${fs.members.length === 1 ? '' : 'es'}`} last />
+              <Row label="Members" value={`${fs.members.length} hero${fs.members.length === 1 ? '' : 'es'}`} />
+              <Row label="New storyline" value="Pick a difficulty" onPress={() => setNewBookOpen(true)} last />
               <View style={styles.sectionButtons}>
                 <Button label="Invite friends" small onPress={() => setInviteOpen(true)} style={{ flex: 1 }} />
                 <Button label="Leave fellowship" small variant="danger" onPress={leave} style={{ flex: 1 }} />
@@ -182,6 +185,7 @@ export default function SettingsScreen() {
         save={updateProfile}
       />
 
+      <NewStorylineSheet visible={newBookOpen} onClose={() => setNewBookOpen(false)} />
       <InviteSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} fellowship={fs.fellowship} />
     </SafeAreaView>
   );
