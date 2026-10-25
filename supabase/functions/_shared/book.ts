@@ -322,6 +322,12 @@ export function repairMission(raw: any, templateId: TemplateId, regionId: string
   if (!size || !raw || typeof raw !== 'object') return null;
   const allowed = SIZE_RULES[size].types;
   let type: MissionType = allowed.includes(raw.type) ? raw.type : allowed[0];
+  // The model sometimes leaks our place indexes ("… Mural (P6)") into player-facing text: drop "(P6)", name bare "P6".
+  const deref = (t: string) => t.replace(/\s*\(\s*P\d+\s*\)/g, '')
+    .replace(/\bP(\d+)\b/g, (_m, i) => ctx.places[Number(i)]?.title ?? 'a nearby spot');
+  for (const k of ['title', 'description', 'story_hook', 'verification_hint', 'trial_question']) {
+    if (typeof raw[k] === 'string') raw = { ...raw, [k]: deref(raw[k]) };
+  }
   const title = str(raw.title, 60);
   const description = str(raw.description, 400);
   if (!title || !description) return null;
