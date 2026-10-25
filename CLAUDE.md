@@ -61,7 +61,7 @@ happens ("Submit proof", "Turn the page"). Errors explain what to do next.
 | **MP** Fellowship | `feat/friends` | `lib/session.ts`, `lib/fellowship.ts`, `lib/chat.ts`, `app/(tabs)/friends.tsx`, `app/join/**`, `components/friends/**` |
 | **AD** Artist | `feat/coloring` | `app/(tabs)/coloring.tsx`, `app/(tabs)/storybook.tsx`, `components/coloring/**`, `components/storybook/**`, `assets/pages/**` |
 | **AB** Wizard & Shell | `feat/shell` | `app/_layout.tsx`, `app/index.tsx`, `app/(tabs)/_layout.tsx`, `app/(tabs)/missions.tsx`, `app/(tabs)/settings.tsx`, `app/onboarding.tsx`, `app/mission/**`, `components/shell/**`, `components/wizard/**`, `supabase/functions/wizard-chat/**` |
-| **Merge Agent** | `main` | `shared/**`, `supabase/migrations/**`, `lib/env.ts`, `lib/supabase.ts`, `app.json`, `package.json`, `tsconfig.json`, `CLAUDE.md`, `scripts/**` |
+| **Merge Agent** | `main` | `shared/**`, `supabase/migrations/**`, `lib/env.ts`, `lib/supabase.ts`, `lib/maps.ts`, `app.json`, `package.json`, `tsconfig.json`, `CLAUDE.md`, `scripts/**` |
 
 - **FROZEN for feature branches:** `shared/**`, `supabase/migrations/**`, `CLAUDE.md`, `lib/env.ts`, `lib/supabase.ts`.
   Need a change? Append it to `handoffs/notes/REQUESTS.md` (who / what / why / exact proposed diff), push, and
