@@ -1,5 +1,14 @@
 # EV status — Story Engine (feat/engine)
 
+## Round 2 — ready to use now (feat/engine)
+- `usePages(storylineId)` → `{ pages, loading }` for ANY book (current or shelved), ordered by chapter.
+- `useMissions(storylineId)` returns missions of EVERY chapter (locked/open/complete), sorted by chapter then region.
+- `useChapters(storylineId)` → `{ chapters: { page, missions, completed, total }[] }` for chapter selectors (P4/P7).
+- Join race: `useStoryline` returns `{ storyline: null, pages: [], activePage: null }` when no book exists, flips to
+  status `'generating'` then `'active'` over realtime. Stale `'generating'` rows (>90 s, crashed summon) are skipped.
+  Two members summoning at once get the same `storyline_id`. Mock: `EXPO_PUBLIC_MOCK_NO_STORY=1` or
+  `mockDev.clearStory()` starts with no book; `generateStoryline()` then writes the demo book.
+
 ## Environment
 - Meta + SerpApi keys were **not available** this session → no live smoke tests. Code follows the documented APIs
   (dev.meta.ai docs read on Oct 24; details in EV-decisions.md). No `SUPABASE_ACCESS_TOKEN` here → not deployed.
