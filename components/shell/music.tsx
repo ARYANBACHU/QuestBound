@@ -14,6 +14,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useSession } from '@/lib/session';
 import { ink, shadow, space } from '@/shared/theme';
 import { CoachTarget } from '@/components/wizard/coachTargets';
+import { useWizard } from '@/components/wizard/WizardProvider';
 import { playSfx } from './sfx';
 import { ensureAudioMode } from './sfx';
 import { hasStoredMusicChoice, loadSoundSettings, setSoundSetting, useSoundSettings } from './soundSettings';
@@ -155,7 +156,10 @@ export function HeaderMusicToggle({ style }: { style?: StyleProp<ViewStyle> }) {
 export function FloatingMusicToggle({ visible }: { visible: boolean }) {
   const insets = useSafeAreaInsets();
   const headers = useSyncExternalStore(subscribeHeader, () => headerCount, () => headerCount);
-  if (!visible || headers > 0) return null;
+  // V5: a focused screen that hides Sage's button (Storybook reader, montage, full-screen viewers) has its own top bar
+  // (e.g. the reader's Montage button sits top-right) — the floating fallback steps aside so nothing overlaps.
+  const { fabHidden } = useWizard();
+  if (!visible || headers > 0 || fabHidden) return null;
   return (
     <View style={[styles.floating, { top: insets.top + space.sm }]} pointerEvents="box-none">
       <MuteToggle size={34} />

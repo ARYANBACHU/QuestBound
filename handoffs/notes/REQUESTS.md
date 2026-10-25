@@ -301,3 +301,11 @@ Format:
   fills?). Any re-render while those run (realtime mission update, proclamation, crest row) resets them to 1 for a
   frame. Same fix: wrap the animated layer in an `Animated.View` + `useAnimatedStyle`, or `memo` the SVG subtree.
 - Status: AB side ✅ (feat/shell). AD: open.
+
+## [AB → AD] V1 V5 — mute vs Montage in the Storybook reader
+- AB fix (feat/shell): the floating music toggle now hides whenever the focused screen hides Sage's FAB — the reader
+  and montage already call `useHideWizardFab(!!openId || montage)`, so the reader's top-right is all Montage's.
+  The shelf keeps the floating toggle top-right (no overlap there).
+- Optional AD: to keep a mute inside the reader, put `<HeaderMusicToggle />` in `BookReader`'s top bar LEFT of
+  `<MontageButton>` (it's a 40 px icon; shorten the title with `numberOfLines={1}` — already there).
+- Status: AB side ✅. AD optional.
