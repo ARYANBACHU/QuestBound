@@ -7,6 +7,10 @@ import { ink, panel, scrim, shadow, space, ui } from '@/shared/theme';
 import { T } from './T';
 import { playSfx } from './sfx';
 
+// [MERGE] round 3 (EV's B1 diff): the menu's <Modal> fades out in ~300 ms on iOS; presenting the next sheet's Modal
+// before that finishes is rejected natively. Wait it out.
+const MENU_CLOSE_MS = 350;
+
 export interface MenuItem {
   label: string;
   icon?: string;
@@ -39,7 +43,7 @@ export function ActionMenu({ items, style, label = 'More actions', top = 52 }: {
             <Pressable
               key={it.label}
               accessibilityRole="menuitem"
-              onPress={() => { setOpen(false); Haptics.selectionAsync().catch(() => {}); playSfx('tap'); setTimeout(it.onPress, 120); }}
+              onPress={() => { setOpen(false); Haptics.selectionAsync().catch(() => {}); playSfx('tap'); setTimeout(it.onPress, MENU_CLOSE_MS); }}
               style={({ pressed }) => [styles.item, i > 0 && styles.divider, pressed && styles.itemPressed]}
             >
               {it.icon ? <T style={styles.icon}>{it.icon}</T> : null}
