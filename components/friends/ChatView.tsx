@@ -21,7 +21,8 @@ import Crest from './Crest';
 import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
 import { ReactionChips, ReactionPicker } from './Reactions';
-import { KeyboardSafe, useKeyboardVisible } from '@/components/shell/KeyboardSafe';
+import { KeyboardSafe } from '@/components/shell/KeyboardSafe';
+import { useSoftKeyboard } from './useSoftKeyboard';
 import { useWizard } from '@/components/wizard/WizardProvider';
 import { Sage, playSfx } from './sage';
 import SageTalk from './SageTalk';
@@ -89,7 +90,7 @@ export interface ChatViewProps {
 export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember, missionsById, surface }: ChatViewProps) {
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
   const listRef = useRef<FlatList<Row>>(null);
-  const keyboardOpen = useKeyboardVisible();
+  const keyboardOpen = useSoftKeyboard();
   const scrollToNewest = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
   // Keyboard opens → jump to the newest message so you see what you're replying to.
   useEffect(() => {
