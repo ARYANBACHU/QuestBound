@@ -2,11 +2,12 @@
 import type { BottomTabBarProps } from 'expo-router/build/layouts/Tabs';
 import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useFellowship } from '@/lib/fellowship';
 import { useSession } from '@/lib/session';
 import { CRAYONS, fonts, ink, panel, radius, space } from '@/shared/theme';
 import { CoachTarget } from '@/components/wizard/coachTargets';
+import { useSoftKeyboard } from '@/components/friends/useSoftKeyboard';
 import { T } from './T';
 import { CrayonSquiggle, TabIcon, type TabName } from './TabIcons';
 import { useUnreadProclamations } from './useUnreadProclamations';
@@ -30,6 +31,11 @@ export function TabBar({ state, navigateToTab, emitter, insets }: BottomTabBarPr
   useEffect(() => {
     if (activeName === 'friends') markSeen();
   }, [activeName, markSeen, unread]);
+
+  // MP's V1 request: on Android (window resizes) and phone browsers the bar rode above the keyboard and ate ~70 px of
+  // the chat. Step aside while typing. iOS native is untouched (the keyboard already covers the bar).
+  const keyboardUp = useSoftKeyboard();
+  if (keyboardUp && Platform.OS !== 'ios') return null;
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space.sm) }]}>
