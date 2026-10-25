@@ -36,6 +36,13 @@ const SPARKLE_MS = 650;
 const SHIMMER_AT = 1150;
 const SHIMMER_MS = 650;
 const FOCUS_DELAY_MS = 380; // when fills were waiting for the page to be on screen, let the screen settle first
+// V3 "no double animation": a region colored while this page was off screen (you just watched it fill on AB's reward
+// card) arrives already colored and only GLOWS when you come back — gold ring + sparkles + shimmer, no second fill.
+const GLOW_SPARKLE_AT = 120;
+const GLOW_SHIMMER_AT = 180;
+const GLOW_MS = GLOW_SHIMMER_AT + SHIMMER_MS;
+/** How long after the page comes back on screen the glow for regions colored meanwhile has finished. */
+export const RETURN_GLOW_MS = FOCUS_DELAY_MS + GLOW_MS;
 const STICKY_MS = 8000; // a fresh 'complete' that flips back within this window is a stale refetch, not an undo
 const STRIPE = 12; // teammate stripe width in viewBox units (~4 px on a phone)
 const GLYPH = 60;
@@ -61,8 +68,9 @@ export interface ColoringPageProps {
   width?: number; // default: screen width − 2×lg
   animate?: boolean; // default true; set false for thumbnails
   /**
-   * true while the page isn't on screen (another tab, the mission screen on top). Regions colored meanwhile stay
-   * blank and play their fill the moment it flips back to false — so you SEE your color land when you return.
+   * true while the page isn't on screen (another tab, the mission screen on top). Regions colored meanwhile show up
+   * already colored (you watched them fill on the reward card) and glow once when it flips back to false — never a
+   * second fill (V3).
    */
   paused?: boolean;
 }
@@ -97,7 +105,10 @@ function ColoringPageImpl({
   const [filling, setFilling] = useState<Record<string, number>>({}); // regionId -> start stamp
   const fillingRef = useRef(filling);
   fillingRef.current = filling;
-  const [queued, setQueued] = useState<string[]>([]); // colored while paused: shown blank until played
+  const [queued, setQueued] = useState<string[]>([]); // colored while paused: shown colored, glows on return
+  const [glowing, setGlowing] = useState<Record<string, number>>({}); // regionId -> glow start stamp
+  const glowingRef = useRef(glowing);
+  glowingRef.current = glowing;
   const queuedRef = useRef(queued);
   queuedRef.current = queued;
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -126,6 +137,26 @@ function ColoringPageImpl({
   };
   const playRef = useRef(play);
   playRef.current = play;
+
+  /** Colored while you were away: no second fill — just the glow. */
+  const glow = (all: string[]) => {
+    setQueued((q) => q.filter((r) => !all.includes(r)));
+    const regions = all.filter((r) => !glowingRef.current[r] && !fillingRef.current[r]);
+    if (!regions.length) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (reduced) return;
+    const stamp = Date.now();
+    setGlowing((g) => ({ ...g, ...Object.fromEntries(regions.map((r) => [r, stamp])) }));
+    timers.current.push(setTimeout(() => {
+      setGlowing((g) => {
+        const next = { ...g };
+        for (const r of regions) if (next[r] === stamp) delete next[r];
+        return next;
+      });
+    }, GLOW_MS + 150));
+  };
+  const glowRef = useRef(glow);
+  glowRef.current = glow;
 
   /** Regions that just turned complete and haven't started their fill yet. Computed DURING render so the region
    *  stays blank in the very render the new data lands — otherwise it flashed full color for a frame before the
@@ -170,7 +201,7 @@ function ColoringPageImpl({
     if (!queuedRef.current.length || focusTimer.current) return;
     focusTimer.current = setTimeout(() => {
       focusTimer.current = null;
-      if (queuedRef.current.length) playRef.current(queuedRef.current);
+      if (queuedRef.current.length) glowRef.current(queuedRef.current);
     }, FOCUS_DELAY_MS);
   }, [paused]);
 
@@ -180,7 +211,7 @@ function ColoringPageImpl({
   const id = (k: string) => `${uid}${k}`;
 
   // 100% coloring: the sky/ground behind the regions takes the chapter mood as regions are colored (full at 6/6)
-  const doneCount = locked ? 0 : regionIds.filter((r) => byRegion[r]?.status === 'complete' && !queued.includes(r) && !freshNow.includes(r)).length;
+  const doneCount = locked ? 0 : regionIds.filter((r) => byRegion[r]?.status === 'complete' && !(freshNow.includes(r) && !paused)).length;
   const washTarget = regionIds.length ? doneCount / regionIds.length : 0;
   const wash = useSharedValue(washTarget);
   useEffect(() => {
@@ -237,7 +268,7 @@ function ColoringPageImpl({
         {regionIds.map((r) => {
           const ra = art.regions[r];
           const m = locked ? undefined : byRegion[r];
-          const waiting = queued.includes(r) || freshNow.includes(r);
+          const waiting = freshNow.includes(r) && !paused; // about to scribble in: stay blank (off screen: stay colored)
           const status = locked ? 'locked' : waiting ? 'open' : m?.status ?? 'open';
           const tappable = interactive && !locked && !!m && !!onRegionPress;
           const isPressed = pressed === r;
@@ -249,7 +280,7 @@ function ColoringPageImpl({
               {waiting ? <Path d={ra.d} fill={ink.page} /> : (
                 <RegionBody
                   regionId={r} d={ra.d} labelAt={ra.labelAt} mission={m} status={status} members={members}
-                  clipId={id(`clip${r}`)} grainId={id('grain')} shineId={id('shine')} fillStamp={filling[r]}
+                  clipId={id(`clip${r}`)} grainId={id('grain')} shineId={id('shine')} fillStamp={filling[r]} glowStamp={glowing[r]}
                 />
               )}
               {isPressed && <Path d={ra.d} fill={ink.page} fillOpacity={0.25} />}
@@ -295,8 +326,11 @@ function ColoringPageImpl({
       })}
 
       {/* sparkles + crayon tip ride above the ink so the moment isn't hidden under detail lines */}
-      {regionIds.map((r) => (filling[r] ? (
-        <RevealOverlay key={`fx${r}${filling[r]}`} d={art.regions[r].d} origin={art.regions[r].labelAt} color={crayonHex(byRegion[r] ? missionColors(byRegion[r], members)[0] : null)} />
+      {regionIds.map((r) => (filling[r] || glowing[r] ? (
+        <RevealOverlay
+          key={`fx${r}${filling[r] ?? `g${glowing[r]}`}`} d={art.regions[r].d} origin={art.regions[r].labelAt} glowOnly={!filling[r]}
+          color={crayonHex(byRegion[r] ? missionColors(byRegion[r], members)[0] : null)}
+        />
       ) : null))}
     </Svg>
   );
@@ -313,9 +347,10 @@ interface RegionBodyProps {
   grainId: string;
   shineId: string;
   fillStamp?: number;
+  glowStamp?: number;
 }
 
-function RegionBody({ d, labelAt, mission, status, members, clipId, grainId, shineId, fillStamp }: RegionBodyProps) {
+function RegionBody({ d, labelAt, mission, status, members, clipId, grainId, shineId, fillStamp, glowStamp }: RegionBodyProps) {
   if (status === 'locked' || !mission) return <Path d={d} fill={ink.page} />;
 
   if (status === 'open') {
@@ -359,7 +394,10 @@ function RegionBody({ d, labelAt, mission, status, members, clipId, grainId, shi
       <Path d={d} fill={`url(#${grainId})`} />
     </G>
   );
-  if (!fillStamp) return fill;
+  if (!fillStamp) {
+    if (!glowStamp) return fill;
+    return <G>{fill}<Shine key={glowStamp} d={d} clipId={clipId} shineId={shineId} at={GLOW_SHIMMER_AT} /></G>;
+  }
   return <ScribbleReveal key={fillStamp} d={d} origin={labelAt} clipId={clipId} shineId={shineId} color={hex}>{fill}</ScribbleReveal>;
 }
 
@@ -409,25 +447,14 @@ function scribblePath(d: string, seed: number): Scribble {
  */
 function ScribbleReveal({ d, origin, clipId, shineId, color, children }: { d: string; origin: [number, number]; clipId: string; shineId: string; color: string; children: React.ReactNode }) {
   const { path, length } = useMemo(() => scribblePath(d, Math.round(origin[0] + origin[1])), [d, origin]);
-  const b = useMemo(() => pathBounds(d), [d]);
   const draw = useSharedValue(0);
   const settle = useSharedValue(0);
-  const shine = useSharedValue(0);
   useEffect(() => {
     draw.value = withTiming(1, { duration: SCRIBBLE_MS, easing: Easing.inOut(Easing.quad) });
     settle.value = withDelay(SETTLE_AT, withTiming(1, { duration: SETTLE_MS, easing: Easing.out(Easing.cubic) }));
-    shine.value = withDelay(SHIMMER_AT, withTiming(1, { duration: SHIMMER_MS, easing: Easing.inOut(Easing.sin) }));
-  }, [draw, settle, shine]);
+  }, [draw, settle]);
   const strokeProps = useAnimatedProps(() => ({ strokeDashoffset: length * (1 - draw.value) }));
   const fillProps = useAnimatedProps(() => ({ opacity: settle.value }));
-  const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
-  const span = (b.maxX - b.minX + b.maxY - b.minY) / 2 + 220;
-  const bandW = 200;
-  const tall = (b.maxY - b.minY + b.maxX - b.minX) * 1.6 + 200;
-  const shineProps = useAnimatedProps(() => ({
-    x: cx - span + 2 * span * shine.value - bandW / 2,
-    opacity: shine.value <= 0 || shine.value >= 1 ? 0 : 1,
-  }));
   return (
     <G>
       <Path d={d} fill={ink.page} />
@@ -446,10 +473,30 @@ function ScribbleReveal({ d, origin, clipId, shineId, color, children }: { d: st
         />
       </G>
       <AnimatedG opacity={0} animatedProps={fillProps}>{children}</AnimatedG>
-      <G clipPath={`url(#${clipId})`} pointerEvents="none">
-        <G transform={`rotate(-22 ${cx} ${cy})`}>
-          <AnimatedRect y={cy - tall / 2} width={bandW} height={tall} fill={`url(#${shineId})`} opacity={0} animatedProps={shineProps} />
-        </G>
+      <Shine d={d} clipId={clipId} shineId={shineId} at={SHIMMER_AT} />
+    </G>
+  );
+}
+
+/** A soft band of light sweeping once across the region (clipped to it), starting `at` ms after mount. */
+function Shine({ d, clipId, shineId, at }: { d: string; clipId: string; shineId: string; at: number }) {
+  const b = useMemo(() => pathBounds(d), [d]);
+  const shine = useSharedValue(0);
+  useEffect(() => {
+    shine.value = withDelay(at, withTiming(1, { duration: SHIMMER_MS, easing: Easing.inOut(Easing.sin) }));
+  }, [shine, at]);
+  const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+  const span = (b.maxX - b.minX + b.maxY - b.minY) / 2 + 220;
+  const bandW = 200;
+  const tall = (b.maxY - b.minY + b.maxX - b.minX) * 1.6 + 200;
+  const shineProps = useAnimatedProps(() => ({
+    x: cx - span + 2 * span * shine.value - bandW / 2,
+    opacity: shine.value <= 0 || shine.value >= 1 ? 0 : 1,
+  }));
+  return (
+    <G clipPath={`url(#${clipId})`} pointerEvents="none">
+      <G transform={`rotate(-22 ${cx} ${cy})`}>
+        <AnimatedRect y={cy - tall / 2} width={bandW} height={tall} fill={`url(#${shineId})`} opacity={0} animatedProps={shineProps} />
       </G>
     </G>
   );
@@ -467,16 +514,17 @@ function crayonPath(x: number, y: number): { body: string; band: string } {
 
 /**
  * Beat 1 (the crayon tip riding the scribble) and beat 3 (gold ring + sparkle burst), drawn above the ink layer.
+ * `glowOnly`: just the ring + sparkles, right away (the region is already colored).
  */
-function RevealOverlay({ d, origin, color }: { d: string; origin: [number, number]; color: string }) {
+function RevealOverlay({ d, origin, color, glowOnly = false }: { d: string; origin: [number, number]; color: string; glowOnly?: boolean }) {
   const s = useMemo(() => scribblePath(d, Math.round(origin[0] + origin[1])), [d, origin]);
   const b = useMemo(() => pathBounds(d), [d]);
   const draw = useSharedValue(0);
   const burst = useSharedValue(0);
   useEffect(() => {
     draw.value = withTiming(1, { duration: SCRIBBLE_MS, easing: Easing.inOut(Easing.quad) });
-    burst.value = withDelay(SPARKLE_AT, withTiming(1, { duration: SPARKLE_MS, easing: Easing.out(Easing.quad) }));
-  }, [draw, burst]);
+    burst.value = withDelay(glowOnly ? GLOW_SPARKLE_AT : SPARKLE_AT, withTiming(1, { duration: SPARKLE_MS, easing: Easing.out(Easing.quad) }));
+  }, [draw, burst, glowOnly]);
   const { xs, ys, at } = s;
   const tip = useAnimatedProps(() => {
     const p = draw.value;
@@ -509,8 +557,12 @@ function RevealOverlay({ d, origin, color }: { d: string; origin: [number, numbe
     <G pointerEvents="none">
       <AnimatedCircle cx={origin[0]} cy={origin[1]} r={20} fill="none" stroke={ink.gold} strokeOpacity={0} animatedProps={ring} />
       {Array.from({ length: SPARKS }, (_, i) => <Spark key={i} i={i} t={burst} origin={origin} reach={ringR} />)}
-      <AnimatedPath opacity={0} animatedProps={tip} fill={color} stroke={ink.ink} strokeWidth={5} strokeLinejoin="round" />
-      <AnimatedPath opacity={0} animatedProps={band} fill={ink.page} fillOpacity={0.55} stroke={ink.ink} strokeWidth={3} />
+      {glowOnly ? null : (
+        <>
+          <AnimatedPath opacity={0} animatedProps={tip} fill={color} stroke={ink.ink} strokeWidth={5} strokeLinejoin="round" />
+          <AnimatedPath opacity={0} animatedProps={band} fill={ink.page} fillOpacity={0.55} stroke={ink.ink} strokeWidth={3} />
+        </>
+      )}
     </G>
   );
 }

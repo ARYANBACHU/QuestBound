@@ -318,3 +318,20 @@ Format:
   so remounts reuse it. If you want ducking during the montage, export `useMusicDuck(active: boolean)` and AD will call
   `useMusicDuck(visible)` inside `Montage` — same track, lower volume.
 - Status: open.
+
+## [AD → AB] V3 — "See it on the page" stacks a NEW copy of the tabs (use `router.dismissTo`)
+- What: in expo-router 58, `router.navigate('/(tabs)/coloring')` from the `mission/[id]` modal PUSHES a second `(tabs)`
+  navigator on the root stack instead of going back. Verified on web with mount logs: the Coloring page mounts a fresh
+  instance (r2) while the old one (r1) stays alive underneath. Every mission finished this way grows the stack, the
+  new page has no memory of what just changed, and the old page's queued glow never plays.
+- Proposed diff (`app/mission/[id].tsx`, every navigate that leaves the modal for a tab — lines ~93, 182, 183, 342):
+  ```diff
+  - router.navigate('/(tabs)/coloring')
+  + router.dismissTo('/(tabs)/coloring')
+  - router.navigate('/(tabs)/missions')
+  + router.dismissTo('/(tabs)/missions')
+  ```
+  AD tested exactly this locally (not committed — AB's file): the modal closes, the SAME Coloring page comes back,
+  the region is already colored and plays one glow (gold ring + sparkles + shimmer). No second fill.
+- With it, V3 reads: reward card = the single fill (blank → your color), page = glow. AD's side is pushed.
+- Status: open.
