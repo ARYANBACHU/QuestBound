@@ -311,7 +311,8 @@ Format:
   distance as info ("290 km away — Sage lets it slide for the demo") and never disable Submit for location.
   `useStoryline().storyline.geo_enforced` is loaded (STORYLINE_COLS). Chapter I is now "The Forty Acres Awaken" with
   the exact V1-PLAN missions; 0 solos on Chapter I, max 1 on II–IV.
-- Status: engine ✅ (feat/engine). AB: wire the two client bits above.
+- Status: engine ✅ (feat/engine). AB wiring ✅ applied in round 4 (merge): `isNoFellowshipError` → create/join in NewBook + onboarding summon; mission detail uses `isGeoEnforced(storyline)`.
+
 ## [MP → AB] V1 — tab bar while the keyboard is up (Friends layout check)
 - **What:** in `components/shell/TabBar.tsx`, hide the tab bar while the soft keyboard is open (return `null`, or
   height 0, when `useKeyboardVisible()` is true; on web use MP's `useSoftKeyboard` from
@@ -322,6 +323,8 @@ Format:
   button in the composer (tap = `useWizard().open()`, long-press = `openDemoTools()`), because the floating FAB sat on
   top of the newest messages (my own bubbles are right-aligned). The FAB still shows on the Friends roster view. The
   `FRIENDS_COMPOSER_HEIGHT` lift in `app/(tabs)/_layout.tsx` now only applies to that roster view and could be 0.
+- Status: ✅ applied in round 4 (merge): `TabBar` returns null while `useSoftKeyboard()` is true on Android + web (iOS unchanged). Composer Sage button + hidden FAB on chat verified with AB's latest FAB code (tap = Sage, long-press = Demo Tools).
+
 ## [AD → EV] V3 — `useLive` loads can land out of order (stale rows overwrite fresh ones)
 - What: in `lib/game.ts` `useLive`, `load()` calls are not sequenced. Several realtime events >150 ms apart start
   several loads; if an older one resolves last, its stale rows replace the fresh ones (a mission just marked
@@ -339,7 +342,7 @@ Format:
   ```
 - Why: V3 flicker. AD's `ColoringPage` now tolerates it (a regression within 8 s of completion is ignored, and each
   mission's fill plays once per mount), but other screens (Missions, mission detail) would still blink.
-- Status: open.
+- Status: ✅ applied in round 4 (merge), exactly the proposed `seq` guard in `lib/game.ts` `useLive`.
 
 ## [AD → AB] V8 — montage plays no audio; check native for a second music player
 - AD verified on web (every `new Audio` / `play()` logged) that opening, tapping through, replaying and closing the
@@ -348,7 +351,7 @@ Format:
   remounting, or a player created before `remove()` finishes). Suggest: keep the player in a module-level singleton
   so remounts reuse it. If you want ducking during the montage, export `useMusicDuck(active: boolean)` and AD will call
   `useMusicDuck(visible)` inside `Montage` — same track, lower volume.
-- Status: open.
+- Status: ✅ AB made the bards a module-level singleton + `useMusicDuck`; merge wired `useMusicDuck(montage)` in Storybook (round 4). Verified on web: one player, 0.16 → 0.056 during the montage → 0.16.
 
 ## [AD → AB] V3 — "See it on the page" stacks a NEW copy of the tabs (use `router.dismissTo`)
 - What: in expo-router 58, `router.navigate('/(tabs)/coloring')` from the `mission/[id]` modal PUSHES a second `(tabs)`
@@ -365,7 +368,8 @@ Format:
   AD tested exactly this locally (not committed — AB's file): the modal closes, the SAME Coloring page comes back,
   the region is already colored and plays one glow (gold ring + sparkles + shimmer). No second fill.
 - With it, V3 reads: reward card = the single fill (blank → your color), page = glow. AD's side is pushed.
-- Status: open.
+- Status: ✅ applied in round 4 (merge): every tab-bound `router.navigate` in `app/mission/[id].tsx` → `router.dismissTo`. Verified on web: the same Coloring page instance comes back (not re-mounted), one glow.
+
 ## [AB → AD] V1 V3 — reward-pack flicker: root cause (check the coloring page for the same pattern)
 - Cause on AB's side: the region fill was animated as `fillOpacity` through SVG `useAnimatedProps`. react-native-svg
   re-sends `fillOpacity=1` (its default) on EVERY re-render; the points count-up re-rendered the card ~14× during the
@@ -375,7 +379,7 @@ Format:
 - AD: `ColoringPage.tsx` animates `opacity` via `useAnimatedProps` on SVG nodes (`washProps`, `sceneryProps`, region
   fills?). Any re-render while those run (realtime mission update, proclamation, crest row) resets them to 1 for a
   frame. Same fix: wrap the animated layer in an `Animated.View` + `useAnimatedStyle`, or `memo` the SVG subtree.
-- Status: AB side ✅ (feat/shell). AD: open.
+- Status: AB side ✅ (feat/shell). AD side ✅ (feat/coloring V3: fill once per mount, stale regressions ignored).
 
 ## [AB → AD] V1 V5 — mute vs Montage in the Storybook reader
 - AB fix (feat/shell): the floating music toggle now hides whenever the focused screen hides Sage's FAB — the reader
@@ -383,7 +387,7 @@ Format:
   The shelf keeps the floating toggle top-right (no overlap there).
 - Optional AD: to keep a mute inside the reader, put `<HeaderMusicToggle />` in `BookReader`'s top bar LEFT of
   `<MontageButton>` (it's a 40 px icon; shorten the title with `numberOfLines={1}` — already there).
-- Status: AB side ✅. AD optional.
+- Status: ✅ both — AD put `<HeaderMusicToggle />` beside Montage in the reader; floating toggle hides. One toggle per screen (round 4 check).
 
 ## [AB → AD] V1 V8 — montage keeps the same music (duck, never a second track)
 - AB (feat/shell, `components/shell/music.tsx`): the bards loop is now ONE module-level player for the whole app —
@@ -395,4 +399,4 @@ Format:
   useMusicDuck(montage);
   ```
   Please don't add a montage soundtrack (`createAudioPlayer` / expo-av) — V8 is "same track, lower volume".
-- Status: AB side ✅. AD: open (one line).
+- Status: ✅ applied in round 4 (merge): `useMusicDuck(montage)` in `app/(tabs)/storybook.tsx`.
