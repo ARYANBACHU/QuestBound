@@ -3,7 +3,7 @@ import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { regionDef } from '@/shared/templates';
-import { ink, radius, space } from '@/shared/theme';
+import { ink, radius, scrim, space } from '@/shared/theme';
 import type { FellowshipMember, Mission, Page } from '@/shared/types';
 import { MISSION_TYPE_LABEL, MissionTypeIcon } from './MissionTypeIcon';
 import { CrestRow } from './Crests';
@@ -91,10 +91,10 @@ export function MissionSheet({ mission, page, members, onClose }: { mission: Mis
 }
 
 const styles = StyleSheet.create({
-  scrim: { flex: 1, backgroundColor: ink.ink, opacity: 0.25 },
+  scrim: { flex: 1, backgroundColor: scrim.base },
   sheet: {
     backgroundColor: ink.page, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, borderWidth: 2.5, borderBottomWidth: 0,
-    borderColor: ink.ink, paddingHorizontal: space.xl, paddingTop: space.sm, maxHeight: '80%',
+    borderColor: ink.ink, paddingHorizontal: space.xl, paddingTop: space.sm, maxHeight: '80%', overflow: 'hidden',
   },
   grip: { alignSelf: 'center', width: 48, height: 5, borderRadius: 3, backgroundColor: ink.muted, marginBottom: space.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },

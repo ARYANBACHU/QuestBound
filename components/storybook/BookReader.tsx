@@ -140,7 +140,7 @@ function ChapterSpread({ page, missions, memories, members, width }: { page: Pag
 export function ReaderEmpty({ onBack }: { onBack: () => void }) {
   return (
     <View style={{ padding: space.xxl, gap: space.md, alignItems: 'center' }}>
-      <Txt v="story" center>This book is shelved somewhere Muse can’t reach right now.</Txt>
+      <Txt v="story" center>This book is shelved somewhere Sage can’t reach right now.</Txt>
       <InkButton label="Back to the shelf" variant="secondary" onPress={onBack} />
     </View>
   );

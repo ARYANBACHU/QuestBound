@@ -46,7 +46,7 @@ export default function StorybookScreen() {
       setOpenId(null);
       router.push('/(tabs)/coloring');
     } catch {
-      setError('Muse dropped the quill. Try summoning again in a moment.');
+      setError('Sage dropped the quill. Try summoning again in a moment.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     } finally {
       setSummoning(false);
@@ -80,7 +80,7 @@ export default function StorybookScreen() {
         ) : books.length === 0 ? (
           <View style={styles.empty}>
             <Txt v="heading" center>The shelf is empty.</Txt>
-            <Txt v="story" center>Books appear here as Muse writes them. Summon your first tale on the Page tab.</Txt>
+            <Txt v="story" center>Books appear here as Sage writes them. Summon your first tale on the Page tab.</Txt>
             <InkButton label="Go to the page" onPress={() => router.push('/(tabs)/coloring')} />
           </View>
         ) : (

@@ -1,4 +1,4 @@
-// Owner: AD. Page-turn overlay, chapter ribbon, blank book, "Muse is writing", and "The End" banner.
+// Owner: AD. Page-turn overlay, chapter ribbon, blank book, "Sage is writing", and "The End" banner.
 import { useEffect, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { G, Path, Rect } from 'react-native-svg';
@@ -64,7 +64,7 @@ export function BlankBook({ width, onSummon, loading, error }: { width: number; 
         <BlankFrame width={width} />
         <View style={[StyleSheet.absoluteFill, styles.overlay]}>
           <Txt v="heading" center>Your book is blank.</Txt>
-          <Txt v="story" center>Summon a story to begin. Muse will weave your interests and real places nearby into a tale.</Txt>
+          <Txt v="story" center>Summon a story to begin. Sage will weave your interests and real places nearby into a tale.</Txt>
           <InkButton label="Summon a story" onPress={onSummon} loading={loading} style={{ marginTop: space.md }} />
           {error ? <Txt v="small" color={ink.danger} center>{error} Check your connection and try again.</Txt> : null}
         </View>
@@ -77,8 +77,8 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 const LINE = 'M170 700 C300 640 380 760 500 700 S700 640 830 700';
 const LINE_LEN = 760;
 
-/** Muse is writing your book… (the one place a looping animation is allowed). */
-export function MuseWriting({ width }: { width: number }) {
+/** Sage is writing your book… (the one place a looping animation is allowed). */
+export function SageWriting({ width }: { width: number }) {
   const t = useSharedValue(0);
   useEffect(() => {
     t.value = withRepeat(withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.quad) }), -1, false);
@@ -103,7 +103,7 @@ export function MuseWriting({ width }: { width: number }) {
           </Svg>
         </Animated.View>
         <View style={[StyleSheet.absoluteFill, styles.writingText]} pointerEvents="none">
-          <Txt v="heading" center>Muse is writing your book…</Txt>
+          <Txt v="heading" center>Sage is writing your book…</Txt>
           <Txt v="story" center>Gathering your interests, scouting real places nearby, and inking the first page.</Txt>
         </View>
       </View>
@@ -115,7 +115,7 @@ export function TheEndBanner({ onOpenStorybook, onSequel, loading }: { onOpenSto
   return (
     <View style={styles.end}>
       <Txt v="title" center>The End… for now</Txt>
-      <Txt v="story" center>Every page is colored. Muse is already dreaming up what comes next.</Txt>
+      <Txt v="story" center>Every page is colored. Sage is already dreaming up what comes next.</Txt>
       <View style={{ gap: space.sm, alignSelf: 'stretch' }}>
         <InkButton label="Open the Storybook" onPress={onOpenStorybook} />
         <InkButton label="Summon the next book" variant="secondary" onPress={onSequel} loading={loading} />

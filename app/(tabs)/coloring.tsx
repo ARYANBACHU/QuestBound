@@ -14,7 +14,7 @@ import type { Mission, Page } from '@/shared/types';
 import { ColoringPage, FILL_MS } from '@/components/coloring/ColoringPage';
 import { ChapterHeader } from '@/components/coloring/ChapterHeader';
 import { MissionSheet } from '@/components/coloring/MissionSheet';
-import { BlankBook, ChapterRibbon, MuseWriting, PageTurnOverlay, TheEndBanner } from '@/components/coloring/PageStates';
+import { BlankBook, ChapterRibbon, SageWriting, PageTurnOverlay, TheEndBanner } from '@/components/coloring/PageStates';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { InkButton, Txt } from '@/components/coloring/ui';
 
@@ -85,7 +85,7 @@ export default function ColoringScreen() {
       await generateStoryline({ fellowship_id: fellowship.id, mode });
       setViewId(null);
     } catch (e) {
-      setSummonError(e instanceof Error ? 'Muse dropped the quill.' : 'Something went wrong.');
+      setSummonError(e instanceof Error ? 'Sage dropped the quill.' : 'Something went wrong.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     } finally {
       setSummoning(false);
@@ -113,12 +113,12 @@ export default function ColoringScreen() {
     body = (
       <View style={styles.fill}>
         <Txt v="heading" center>No fellowship, no tale.</Txt>
-        <Txt v="story" center>Muse writes for a band of friends. Gather yours first.</Txt>
+        <Txt v="story" center>Sage writes for a band of friends. Gather yours first.</Txt>
         <InkButton label="Find your fellowship" onPress={() => router.push('/(tabs)/friends')} />
       </View>
     );
   } else if (summoning || storyline?.status === 'generating') {
-    body = <MuseWriting width={pageW} />;
+    body = <SageWriting width={pageW} />;
   } else if (!storyline || !shown) {
     body = <BlankBook width={pageW} onSummon={() => summon('first')} loading={summoning} error={summonError} />;
   } else {
