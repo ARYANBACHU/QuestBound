@@ -17,7 +17,7 @@ function completed(missions: Mission[]): Mission[] {
 }
 
 export function pointsFor(userId: string, missions: Mission[]): number {
-  return completed(missions).reduce((sum, m) => (m.completed_by.includes(userId) ? sum + (m.points ?? 0) : sum), 0);
+  return completed(missions).reduce((sum, m) => ((m.completed_by ?? []).includes(userId) ? sum + (m.points ?? 0) : sum), 0);
 }
 
 /** Every member (even with 0 points), highest first; ties keep join order. */
@@ -25,7 +25,7 @@ export function leaderboard(members: FellowshipMember[], missions: Mission[]): L
   const done = completed(missions);
   return members
     .map((mem, i) => {
-      const mine = done.filter((m) => m.completed_by.includes(mem.user_id));
+      const mine = done.filter((m) => (m.completed_by ?? []).includes(mem.user_id));
       return { user_id: mem.user_id, points: mine.reduce((s, m) => s + (m.points ?? 0), 0), missions: mine.length, i };
     })
     .sort((a, b) => b.points - a.points || a.i - b.i)

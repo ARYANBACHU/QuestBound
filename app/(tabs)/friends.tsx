@@ -14,6 +14,7 @@ import InviteSheet from '@/components/friends/InviteSheet';
 import MemberSheet from '@/components/friends/MemberSheet';
 import MembersView from '@/components/friends/MembersView';
 import SegmentControl from '@/components/friends/SegmentControl';
+import UpNext from '@/components/friends/UpNext';
 
 type Segment = 'chat' | 'fellowship';
 const SEGMENTS: { value: Segment; label: string }[] = [
@@ -29,7 +30,7 @@ export default function FriendsScreen() {
   const [segment, setSegment] = useState<Segment>('chat');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [openMemberId, setOpenMemberId] = useState<string | null>(null);
-  const { storyline, pages } = useStoryline(fellowship?.id ?? null);
+  const { storyline, pages, activePage, loading: storyLoading } = useStoryline(fellowship?.id ?? null);
   const { missions } = useMissions(storyline?.id ?? null);
 
   if (loading && !fellowship) {
@@ -65,6 +66,15 @@ export default function FriendsScreen() {
         online={chat.online}
         onInvite={() => setInviteOpen(true)}
         onPressMembers={() => setSegment('fellowship')}
+      />
+      <UpNext
+        storyline={storyline}
+        pages={pages}
+        activePage={activePage}
+        missions={missions}
+        members={members}
+        myId={userId}
+        loading={storyLoading}
       />
       <SegmentControl options={SEGMENTS} value={segment} onChange={setSegment} />
       <View style={styles.body}>

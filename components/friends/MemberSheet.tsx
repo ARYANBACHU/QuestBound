@@ -57,7 +57,7 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
     if (!member) return [];
     const pageById = Object.fromEntries(pages.map((pg) => [pg.id, pg]));
     return missions
-      .filter((m) => m.status === 'complete' && m.completed_by.includes(member.user_id))
+      .filter((m) => m.status === 'complete' && (m.completed_by ?? []).includes(member.user_id))
       .sort((a, b) => (a.completed_at ?? '').localeCompare(b.completed_at ?? ''))
       .map((m) => {
         const pg = pageById[m.page_id];
@@ -69,7 +69,7 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
 
   const lastSeen = [...chat.messages].reverse().find((x) => x.user_id === member.user_id)?.created_at ?? null;
   const waiting =
-    missions.find((m) => m.status === 'open' && m.assignee_ids.includes(member.user_id)) ??
+    missions.find((m) => m.status === 'open' && (m.assignee_ids ?? []).includes(member.user_id)) ??
     missions.find((m) => m.status === 'open' && pages.find((pg) => pg.id === m.page_id)?.status === 'active');
   const cooling = Date.now() - (lastNudged.get(member.user_id) ?? 0) < NUDGE_COOLDOWN_MS;
 
@@ -118,7 +118,7 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
             ) : null}
           </View>
 
-          {p.interests.length ? (
+          {p.interests?.length ? (
             <View style={styles.chips}>
               {p.interests.map((id) => (
                 <View key={id} style={styles.chip}>
