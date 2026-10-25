@@ -54,7 +54,8 @@
         {
           "locationWhenInUsePermission": "Questbound finds real places near your fellowship for your story."
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,
