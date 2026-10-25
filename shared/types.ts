@@ -196,6 +196,7 @@ export interface GenerateStorylineRequest {
   difficulty?: Difficulty; // default 'normal'
   replace_active?: boolean; // archive the current book (status complete, recap abandoned) and start a new one
   prewarm?: boolean; // only fill the SerpApi cache; writes nothing, returns { prewarmed, places_count, serp }
+  art_ready?: TemplateId[]; // G2: templates this app build can draw (lib/api sends it); engine picks only from these + classics
 }
 export interface SerpStats { live: number; cached: number; stale: number; failed: number }
 export interface GenerateStorylineResponse {
