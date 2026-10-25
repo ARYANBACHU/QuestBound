@@ -83,6 +83,7 @@ export interface Storyline {
   theme_tags: string[];
   status: StorylineStatus;
   difficulty?: Difficulty; // 0003_round2.sql (db default 'normal'); optional so older rows/mocks still typecheck
+  geo_enforced?: boolean; // 0005_v1.sql (db default true). false = demo books: show distance, never block on location
   recap: BookRecap | null;
   created_at: ISODate;
 }
