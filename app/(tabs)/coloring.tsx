@@ -1,7 +1,7 @@
 // Owner: AD. The coloring page tab: the current chapter, its missions as regions, page turns between chapters.
-'use no memo'; // mock store mutates rows in place; opt out of React Compiler auto-memo so updates always render
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+'use no memo'; // reads refs during render (page-turn state machine); keep the React Compiler out
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, PanResponder, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -11,11 +11,12 @@ import { useMissions, useStoryline } from '@/lib/game';
 import { generateStoryline, submitProof } from '@/lib/api';
 import { USE_MOCKS } from '@/lib/env';
 import { SCREEN_GRADIENTS, ink, moodFor, radius, shadow, space } from '@/shared/theme';
-import type { Mission, Page } from '@/shared/types';
+import type { Page } from '@/shared/types';
 import { ColoringPage, FILL_MS } from '@/components/coloring/ColoringPage';
 import { ChapterHeader } from '@/components/coloring/ChapterHeader';
 import { MissionSheet } from '@/components/coloring/MissionSheet';
-import { BlankBook, ChapterRibbon, SageWriting, PageTurnOverlay, TheEndBanner } from '@/components/coloring/PageStates';
+import { BlankBook, ChapterRibbon, SageWriting, TheEndBanner } from '@/components/coloring/PageStates';
+import { PageFlip } from '@/components/coloring/PageFlip';
 import { pageMissions, roman } from '@/components/coloring/pageUtils';
 import { InkButton, Txt } from '@/components/coloring/ui';
 import { Sage, SageSays } from '@/components/coloring/sage';
@@ -38,13 +39,12 @@ export default function ColoringScreen() {
   const [summoning, setSummoning] = useState(false);
   const [summonError, setSummonError] = useState<string | null>(null);
 
-  // ---- page turn state machine: hold (last fill plays) → turning (flip) → ribbon ----
+  // ---- page turns: hold (the last fill plays) → flip → ribbon + confetti. Browsing chapters flips too. ----
   const [hold, setHold] = useState<Page | null>(null);
-  const [turning, setTurning] = useState<{ page: Page; missions: Mission[] } | null>(null);
+  const [flip, setFlip] = useState<{ key: number; mode: 'next' | 'prev'; over: Page; under: Page; auto: boolean } | null>(null);
   const [ribbon, setRibbon] = useState<string | null>(null);
+  const [party, setParty] = useState<{ kind: 'page' | 'book'; at: number } | null>(null);
   const prevActive = useRef<Page | null>(null);
-  const missionsRef = useRef(missions);
-  missionsRef.current = missions;
 
   useEffect(() => {
     const prev = prevActive.current;
@@ -52,23 +52,26 @@ export default function ColoringScreen() {
     if (!prev || !activePage || prev.id === activePage.id) return;
     const prevNow = pages.find((p) => p.id === prev.id);
     if (prevNow?.status !== 'complete') return;
+    const next = activePage;
     setViewId(null);
     setHold(prevNow);
     const t = setTimeout(() => {
       setHold(null);
-      setTurning({ page: prevNow, missions: pageMissions(missionsRef.current, prevNow) });
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+      setFlip({ key: Date.now(), mode: 'next', over: prevNow, under: next, auto: true });
     }, HOLD_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePage?.id]);
 
-  const [party, setParty] = useState<{ kind: 'page' | 'book'; at: number } | null>(null);
-  const onTurnDone = useCallback(() => {
-    setTurning(null);
-    const next = prevActive.current;
-    if (next) setRibbon(`Chapter ${roman(next.chapter_number)} · ${next.title}`);
-    setParty({ kind: 'page', at: Date.now() });
+  const flipRef = useRef(flip);
+  flipRef.current = flip;
+  const onFlipDone = useCallback(() => {
+    const f = flipRef.current;
+    setFlip(null);
+    if (f?.auto) {
+      setRibbon(`Chapter ${roman(f.under.chapter_number)} · ${f.under.title}`);
+      setParty({ kind: 'page', at: Date.now() });
+    }
   }, []);
   useEffect(() => {
     if (!ribbon) return;
@@ -77,6 +80,33 @@ export default function ColoringScreen() {
   }, [ribbon]);
 
   const shown: Page | null = hold ?? (viewId ? pages.find((p) => p.id === viewId) ?? activePage : activePage);
+
+  /** Browse to another chapter with a page flip (forward = the page turns away, back = it turns back in). */
+  const goTo = (targetId: string) => {
+    const target = pages.find((p) => p.id === targetId);
+    if (!target || !shown || target.id === shown.id || flip || hold) return;
+    const forward = target.chapter_number > shown.chapter_number;
+    setFlip({ key: Date.now(), mode: forward ? 'next' : 'prev', over: forward ? shown : target, under: forward ? target : shown, auto: false });
+    setViewId(target.id === activePage?.id ? null : target.id);
+  };
+  const goRef = useRef(goTo);
+  goRef.current = goTo;
+  const shownIdx = shown ? pages.findIndex((p) => p.id === shown.id) : -1;
+  const idxRef = useRef(shownIdx);
+  idxRef.current = shownIdx;
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
+  const swipe = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+        onPanResponderRelease: (_, g) => {
+          const to = pagesRef.current[idxRef.current + (g.dx < 0 ? 1 : -1)];
+          if (Math.abs(g.dx) > 50 && to) goRef.current(to.id);
+        },
+      }),
+    [],
+  );
   const shownMissions = pageMissions(missions, shown);
   const sheetMission = missions.find((m) => m.id === sheetId) ?? null;
   const bookDone = !!storyline && (storyline.status === 'complete' || (pages.length > 0 && pages.every((p) => p.status === 'complete')));
@@ -115,6 +145,10 @@ export default function ColoringScreen() {
     await submitProof({ mission_id: m.id, participant_ids: members.slice(0, Math.max(1, m.required_members)).map((x) => x.user_id), proof_text: 'dev' });
   };
 
+  const staticPage = (page: Page) => (
+    <ColoringPage templateId={page.template_id} missions={pageMissions(missions, page)} members={members} locked={page.status === 'locked'} interactive={false} animate={false} width={pageW} />
+  );
+
   // ---------------- states ----------------
   let body: React.ReactNode;
   if (loading) {
@@ -142,40 +176,47 @@ export default function ColoringScreen() {
     body = (
       <>
         <ChapterHeader bookTitle={storyline.title} page={shown} missions={shownMissions} members={members} />
-        <View style={styles.pageWrap}>
+        <View style={styles.pageWrap} {...swipe.panHandlers}>
           <View style={[styles.paperShadow, { width: pageW }]}>
-            <ColoringPage
-              key={shown.id}
-              templateId={shown.template_id}
-              missions={shownMissions}
-              members={members}
-              locked={isLocked}
-              interactive={!isLocked}
-              width={pageW}
-              highlightRegionId={sheetMission?.region_id ?? null}
-              onRegionPress={(missionId) => setSheetId(missionId)}
-            />
-            {isLocked && (
-              <View style={[StyleSheet.absoluteFill, styles.lockedNote]} pointerEvents="none">
-                <View style={styles.lockedPill}>
-                  <Txt v="bodyBold" center>Unlocks when Chapter {roman(shown.chapter_number - 1)} is colored</Txt>
-                </View>
-              </View>
-            )}
-            {turning && (
-              <PageTurnOverlay onDone={onTurnDone}>
-                <ColoringPage templateId={turning.page.template_id} missions={turning.missions} members={members} interactive={false} animate={false} width={pageW} />
-              </PageTurnOverlay>
+            {flip ? (
+              <PageFlip
+                key={flip.key}
+                mode={flip.mode}
+                over={staticPage(flip.over)}
+                under={staticPage(flip.under)}
+                onDone={onFlipDone}
+              />
+            ) : (
+              <>
+                <ColoringPage
+                  key={shown.id}
+                  templateId={shown.template_id}
+                  missions={shownMissions}
+                  members={members}
+                  locked={isLocked}
+                  interactive={!isLocked}
+                  width={pageW}
+                  highlightRegionId={sheetMission?.region_id ?? null}
+                  onRegionPress={(missionId) => setSheetId(missionId)}
+                />
+                {isLocked && (
+                  <View style={[StyleSheet.absoluteFill, styles.lockedNote]} pointerEvents="none">
+                    <View style={styles.lockedPill}>
+                      <Txt v="bodyBold" center>Unlocks when Chapter {roman(shown.chapter_number - 1)} is colored</Txt>
+                    </View>
+                  </View>
+                )}
+              </>
             )}
           </View>
           {ribbon && <ChapterRibbon text={ribbon} />}
         </View>
 
-        <ChapterNav pages={pages} shownId={shown.id} activeId={activePage?.id ?? null} onPick={(id) => setViewId(id === activePage?.id ? null : id)} />
+        <ChapterNav pages={pages} shownId={shown.id} activeId={activePage?.id ?? null} onPick={goTo} />
 
-        {upNext && !hold && !turning ? <UpNext mission={upNext} mood={moodFor(shown.template_id)} onPress={() => setSheetId(upNext.id)} /> : null}
+        {upNext && !hold && !flip ? <UpNext mission={upNext} mood={moodFor(shown.template_id)} onPress={() => setSheetId(upNext.id)} /> : null}
 
-        {bookDone && !hold && !turning && (
+        {bookDone && !hold && !flip && (
           <TheEndBanner onOpenStorybook={() => router.push('/(tabs)/storybook')} onSequel={() => summon('sequel')} loading={summoning} />
         )}
         {summonError && bookDone ? <Txt v="small" color={ink.danger} center>{summonError} Try again in a moment.</Txt> : null}

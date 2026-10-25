@@ -1,4 +1,4 @@
-// Owner: AD. Page-turn overlay, chapter ribbon, blank book, "Sage is writing", and "The End" banner.
+// Owner: AD. Chapter ribbon, blank book, "Sage is writing", and "The End" banner.
 import { useEffect, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
@@ -10,29 +10,6 @@ import { frameBand, storybookFrame } from '@/assets/pages/shapes';
 import { MissionTypeGlyph } from './MissionTypeIcon';
 import { InkButton, Txt } from './ui';
 import { Sage, SageSays } from './sage';
-
-export const TURN_MS = 1100;
-
-/** The previous page, laid on top of the next one, swinging away around its left edge. */
-export function PageTurnOverlay({ children, onDone }: { children: ReactNode; onDone: () => void }) {
-  const deg = useSharedValue(0);
-  useEffect(() => {
-    deg.value = withTiming(-180, { duration: TURN_MS, easing: Easing.inOut(Easing.cubic) });
-    const t = setTimeout(onDone, TURN_MS + 30);
-    return () => clearTimeout(t);
-  }, [deg, onDone]);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ perspective: 1200 }, { rotateY: `${deg.value}deg` }],
-    opacity: deg.value < -95 ? 0 : 1,
-  }));
-  const shade = useAnimatedStyle(() => ({ opacity: Math.min(0.35, (-deg.value / 90) * 0.35) }));
-  return (
-    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transformOrigin: 'left center', backfaceVisibility: 'hidden' }, style]}>
-      {children}
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: ink.ink }, shade]} />
-    </Animated.View>
-  );
-}
 
 /** "Chapter II · Whispers in the Wood" ribbon. Parent mounts it for ~2 s. */
 export function ChapterRibbon({ text }: { text: string }) {
