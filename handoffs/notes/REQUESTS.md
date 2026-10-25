@@ -312,3 +312,14 @@ Format:
   `useStoryline().storyline.geo_enforced` is loaded (STORYLINE_COLS). Chapter I is now "The Forty Acres Awaken" with
   the exact V1-PLAN missions; 0 solos on Chapter I, max 1 on II–IV.
 - Status: engine ✅ (feat/engine). AB: wire the two client bits above.
+## [MP → AB] V1 — tab bar while the keyboard is up (Friends layout check)
+- **What:** in `components/shell/TabBar.tsx`, hide the tab bar while the soft keyboard is open (return `null`, or
+  height 0, when `useKeyboardVisible()` is true; on web use MP's `useSoftKeyboard` from
+  `components/friends/useSoftKeyboard.ts`, which works on native too).
+- **Why:** on Android (when the window resizes) and on phone browsers, the tab bar stays above the keyboard and takes
+  ~70 px from the chat while typing. iOS native is fine (the keyboard covers it).
+- **FYI, no action needed:** on the Friends chat view MP now calls `useHideWizardFab(true)` and shows its own Sage
+  button in the composer (tap = `useWizard().open()`, long-press = `openDemoTools()`), because the floating FAB sat on
+  top of the newest messages (my own bubbles are right-aligned). The FAB still shows on the Friends roster view. The
+  `FRIENDS_COMPOSER_HEIGHT` lift in `app/(tabs)/_layout.tsx` now only applies to that roster view and could be 0.
+- Status: open.

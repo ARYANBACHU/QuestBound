@@ -1,5 +1,29 @@
 # MP status (Fellowship & Friends · feat/friends)
 
+## V1 (final polish) — done
+- **V7 toast**: `ProclamationToast` enters with a calm fade + 25 px slide (220 ms, decelerate) and leaves with a
+  160 ms fade-up. The spring bounce is gone.
+- **Friends layout check, phone-width web (390×844 and 360×740, mock mode, Playwright):** no horizontal scroll.
+  Fixed:
+  - Web composer: Enter now sends (it inserted a newline before; RN-web ignores `submitBehavior` on multiline).
+    Shift+Enter = new line. Starts 1 row (was a 2-row textarea, 70 px) and grows to 120 px, resets after send.
+  - The floating Sage FAB covered the newest message (my own right-aligned bubbles fully). On the chat view the FAB
+    is hidden (`useHideWizardFab`) and Sage sits in the composer's left slot (⌄ while typing; long-press = demo tools).
+  - Fellowship name was cut to "The Lantern F…": now shrinks to fit one line by width (26 → 15 px floor).
+  - Placeholder "Message the fellowship" (it wrapped to 2 lines at 360 px).
+- **Keyboard check:** simulated Android-style keyboard (viewport shrinks 320 px). The composer stays visible above
+  it. New `components/friends/useSoftKeyboard.ts` (native = AB's `useKeyboardVisible`; web = focused field +
+  visual viewport lost >150 px), so mobile web gets ⌄ + jump-to-newest. Up next hides while typing so the chat has
+  room; it comes back on close. Desktop focus (no height loss) keeps Up next.
+- Request for AB in REQUESTS.md: hide the tab bar while the keyboard is up (Android resize + phone web).
+
+## Known bugs / notes (V1)
+- iOS Safari (web) couldn't be tested from the sandbox. Safari pans the page instead of resizing it, so the header
+  may scroll up while typing. Native iOS/Android use AB's `KeyboardSafe` (unchanged).
+- Tab bar stays above the keyboard on Android (when the window resizes) and on phone web (AB, see REQUESTS).
+- Open from round 3 (AB's U7): 'tap'/'toggle' sounds on plain Pressables (chips) in MP UI.
+
+
 ## Round 3 — done (all MP items: B4, U8, U2)
 - **B4 keyboard** (`components/friends/KeyboardSafe.tsx`, default export `{ children, style?, extra?, onKeyboardChange? }` +
   `useKeyboardVisible()`): Reanimated `useAnimatedKeyboard` (UI thread, frame-synced, iOS interactive dismiss) pads the
@@ -7,7 +31,8 @@
   indicator below the view → smaller lift; tab bar hiding → onLayout re-measures; Android resizing anyway → 0 (no
   double lift). Used by the chat (`ChatView`) and the join-code error screen. Tap the list or the header/Up next area to
   dismiss; ⌄ button while typing. Old `useKeyboardLift.ts` deleted.
-  - **Swap when AB's lands on main:** AB's `components/shell/KeyboardSafe.tsx` is on feat/shell (named export
+  - ✅ Swapped by the merge agent: ChatView + join screen now use AB's `components/shell/KeyboardSafe`; mine is deleted.
+    (Old note:) **Swap when AB's lands on main:** AB's `components/shell/KeyboardSafe.tsx` is on feat/shell (named export
     `KeyboardSafe`, props `offset`, `dismissOnTap`, `enabled`; plus `useKeyboardVisible`). To swap: in ChatView use
     `<KeyboardSafe dismissOnTap={false}>` (the list already dismisses on tap) and replace `onKeyboardChange` with AB's
     `useKeyboardVisible()`; in `app/join/[code].tsx` use `<KeyboardSafe>` (drop my Pressable). Then delete mine.
@@ -64,7 +89,7 @@
 - Removed: `SegmentControl` (nobody else imported it).
 
 ## Known bugs / notes
-- Web preview only: the fellowship name truncates (adjustsFontSizeToFit is native-only) and the multiline composer is tall.
+- ~~Web preview only: the fellowship name truncates and the multiline composer is tall.~~ Fixed in V1.
 - AB's tabs layout lifts the FAB by a fixed 92 px on Friends; with the composer now on the keyboard, AB's A10
   (hide FAB while keyboard is open) covers the rest.
 - Supabase dashboard: enable Anonymous sign-ins (Authentication → Providers).

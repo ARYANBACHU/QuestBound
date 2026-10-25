@@ -19,6 +19,8 @@ import MembersView from '@/components/friends/MembersView';
 import UpNext from '@/components/friends/UpNext';
 import { Sage } from '@/components/friends/sage';
 import { haptic } from '@/components/friends/haptics';
+import { useHideWizardFab } from '@/components/wizard/WizardProvider';
+import { useSoftKeyboard } from '@/components/friends/useSoftKeyboard';
 
 type View_ = 'chat' | 'fellowship';
 
@@ -35,6 +37,10 @@ export default function FriendsScreen() {
   const missionsById = useMemo(() => Object.fromEntries(missions.map((m) => [m.id, m])), [missions]);
   const mood = moodFor(activePage?.template_id ?? pages[0]?.template_id);
   const gradient = SCREEN_GRADIENTS[mood.id];
+  // The chat composer has its own Sage button — the floating one would sit on top of the newest messages.
+  useHideWizardFab(!!fellowship && view === 'chat');
+  // While typing, the chat gets the room: Up next steps aside until the keyboard goes down.
+  const typing = useSoftKeyboard();
 
   if (loading && !fellowship) {
     return (
@@ -78,7 +84,7 @@ export default function FriendsScreen() {
             setView('fellowship');
           }}
         />
-        {view === 'chat' ? (
+        {view === 'chat' && !typing ? (
           <UpNext
             storyline={storyline}
             pages={pages}

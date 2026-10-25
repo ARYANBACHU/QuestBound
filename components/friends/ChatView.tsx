@@ -5,6 +5,7 @@ import {
   Alert,
   FlatList,
   Keyboard,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -20,7 +21,9 @@ import Crest from './Crest';
 import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
 import { ReactionChips, ReactionPicker } from './Reactions';
-import { KeyboardSafe, useKeyboardVisible } from '@/components/shell/KeyboardSafe';
+import { KeyboardSafe } from '@/components/shell/KeyboardSafe';
+import { useSoftKeyboard } from './useSoftKeyboard';
+import { useWizard } from '@/components/wizard/WizardProvider';
 import { Sage, playSfx } from './sage';
 import SageTalk from './SageTalk';
 import GameButton from './GameButton';
@@ -87,7 +90,7 @@ export interface ChatViewProps {
 export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember, missionsById, surface }: ChatViewProps) {
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
   const listRef = useRef<FlatList<Row>>(null);
-  const keyboardOpen = useKeyboardVisible();
+  const keyboardOpen = useSoftKeyboard();
   const scrollToNewest = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
   // Keyboard opens → jump to the newest message so you see what you're replying to.
   useEffect(() => {
@@ -235,13 +238,21 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
   );
 }
 
+const WEB = Platform.OS === 'web';
+const INPUT_MIN = ui.buttonHeightSm + ui.buttonDepth;
+const INPUT_MAX = 120;
+
 function Composer({ chat, keyboardOpen, onSent, surface }: { chat: ChatState; keyboardOpen: boolean; onSent: () => void; surface?: string }) {
   const [text, setText] = useState('');
+  // Web only: a <textarea> doesn't grow on its own and starts 2 rows tall. Start at 1 row and follow the content.
+  const [webHeight, setWebHeight] = useState(INPUT_MIN);
+  const { open: askSage, openDemoTools } = useWizard();
   const canSend = text.trim().length > 0;
   const submit = () => {
     if (!canSend) return;
     const body = text;
     setText('');
+    if (WEB) setWebHeight(INPUT_MIN);
     void chat.send(body);
     onSent();
     haptic.tap();
@@ -249,25 +260,65 @@ function Composer({ chat, keyboardOpen, onSent, surface }: { chat: ChatState; ke
   };
   return (
     <View style={[styles.composer, surface ? { backgroundColor: surface } : null]}>
+      {/* One slot: ⌄ while typing; otherwise Sage lives here (the floating Sage button is hidden on the chat so it
+          never covers the newest messages). Long-press keeps the floating button's demo tools. */}
       {keyboardOpen ? (
         <Pressable onPress={Keyboard.dismiss} hitSlop={8} style={({ pressed }) => [styles.hideKb, pressed && styles.pressed]} accessibilityLabel="Hide keyboard">
           <Text style={styles.hideKbText}>⌄</Text>
         </Pressable>
-      ) : null}
+      ) : (
+        <Pressable
+          onPress={() => {
+            haptic.select();
+            playSfx('open');
+            askSage();
+          }}
+          onLongPress={() => {
+            haptic.tap();
+            playSfx('open');
+            openDemoTools();
+          }}
+          delayLongPress={600}
+          hitSlop={6}
+          style={({ pressed }) => [styles.askSage, pressed && styles.askSagePressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Ask Sage the wizard"
+          accessibilityHint="Long-press for demo tools"
+        >
+          <Sage size={38} variant="face" still />
+        </Pressable>
+      )}
       <TextInput
         value={text}
         onChangeText={(t) => {
           setText(t);
           if (t) chat.notifyTyping();
+          else if (WEB) setWebHeight(INPUT_MIN);
         }}
-        placeholder="Send a message to the fellowship"
+        placeholder="Message the fellowship"
         placeholderTextColor={ink.muted}
-        style={styles.input}
+        style={[styles.input, WEB && { height: webHeight }]}
         multiline
         maxLength={1000}
         submitBehavior="submit"
         returnKeyType="send"
         onSubmitEditing={submit}
+        {...(WEB
+          ? {
+              rows: 1,
+              // scrollHeight includes padding, not the border.
+              onContentSizeChange: (e: { nativeEvent: { contentSize: { height: number } } }) =>
+                setWebHeight(Math.min(INPUT_MAX, Math.max(INPUT_MIN, e.nativeEvent.contentSize.height + ui.borderWidth * 2))),
+              // react-native-web ignores submitBehavior on a multiline input: Enter sends, Shift+Enter is a new line.
+              onKeyPress: (e: { nativeEvent: { key: string; shiftKey?: boolean; isComposing?: boolean }; preventDefault?: () => void }) => {
+                const k = e.nativeEvent;
+                if (k.key === 'Enter' && !k.shiftKey && !k.isComposing) {
+                  e.preventDefault?.();
+                  submit();
+                }
+              },
+            }
+          : null)}
       />
       <GameButton label="Send" size="sm" onPress={submit} disabled={!canSend} />
     </View>
@@ -442,8 +493,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: ui.buttonHeightSm + ui.buttonDepth,
-    maxHeight: 120,
+    minHeight: INPUT_MIN,
+    maxHeight: INPUT_MAX,
     borderWidth: ui.borderWidth,
     borderColor: ink.ink,
     borderRadius: ui.buttonRadius,
@@ -455,6 +506,18 @@ const styles = StyleSheet.create({
     color: ink.ink,
     backgroundColor: panel.parchment,
   },
+  askSage: {
+    width: INPUT_MIN,
+    height: INPUT_MIN,
+    borderRadius: INPUT_MIN / 2,
+    backgroundColor: realm.royalMist,
+    borderWidth: ui.borderWidth,
+    borderColor: ink.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  askSagePressed: { transform: [{ scale: 0.93 }] },
   hideKb: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
   hideKbText: { fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 30, color: ink.inkSoft, marginTop: -8 },
   pressed: { opacity: 0.75 },
