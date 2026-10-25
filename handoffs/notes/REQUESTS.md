@@ -290,3 +290,14 @@ Format:
 - **MP:** chat Send → `playSfx('send')`; plain Pressables (chips, toggles) → `'tap'` / `'toggle'`.
 - Status: MP chat Send ✅ applied in round 3 (merge); AD pageBack ✅. Open (MP): 'tap'/'toggle' on plain Pressables.
 
+
+## [AB → AD] V1 V3 — reward-pack flicker: root cause (check the coloring page for the same pattern)
+- Cause on AB's side: the region fill was animated as `fillOpacity` through SVG `useAnimatedProps`. react-native-svg
+  re-sends `fillOpacity=1` (its default) on EVERY re-render; the points count-up re-rendered the card ~14× during the
+  fill, so the region flashed blank→color→blank→color. Fixed in `components/shell/RewardPack.tsx`: the colored region
+  is its own layer inside an `Animated.View` whose `opacity` is an animated **style** (survives re-renders), and the
+  mini page is `memo`ized. Verified frame-by-frame on web: uncolored → one fill → seal.
+- AD: `ColoringPage.tsx` animates `opacity` via `useAnimatedProps` on SVG nodes (`washProps`, `sceneryProps`, region
+  fills?). Any re-render while those run (realtime mission update, proclamation, crest row) resets them to 1 for a
+  frame. Same fix: wrap the animated layer in an `Animated.View` + `useAnimatedStyle`, or `memo` the SVG subtree.
+- Status: AB side ✅ (feat/shell). AD: open.
