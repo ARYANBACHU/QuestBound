@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { Difficulty } from '@/shared/types';
 import { DIFFICULTY_TONE, chips, ink, radius, space } from '@/shared/theme';
 import { T } from './T';
+import { playSfx } from './sfx';
 
 const COPY: Record<'book' | 'reroll', Record<Difficulty, { label: string; sub: string; icon: string }>> = {
   book: {
@@ -33,7 +34,7 @@ export function DifficultyPicker({ value, onChange, kind = 'book' }: {
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
             accessibilityLabel={`${c.label}. ${c.sub}`}
-            onPress={() => { Haptics.selectionAsync().catch(() => {}); onChange(d); }}
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('tap'); onChange(d); }}
             style={[styles.row, { borderColor: on ? tone.border : ink.ink, backgroundColor: on ? tone.bg : ink.page }, on && styles.on]}
           >
             <T style={styles.icon}>{c.icon}</T>

@@ -26,3 +26,18 @@
 - Missions filters trimmed to All · Mine · Open · Done (the sections already group pairs/whole fellowship);
   the locked-chapters list is replaced by the chapter selector.
 - Reroll/new-storyline live behind "…" menus per SIMPLIFY; the mission card's place chip opens Maps directly.
+
+## Round 3
+- New-book flow lives in ONE host in the tabs layout (`NewBookProvider`); screens only call `openNewBook()`. The writing
+  ritual is an in-tree overlay, not a Modal — never two Modals at once. Failure re-opens the sheet with the error.
+- Crash net swallows *fatal* JS errors into the "Something went awry" screen (logged with console.error); non-fatal
+  errors keep the default handler.
+- FAB: free vertical position, horizontal snap to the nearest side (keeps it off content). It still hides while the
+  keyboard is up — the plan says "only while a modal/sheet is open", but a FAB over a raised composer covers Send.
+- `useHideWizardFab` counts only while the caller is focused.
+- Music toggle: header icon where a screen has a header row of mine; a floating fallback elsewhere that steps aside
+  automatically (registration), so teammates can adopt the header icon without coordination.
+- Reward pack shows the real page art on the card with only the earned region colored — the "your color" moment —
+  then AD's page animation plays on the coloring tab.
+- Spotlight = four blurred/dimmed panes around the target + a gold ring (no masks needed; works in Expo Go).
+- Soft sounds (tap/toggle) wait 24 ms and drop if the action plays a real sound → never two sfx per action.

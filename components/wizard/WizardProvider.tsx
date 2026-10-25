@@ -4,6 +4,7 @@
 // Chat history is kept per fellowship in memory + AsyncStorage (`qb.sage.chat.<fellowshipId>`): reopening the sheet
 // never regenerates the greeting; only a message the player sends calls the API.
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useIsFocused } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFellowship } from '@/lib/fellowship';
 import type { WizardAction } from '@/shared/types';
@@ -134,8 +135,11 @@ export function useWizard(): WizardCtx {
 /**
  * Hide Sage's floating button while `hidden` is true (e.g. AD's Storybook reader / montage):
  *   useHideWizardFab(readerOpen || montageOpen);
+ * Only counts while the calling screen is focused — a tab left in the background with its montage open no longer
+ * hides Sage on every other tab (B5). Always released on blur/unmount.
  */
 export function useHideWizardFab(hidden: boolean) {
   const { hideFab } = useWizard();
-  useEffect(() => (hidden ? hideFab() : undefined), [hidden, hideFab]);
+  const focused = useIsFocused();
+  useEffect(() => (hidden && focused ? hideFab() : undefined), [hidden, focused, hideFab]);
 }

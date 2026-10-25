@@ -10,6 +10,7 @@ import { DifficultyPicker } from './DifficultyPicker';
 import { rerollWithDifficulty } from './engine';
 import { Sheet } from './Sheet';
 import { T } from './T';
+import { playSfx } from './sfx';
 
 export function RerollSheet({ mission, visible, onClose, onRerolled }: {
   mission: Mission; visible: boolean; onClose: () => void; onRerolled: (next: Mission) => void;
@@ -25,11 +26,11 @@ export function RerollSheet({ mission, visible, onClose, onRerolled }: {
     setError(null);
     try {
       const { mission: next } = await rerollWithDifficulty(mission.id, choice);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       onRerolled(next);
       onClose();
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`${e instanceof Error ? e.message : String(e)} — try again in a moment.`);
     } finally {
       setBusy(false);

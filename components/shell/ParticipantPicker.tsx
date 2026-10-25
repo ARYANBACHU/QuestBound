@@ -5,6 +5,7 @@ import type { FellowshipMember } from '@/shared/types';
 import { CRAYONS, ink, radius, space } from '@/shared/theme';
 import { T } from './T';
 import { Crest } from './teammates';
+import { playSfx } from './sfx';
 
 export function ParticipantPicker({ members, meId, value, onChange, mode = 'multi', exclude = [] }: {
   members: FellowshipMember[];
@@ -27,7 +28,7 @@ export function ParticipantPicker({ members, meId, value, onChange, mode = 'mult
             accessibilityState={{ checked: on, disabled: mode === 'multi' && isMe }}
             disabled={mode === 'multi' && isMe}
             onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
+              Haptics.selectionAsync().catch(() => {}); playSfx('toggle');
               if (mode === 'single') onChange([m.user_id]);
               else onChange(on ? value.filter((v) => v !== m.user_id) : [...value, m.user_id]);
             }}

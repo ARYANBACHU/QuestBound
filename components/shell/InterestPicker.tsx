@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { INTERESTS, accent, ink, radius, space } from '@/shared/theme';
 import { T } from './T';
+import { playSfx } from './sfx';
 
 export const INTEREST_MIN = 3;
 export const INTEREST_MAX = 8;
@@ -16,15 +17,15 @@ export function InterestPicker({ value, onChange, onPick }: {
 }) {
   const toggle = (id: string) => {
     if (value.includes(id)) {
-      Haptics.selectionAsync().catch(() => {});
+      Haptics.selectionAsync().catch(() => {}); playSfx('toggle');
       onChange(value.filter((v) => v !== id));
       return;
     }
     if (value.length >= INTEREST_MAX) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       return;
     }
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.selectionAsync().catch(() => {}); playSfx('toggle');
     const next = [...value, id];
     onChange(next);
     onPick?.(id, next);

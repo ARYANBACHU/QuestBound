@@ -14,7 +14,31 @@ export const COACH_MARKS: Record<WizardScreen, string> = {
   missions: 'Every region is a mission. Big ones need the whole fellowship, medium ones need a pair.',
   friends: 'Your fellowship and its chat. My proclamations announce every region you color.',
   storybook: 'Finished chapters are bound here. Finish the book and I will write you a sequel.',
-  settings: 'Change your crest, crayon, interests and sounds here. Psst — you can drag me to any corner.',
+  settings: 'Change your crest, crayon, interests and sounds here. Psst — you can drag me anywhere.',
+};
+
+/** U5 spotlight tours: one short line per step; `target` = a <CoachTarget id> (missing → no spotlight, just Sage). */
+export interface CoachStep { target?: string; text: string }
+export const COACH_TOURS: Record<WizardScreen, CoachStep[]> = {
+  coloring: [
+    { text: COACH_MARKS.coloring },
+    { target: 'sage.fab', text: 'And I’m Sage. Tap me for help any time — drag me wherever I’m not in the way.' },
+  ],
+  missions: [
+    { target: 'missions.chapters', text: 'Each numeral is a chapter. Color every region to unlock the next.' },
+    { target: 'missions.firstCard', text: 'Every region is a mission. Big ones need the whole fellowship, medium ones a pair.' },
+    { target: 'missions.leaders', text: 'Points for every region you color. Group missions pay the most.' },
+  ],
+  friends: [
+    { target: 'tab.friends', text: COACH_MARKS.friends },
+  ],
+  storybook: [
+    { target: 'tab.storybook', text: COACH_MARKS.storybook },
+  ],
+  settings: [
+    { target: 'settings.hero', text: 'Your crest, crayon and interests live here. I use them to write your missions.' },
+    { target: 'music.header', text: 'The bards’ music, up top on every screen.' },
+  ],
 };
 
 export function screenFromPath(pathname: string): WizardScreen {

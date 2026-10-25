@@ -7,12 +7,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionMenu } from '@/components/shell/ActionMenu';
+import { CoachTarget } from '@/components/wizard/coachTargets';
+import { HeaderMusicToggle } from '@/components/shell/music';
 import { Button } from '@/components/shell/Button';
 import { MissionCard } from '@/components/shell/MissionCard';
 import {
   GROUP_TITLES, completerColor, missionGroup, orderedPageMissions, pointsByMember, roman, type MissionGroup,
 } from '@/components/shell/missionUtils';
-import { NewStorylineSheet } from '@/components/shell/NewStorylineSheet';
+import { useNewBook } from '@/components/shell/NewBook';
 import { ParchmentLoading } from '@/components/shell/ParchmentLoading';
 import { T } from '@/components/shell/T';
 import { TAB_CONTENT_BOTTOM_PAD } from '@/components/shell/TabBar';
@@ -24,6 +26,7 @@ import { useMissions, useStoryline } from '@/lib/game';
 import { useSession } from '@/lib/session';
 import type { Mission, Page } from '@/shared/types';
 import { SCREEN_GRADIENTS, accent, ink, moodFor, panel, radius, shadow, space } from '@/shared/theme';
+import { playSfx } from '@/components/shell/sfx';
 
 type Filter = 'all' | 'mine' | 'open' | 'done';
 const FILTERS: { id: Filter; label: string }[] = [
@@ -39,7 +42,7 @@ export default function MissionsScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [chapterId, setChapterId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [newBookOpen, setNewBookOpen] = useState(false);
+  const { openNewBook } = useNewBook();
 
   // Follow the active chapter unless the player picked another one (reset when the active page changes).
   useEffect(() => { setChapterId(null); }, [activePage?.id]);
@@ -59,11 +62,12 @@ export default function MissionsScreen() {
     filtered.forEach((m) => g[missionGroup(m)].push(m));
     return g;
   }, [filtered]);
+  const firstCardId = (['whole', 'pairs', 'solo'] as MissionGroup[]).map((g) => grouped[g][0]).find(Boolean)?.id;
   const leaders = useMemo(() => pointsByMember(missions, fs.members), [missions, fs.members]);
 
   const menu = [
     { label: 'Ask Sage what to do next', icon: '🧙', onPress: () => wizard.open('What should we do next?') },
-    { label: 'New storyline…', icon: '📖', onPress: () => setNewBookOpen(true) },
+    { label: 'New storyline…', icon: '📖', onPress: () => openNewBook() },
   ];
 
   if ((storyLoading || missionsLoading || fs.loading) && !storyline) return <ParchmentLoading line="Unrolling the quest board…" />;
@@ -81,9 +85,8 @@ export default function MissionsScreen() {
               text={writing ? 'Hush — I’m still writing your book. The missions appear the moment the ink dries.'
                 : 'No missions yet. Summon a story and I’ll write you some.'}
             />
-            {!writing ? <Button label="Summon our story" tone="gold" onPress={() => setNewBookOpen(true)} /> : null}
+            {!writing ? <Button label="Summon our story" tone="gold" onPress={() => openNewBook()} /> : null}
           </View>
-          <NewStorylineSheet visible={newBookOpen} onClose={() => setNewBookOpen(false)} />
         </SafeAreaView>
       </LinearGradient>
     );
@@ -105,10 +108,12 @@ export default function MissionsScreen() {
               <T variant="small" color={ink.inkSoft} numberOfLines={1}>{fs.fellowship?.name} · Book {roman(storyline.book_number)}</T>
               <T variant="title" numberOfLines={2}>{storyline.title}</T>
             </View>
+            <HeaderMusicToggle />
             <ActionMenu items={menu} />
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.chapters}>
+          <CoachTarget id="missions.chapters" style={styles.bleed}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chapters}>
             {pages.map((p) => {
               const on = p.id === viewed.id;
               const locked = p.status === 'locked';
@@ -117,7 +122,7 @@ export default function MissionsScreen() {
                 <Pressable
                   key={p.id}
                   disabled={locked}
-                  onPress={() => { Haptics.selectionAsync().catch(() => {}); setChapterId(p.id === activePage?.id ? null : p.id); }}
+                  onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('tap'); setChapterId(p.id === activePage?.id ? null : p.id); }}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: on, disabled: locked }}
                   accessibilityLabel={`Chapter ${p.chapter_number}${locked ? ', sealed' : p.status === 'complete' ? ', complete' : ''}`}
@@ -130,6 +135,7 @@ export default function MissionsScreen() {
               );
             })}
           </ScrollView>
+          </CoachTarget>
 
           <T variant="story" color={ink.ink}>Chapter {roman(viewed.chapter_number)}: {viewed.title}</T>
           <View style={styles.progressRow} accessibilityLabel={`${coloredCount} of ${total} regions colored`}>
@@ -146,7 +152,8 @@ export default function MissionsScreen() {
 
           {/* Leaderboard: one compact strip */}
           {leaders.length > 1 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.leaders}>
+            <CoachTarget id="missions.leaders" style={styles.bleed}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.leaders}>
               {leaders.map(({ member, points }, i) => member.profile ? (
                 <View key={member.user_id} style={[styles.leader, member.user_id === userId && { backgroundColor: mood.tintStrong }]}>
                   <Crest crest={member.profile.crest} color={member.profile.color} size={24} />
@@ -156,6 +163,7 @@ export default function MissionsScreen() {
                 </View>
               ) : null)}
             </ScrollView>
+            </CoachTarget>
           ) : null}
 
           {/* Filters (active chapter only) */}
@@ -193,13 +201,16 @@ export default function MissionsScreen() {
                   <T variant="small">{GROUP_TITLES[g].sub}</T>
                 </View>
                 <View style={{ gap: space.md }}>
-                  {grouped[g].map((m) => <MissionCard key={m.id} mission={m} members={fs.members} page={viewed} mood={mood} />)}
+                  {grouped[g].map((m) => m.id === firstCardId ? (
+                    <CoachTarget key={m.id} id="missions.firstCard">
+                      <MissionCard mission={m} members={fs.members} page={viewed} mood={mood} />
+                    </CoachTarget>
+                  ) : <MissionCard key={m.id} mission={m} members={fs.members} page={viewed} mood={mood} />)}
                 </View>
               </View>
             ) : null)
           )}
         </ScrollView>
-        <NewStorylineSheet visible={newBookOpen} onClose={() => setNewBookOpen(false)} />
       </SafeAreaView>
     </LinearGradient>
   );

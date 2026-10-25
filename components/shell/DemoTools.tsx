@@ -3,11 +3,9 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SummonRitual } from '@/components/wizard/SummonRitual';
 import { resetCoachMarks } from '@/components/wizard/coachMarks';
 import { Sage } from '@/components/wizard/Sage';
 import { useWizard } from '@/components/wizard/WizardProvider';
-import { generateStoryline } from '@/lib/api';
 import { USE_MOCKS } from '@/lib/env';
 import { useFellowship } from '@/lib/fellowship';
 import { useGenerationInfo, useStoryline } from '@/lib/game';
@@ -15,13 +13,16 @@ import { useSession } from '@/lib/session';
 import type { GenerateStorylineRequest } from '@/shared/types';
 import { ink, panel, scrim, shadow, space, ui } from '@/shared/theme';
 import { Button } from './Button';
+import { useNewBook } from './NewBook';
 import { T } from './T';
+import { playSfx } from './sfx';
 
 export function DemoTools() {
   const { demoOpen, closeDemoTools } = useWizard();
   const router = useRouter();
   const { fellowship } = useFellowship();
   const { storyline } = useStoryline(fellowship?.id ?? null);
+  const { writeBook } = useNewBook();
   const { info } = useGenerationInfo(storyline?.id ?? null);
   const { updateProfile } = useSession();
   const [busy, setBusy] = useState<string | null>(null);
@@ -32,21 +33,26 @@ export function DemoTools() {
     setNote(null);
     try {
       await fn();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setNote(`${label} failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(null);
     }
   };
 
-  const summonDemo = (label: string, demo: GenerateStorylineRequest['demo']) => run(label, async () => {
-    if (!fellowship) throw new Error('Join a fellowship first');
-    await generateStoryline({ fellowship_id: fellowship.id, mode: 'first', demo, replace_active: !!storyline });
+  // Close the tools first, then write through the one shared host (no Modal swaps — B1).
+  const summonDemo = (label: string, demo: GenerateStorylineRequest['demo']) => {
+    if (!fellowship) { setNote('Join a fellowship first'); return; }
     closeDemoTools();
-    router.navigate('/(tabs)/coloring');
-  });
+    writeBook({
+      demo,
+      lines: demo === 'ut'
+        ? ['Unrolling a map of the Forty Acres…', 'Polishing the Tower’s orange glow…', 'Hiding riddles near Turtle Pond…', 'Inking Chapter I…']
+        : ['Pulling a finished tale off the shelf…', 'Dusting off the chapters…', 'Almost there…'],
+    }).then((ok) => { if (!ok) setNote(`${label} failed — check the connection and try again.`); });
+  };
 
   const confirm = (title: string, body: string, ok: string, fn: () => void) => {
     if (Platform.OS === 'web') { fn(); return; } // RN-web has no Alert
@@ -57,14 +63,6 @@ export function DemoTools() {
 
   return (
     <Modal visible={demoOpen} transparent animationType="fade" onRequestClose={closeDemoTools}>
-      {busy === 'UT campus demo' || busy === 'Instant book' ? (
-        <SummonRitual
-          title="Sage is writing…"
-          lines={busy === 'UT campus demo'
-            ? ['Unrolling a map of the Forty Acres…', 'Polishing the Tower’s orange glow…', 'Hiding riddles near Turtle Pond…', 'Inking Chapter I…']
-            : ['Pulling a finished tale off the shelf…', 'Dusting off the chapters…', 'Almost there…']}
-        />
-      ) : (
         <>
           <Pressable style={styles.backdrop} onPress={closeDemoTools} accessibilityLabel="Close demo tools" />
           <View style={styles.center} pointerEvents="box-none">
@@ -107,7 +105,6 @@ export function DemoTools() {
             </View>
           </View>
         </>
-      )}
     </Modal>
   );
 }

@@ -1,13 +1,20 @@
 // Owner: AB. "Shall the bards play?" — a gentle looping lute tune (original, CC0; see assets/audio/README.md).
 // <MusicController /> lives once in the root layout: plays while Music is on and the app is in the foreground.
-// <MuteToggle /> is the small speaker button that sits on the tab bar.
+// U6: the music toggle lives at the TOP of screens:
+//   <HeaderMusicToggle />   — 40 px header icon, same look as the "…" button; put it header-right (left of "…").
+//   <FloatingMusicToggle /> — top-right fallback the tabs layout shows on tabs whose header doesn't have one yet;
+//                             it hides itself while the focused screen renders a <HeaderMusicToggle />.
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
-import { useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useIsFocused } from 'expo-router';
+import { AppState, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { useSession } from '@/lib/session';
-import { ink, shadow } from '@/shared/theme';
+import { ink, shadow, space } from '@/shared/theme';
+import { CoachTarget } from '@/components/wizard/coachTargets';
+import { playSfx } from './sfx';
 import { ensureAudioMode } from './sfx';
 import { hasStoredMusicChoice, loadSoundSettings, setSoundSetting, useSoundSettings } from './soundSettings';
 
@@ -82,8 +89,8 @@ export function SpeakerIcon({ on, size = 18, color = ink.ink }: { on: boolean; s
   );
 }
 
-/** Small round mute button for the tab bar. */
-export function MuteToggle({ style }: { style?: StyleProp<ViewStyle> }) {
+/** Small round music button (kept for anyone still importing it). */
+export function MuteToggle({ style, size = 30 }: { style?: StyleProp<ViewStyle>; size?: number }) {
   const { music, setMusic } = useMusicToggle();
   return (
     <Pressable
@@ -91,19 +98,50 @@ export function MuteToggle({ style }: { style?: StyleProp<ViewStyle> }) {
       accessibilityState={{ checked: music }}
       accessibilityLabel={music ? 'Music on. Tap to mute the bards' : 'Music off. Tap to let the bards play'}
       hitSlop={10}
-      onPress={() => { Haptics.selectionAsync().catch(() => {}); setMusic(!music); }}
-      style={({ pressed }) => [styles.mute, !music && styles.muteOff, pressed && styles.pressed, style]}
+      onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('toggle'); setMusic(!music); }}
+      style={({ pressed }) => [
+        styles.mute, { width: size, height: size, borderRadius: size / 2 }, !music && styles.muteOff, pressed && styles.pressed, style,
+      ]}
     >
-      <SpeakerIcon on={music} size={16} color={music ? ink.ink : ink.muted} />
+      <SpeakerIcon on={music} size={Math.round(size * 0.5)} color={music ? ink.ink : ink.muted} />
     </Pressable>
+  );
+}
+
+// ---- which focused screen already shows a header toggle (so the floating fallback can step aside) ----
+let headerCount = 0;
+const headerSubs = new Set<() => void>();
+const subscribeHeader = (f: () => void) => { headerSubs.add(f); return () => { headerSubs.delete(f); }; };
+const bump = (d: number) => { headerCount = Math.max(0, headerCount + d); headerSubs.forEach((f) => f()); };
+
+/** Header-right music icon (40 px, matches the "…" button). */
+export function HeaderMusicToggle({ style }: { style?: StyleProp<ViewStyle> }) {
+  const focused = useIsFocused();
+  useEffect(() => {
+    if (!focused) return;
+    bump(1);
+    return () => bump(-1);
+  }, [focused]);
+  return <CoachTarget id="music.header"><MuteToggle size={40} style={style} /></CoachTarget>;
+}
+
+/** Top-right fallback for tabs whose header has no <HeaderMusicToggle /> yet. Rendered by the tabs layout. */
+export function FloatingMusicToggle({ visible }: { visible: boolean }) {
+  const insets = useSafeAreaInsets();
+  const headers = useSyncExternalStore(subscribeHeader, () => headerCount, () => headerCount);
+  if (!visible || headers > 0) return null;
+  return (
+    <View style={[styles.floating, { top: insets.top + space.sm }]} pointerEvents="box-none">
+      <MuteToggle size={34} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   mute: {
-    width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: ink.page,
-    borderWidth: 2, borderColor: ink.ink, ...shadow.sm,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: ink.page, borderWidth: 2, borderColor: ink.ink, ...shadow.sm,
   },
+  floating: { position: 'absolute', right: space.lg, zIndex: 15 },
   muteOff: { borderColor: ink.muted },
   pressed: { transform: [{ scale: 0.92 }] },
 });

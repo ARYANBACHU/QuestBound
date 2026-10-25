@@ -12,17 +12,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionMenu } from '@/components/shell/ActionMenu';
 import { AvailabilityPicker, BudgetPicker } from '@/components/shell/BudgetTimePicker';
 import { Button } from '@/components/shell/Button';
+import { KeyboardSafeScroll } from '@/components/shell/KeyboardSafe';
 import { CrayonPicker, CrayonPreview, crayonName } from '@/components/shell/CrayonPicker';
 import { CrestPicker } from '@/components/shell/CrestPicker';
 import { INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
-import { useMusicToggle } from '@/components/shell/music';
-import { NewStorylineSheet } from '@/components/shell/NewStorylineSheet';
+import { HeaderMusicToggle, useMusicToggle } from '@/components/shell/music';
+import { useNewBook } from '@/components/shell/NewBook';
 import { Sheet } from '@/components/shell/Sheet';
 import { setSoundSetting, useSoundSettings } from '@/components/shell/soundSettings';
 import { T } from '@/components/shell/T';
 import { TAB_CONTENT_BOTTOM_PAD } from '@/components/shell/TabBar';
 import { Crest, InviteSheet } from '@/components/shell/teammates';
 import { resetCoachMarks } from '@/components/wizard/coachMarks';
+import { CoachTarget } from '@/components/wizard/coachTargets';
 import { SageBubble } from '@/components/wizard/SageBubble';
 import { useWizard } from '@/components/wizard/WizardProvider';
 import { useFellowship } from '@/lib/fellowship';
@@ -32,6 +34,7 @@ import {
   CRAYONS, CRESTS, INTERESTS, SCREEN_GRADIENTS, accent, fonts, ink, panel, radius, shadow, space, type, ui,
   type CrayonColor, type CrestId,
 } from '@/shared/theme';
+import { playSfx } from '@/components/shell/sfx';
 
 type Editing = null | 'identity' | 'crayon' | 'interests' | 'time';
 const NOTIFY_KEY = 'qb.notify';
@@ -43,7 +46,7 @@ export default function SettingsScreen() {
   const { openDemoTools } = useWizard();
   const [editing, setEditing] = useState<Editing>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [newBookOpen, setNewBookOpen] = useState(false);
+  const { openNewBook } = useNewBook();
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [notify, setNotify] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
@@ -92,10 +95,12 @@ export default function SettingsScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.headRow}>
             <T variant="title" style={styles.fill}>Settings</T>
+            <HeaderMusicToggle />
             <ActionMenu items={menu} />
           </View>
 
           {/* Hero card — the focal point */}
+          <CoachTarget id="settings.hero">
           <Pressable style={styles.hero} onPress={() => setEditing('identity')} accessibilityRole="button"
             accessibilityLabel={`${profile.display_name}, edit name and crest`}>
             <Crest crest={profile.crest} color={profile.color} size={76} />
@@ -106,6 +111,7 @@ export default function SettingsScreen() {
             </View>
             <T variant="heading" color={ink.muted}>›</T>
           </Pressable>
+          </CoachTarget>
           {fs.fellowship ? (
             <Button label="Invite friends" icon="📜" tone="gold" onPress={() => setInviteOpen(true)} style={styles.primary} />
           ) : (
@@ -124,7 +130,7 @@ export default function SettingsScreen() {
             <Section title="Fellowship">
               <Row label="Invite code" value={fs.fellowship.invite_code} mono onPress={() => setInviteOpen(true)} />
               <Row label="Members" value={`${fs.members.length} hero${fs.members.length === 1 ? '' : 'es'}`} />
-              <Row label="New storyline" value="Pick a difficulty" onPress={() => setNewBookOpen(true)} last />
+              <Row label="New storyline" value="Pick a difficulty" onPress={() => openNewBook()} last />
             </Section>
           ) : null}
 
@@ -168,7 +174,6 @@ export default function SettingsScreen() {
             setLeaveOpen(false);
             router.replace({ pathname: '/onboarding', params: { step: 'fellowship' } });
           }} />
-        <NewStorylineSheet visible={newBookOpen} onClose={() => setNewBookOpen(false)} />
         <InviteSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} fellowship={fs.fellowship} />
       </SafeAreaView>
     </LinearGradient>
@@ -189,7 +194,7 @@ function LeaveSheet({ visible, onClose, onLeave, name }: { visible: boolean; onC
         <Button label="Leave the fellowship" variant="danger" loading={busy} onPress={async () => {
           setBusy(true);
           try { await onLeave(); } catch (e) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
             setError(`Couldn't leave: ${e instanceof Error ? e.message : String(e)}. Try again in a moment.`);
           } finally { setBusy(false); }
         }} />
@@ -236,10 +241,10 @@ function ProfileEditor({ editing, onClose, onSaved, profile, save, takenBy }: {
       if (editing === 'crayon') await save({ color });
       if (editing === 'interests') await save({ interests });
       if (editing === 'time') await save({ budget, availability });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       onSaved();
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`Couldn't save: ${e instanceof Error ? e.message : String(e)}. Try again.`);
     } finally {
       setSaving(false);
@@ -251,7 +256,7 @@ function ProfileEditor({ editing, onClose, onSaved, profile, save, takenBy }: {
   return (
     <Sheet visible={!!editing} onClose={onClose}>
       <T variant="title">{editing ? title[editing] : ''}</T>
-      <ScrollView style={styles.editor} contentContainerStyle={styles.editorBody} keyboardShouldPersistTaps="handled">
+      <KeyboardSafeScroll style={styles.editor} contentContainerStyle={styles.editorBody}>
         {editing === 'identity' ? (
           <>
             <TextInput value={name} onChangeText={setName} maxLength={24} placeholder="Your name" placeholderTextColor={ink.muted}
@@ -279,7 +284,7 @@ function ProfileEditor({ editing, onClose, onSaved, profile, save, takenBy }: {
           </>
         ) : null}
         {error ? <T variant="small" color={ink.danger}>{error}</T> : null}
-      </ScrollView>
+      </KeyboardSafeScroll>
       <View style={styles.editorFoot}>
         <Button label="Save" onPress={onSave} loading={saving} disabled={!valid} />
         <Button label="Cancel" variant="ghost" onPress={onClose} />
@@ -306,7 +311,7 @@ function ToggleRow({ label, sub, value, onChange, last }: {
         <T variant="bodyBold">{label}</T>
         <T variant="small">{sub}</T>
       </View>
-      <Switch value={value} onValueChange={onChange} accessibilityLabel={label}
+      <Switch value={value} onValueChange={(v) => { playSfx('toggle'); onChange(v); }} accessibilityLabel={label}
         trackColor={{ true: accent.primary, false: ink.lavenderMist }} thumbColor={ink.page} />
     </View>
   );
@@ -318,7 +323,7 @@ function Row({ label, value, onPress, swatch, mono, last }: {
   return (
     <Pressable
       disabled={!onPress}
-      onPress={onPress}
+      onPress={onPress ? () => { playSfx('open'); onPress(); } : undefined}
       accessibilityRole={onPress ? 'button' : undefined}
       style={({ pressed }) => [styles.row, last && styles.rowLast, pressed && styles.rowPressed]}
     >

@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions,
+  Modal, Pressable, StyleSheet, TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AvailabilityPicker, BudgetPicker } from '@/components/shell/BudgetTimePicker';
@@ -16,6 +16,7 @@ import { CRAYON_QUIPS, CrayonPicker, CrayonPreview, crayonName } from '@/compone
 import { CrestPicker } from '@/components/shell/CrestPicker';
 import { CastleSkyline } from '@/components/shell/Decor';
 import { INTEREST_MAX, INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
+import { KeyboardSafe, KeyboardSafeScroll } from '@/components/shell/KeyboardSafe';
 import { useMusicToggle } from '@/components/shell/music';
 import { QuillDots } from '@/components/shell/QuillDots';
 import { T } from '@/components/shell/T';
@@ -32,6 +33,10 @@ import {
   CRESTS, SAGE_CREDIT, SCREEN_GRADIENTS, fonts, ink, panel, radius, shadow, space, type, ui,
   type CrayonColor, type CrestId, type SageExpression,
 } from '@/shared/theme';
+import { playSfx } from '@/components/shell/sfx';
+
+// A broken screen shows Sage's "Something went awry — tap to recover" instead of crashing (B1).
+export { RouteErrorBoundary as ErrorBoundary } from '@/components/shell/ErrorBoundary';
 
 const STEPS = ['welcome', 'bards', 'name', 'crayon', 'interests', 'budget', 'fellowship', 'summon'] as const;
 type Step = (typeof STEPS)[number];
@@ -113,7 +118,7 @@ export default function Onboarding() {
     if (step !== 'summon' || params.replay === '1' || skipped.current || summoning) return;
     if (!story.loading && story.storyline && story.storyline.status !== 'generating') {
       skipped.current = true;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       router.replace('/(tabs)/coloring');
     }
   }, [step, story.loading, story.storyline, params.replay, summoning, router]);
@@ -132,10 +137,10 @@ export default function Onboarding() {
       await updateProfile({
         display_name: name.trim(), crest, color, interests, budget, availability, music_enabled: music, onboarded: true,
       });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       afterProfile();
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`Sage couldn't save your page: ${msg(e)}. Check your connection and tap again.`);
     } finally {
       setSaving(false);
@@ -147,10 +152,10 @@ export default function Onboarding() {
     setError(null);
     try {
       await fs.createFellowship(fName.trim() || 'The Lantern Fellowship');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       setFMode('invite');
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`The fellowship couldn't be founded: ${msg(e)}. Try again.`);
     } finally {
       setSaving(false);
@@ -166,10 +171,10 @@ export default function Onboarding() {
     setError(null);
     try {
       await fs.joinByCode(c);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       go('summon'); // auto-skips to the tabs if the fellowship already has a book; else waits for the founder
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`No fellowship answered to "${c}". Check the code with your friend and try again. (${msg(e)})`);
     } finally {
       setSaving(false);
@@ -183,11 +188,11 @@ export default function Onboarding() {
     try {
       const req: GenerateStorylineRequest = { fellowship_id: fs.fellowship.id, mode: 'first', ...(demo ? { demo: true } : {}) };
       await generateStoryline(req);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); playSfx('success');
       skipped.current = true;
       router.replace('/(tabs)/coloring');
     } catch (e) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {}); playSfx('error');
       setError(`The ink ran dry: ${msg(e)}. Try again, or let me write a quick demo book.`);
       setSummoning(false);
     }
@@ -420,7 +425,7 @@ export default function Onboarding() {
   return (
     <LinearGradient colors={SCREEN_GRADIENTS.castle} style={styles.fill}>
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardSafe>
           <View style={styles.topRow}>
             {idx > 0 && idx < FIRST_LOCKED ? (
               <Pressable onPress={() => go(STEPS[idx - 1])} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
@@ -433,14 +438,14 @@ export default function Onboarding() {
 
           <View style={styles.fill} onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}>
           {leftover > 96 ? <CastleSkyline height={Math.min(leftover / 2 - space.lg, compact ? 80 : 120)} /> : null}
-          <ScrollView
+          <KeyboardSafeScroll
             style={styles.fill}
             contentContainerStyle={[styles.body, compact && styles.bodyCompact]}
-            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.group} onLayout={(e) => setContentH(e.nativeEvent.layout.height)}>
             <SageBubble
+              still
               key={hero ? 'hero' : 'row'}
               text={bubble}
               expression={expression}
@@ -455,7 +460,7 @@ export default function Onboarding() {
               </View>
             ) : null}
             </View>
-          </ScrollView>
+          </KeyboardSafeScroll>
           </View>
 
           <View style={styles.bottom}>
@@ -464,7 +469,7 @@ export default function Onboarding() {
             ) : null}
             {secondary ? <Button label={secondary.label} variant="ghost" onPress={secondary.onPress} /> : null}
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardSafe>
         <Modal visible={scanning} animationType="slide" onRequestClose={() => setScanning(false)}>
           <QrScanner key={scanKey} onCode={join} onCancel={() => setScanning(false)} onTypeCode={() => setScanning(false)} />
         </Modal>
@@ -478,7 +483,7 @@ function ChoiceCard({ emoji, title, sub, onPress }: { emoji: string; title: stri
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }}
+      onPress={() => { Haptics.selectionAsync().catch(() => {}); playSfx('tap'); onPress(); }}
       style={({ pressed }) => [styles.choice, pressed && { transform: [{ scale: ui.pressScale }] }]}
     >
       <T style={styles.choiceEmoji}>{emoji}</T>

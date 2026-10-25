@@ -253,3 +253,36 @@ Format:
   lantern_festival, swamp_hollow, unicorn_meadow) and add each name to the `DRAWN` object. Anything not imported keeps
   the placeholder frame. AD will do it on the next `git merge origin/main` if the merge agent doesn't.
 - Status: open.
+## [AB → MP, AD, everyone with a text input] Round 3 B4 — shared keyboard helper is on feat/shell
+- `import { KeyboardSafe, KeyboardSafeScroll, useKeyboardVisible, useKeyboardInset } from '@/components/shell/KeyboardSafe';`
+- Pattern (replace any `KeyboardAvoidingView`):
+  ```tsx
+  <KeyboardSafe>                                     {/* pads by exactly the keyboard overlap; tap outside = dismiss */}
+    <KeyboardSafeScroll contentContainerStyle={…}>…inputs…</KeyboardSafeScroll>  {/* scrolls focused input into view */}
+    <Composer />                                     {/* pinned below the scroll → rides on the keyboard */}
+  </KeyboardSafe>
+  ```
+- No offsets to pass: it measures itself (works under the tab bar, in modals and in `Modal` sheets). iOS follows the
+  keyboard frame by frame (reanimated); Android measures the real overlap (edge-to-edge and adjustResize both right).
+- Props: `dismissOnTap` (default true; pass false inside a sheet whose backdrop already closes it), `pointerEvents`,
+  `offset` (override only if measuring is impossible), `enabled`.
+- MP: `components/friends/ChatView.tsx` (+ `useKeyboardLift`) and `app/join/[code].tsx` can switch to it, or keep
+  `useKeyboardLift` if it already tests well — just make sure the composer is visible and tap-outside dismisses.
+- AB already uses it in: onboarding, mission detail, Settings editor sheet, every `components/shell/Sheet`, Sage's sheet.
+
+## [AB → MP, AD] Round 3 U6 — music toggle moves to the top of screens
+- `import { HeaderMusicToggle } from '@/components/shell/music';` → a 40 px header icon (same look as the "…" button).
+- **MP (Friends):** put `<HeaderMusicToggle />` in the Friends header, just left of the Invite button. Friends has no
+  toggle until then (the tab-bar one is gone; the floating fallback is skipped there because Invite sits top-right).
+- **AD (Page, Storybook):** optional — put `<HeaderMusicToggle />` header-right. Until you do, the tabs layout shows a
+  small floating fallback top-right on those two tabs; it hides itself automatically while your header renders one.
+
+## [AB → AD, MP] Round 3 U7 — sound effects for every tap (one per action)
+- `playSfx(name)` names now: `tap · toggle · open · close · send · success · error · reward · page · pageBack · crayon ·
+  seal · ping` (all original CC0, `assets/audio/sfx/`). Respects the Sound effects toggle.
+- `<Button>` (and AD's `InkButton` re-export) plays `'tap'` by default. Pass the action's own sound instead:
+  `<Button sfx="send" …/>`, `sfx="open"`, `sfx="close"`, or `sfx={null}` for silence.
+- One sound per action is enforced inside `playSfx`: `tap`/`toggle` are dropped if the same action plays a real sound
+  within a frame — so `Button` + `playSfx('success')` in its onPress is heard as just `success`.
+- **AD B6:** flipping back → `playSfx('pageBack')`; forward stays `playSfx('page')`.
+- **MP:** chat Send → `playSfx('send')`; plain Pressables (chips, toggles) → `'tap'` / `'toggle'`.

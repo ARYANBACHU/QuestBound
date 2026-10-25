@@ -1,15 +1,16 @@
-// Owner: AB. Custom coloring-book tab bar: white, 2px ink top border, inked icons, crayon squiggle under the active tab.
+// Owner: AB. Custom coloring-book tab bar: parchment, 2px ink top border, inked icons, crayon squiggle under the active tab.
 import type { BottomTabBarProps } from 'expo-router/build/layouts/Tabs';
 import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useFellowship } from '@/lib/fellowship';
 import { useSession } from '@/lib/session';
-import { CRAYONS, fonts, ink, radius, space } from '@/shared/theme';
-import { MuteToggle } from './music';
+import { CRAYONS, fonts, ink, panel, radius, space } from '@/shared/theme';
+import { CoachTarget } from '@/components/wizard/coachTargets';
 import { T } from './T';
 import { CrayonSquiggle, TabIcon, type TabName } from './TabIcons';
 import { useUnreadProclamations } from './useUnreadProclamations';
+import { playSfx } from './sfx';
 
 export const TAB_BAR_HEIGHT = 64;
 /** Screens pad their scroll content with this so nothing hides behind Sage's FAB. */
@@ -32,7 +33,6 @@ export function TabBar({ state, navigateToTab, emitter, insets }: BottomTabBarPr
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space.sm) }]}>
-      <MuteToggle style={styles.mute} />
       {state.routes.map((route, i) => {
         const name = route.name as TabName;
         if (!(name in LABELS)) return null;
@@ -48,20 +48,20 @@ export function TabBar({ state, navigateToTab, emitter, insets }: BottomTabBarPr
             onPress={() => {
               const ev = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
               if (!active && !ev.defaultPrevented) {
-                Haptics.selectionAsync().catch(() => {});
+                Haptics.selectionAsync().catch(() => {}); playSfx('tap');
                 navigateToTab(route.key);
               }
             }}
             onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
           >
-            <View>
+            <CoachTarget id={`tab.${name}`}>
               <TabIcon name={name} active={active} fill={crayon} />
               {badge ? (
                 <View style={styles.badge}>
                   <T style={styles.badgeText} color={ink.page}>{badge > 9 ? '9+' : String(badge)}</T>
                 </View>
               ) : null}
-            </View>
+            </CoachTarget>
             <T variant={active ? 'smallBold' : 'small'} color={active ? ink.ink : ink.muted} style={styles.label}>
               {LABELS[name]}
             </T>
@@ -75,10 +75,9 @@ export function TabBar({ state, navigateToTab, emitter, insets }: BottomTabBarPr
 
 const styles = StyleSheet.create({
   bar: {
-    flexDirection: 'row', backgroundColor: ink.page, borderTopWidth: 2, borderTopColor: ink.ink,
+    flexDirection: 'row', backgroundColor: panel.parchment, borderTopWidth: 2, borderTopColor: ink.ink, // U8: no plain white
     paddingTop: space.sm,
   },
-  mute: { position: 'absolute', top: -16, left: space.md, zIndex: 2 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: TAB_BAR_HEIGHT - space.sm },
   label: { fontSize: 11, lineHeight: 14, marginTop: 2 },
   squiggle: { height: 8, marginTop: 1 },
