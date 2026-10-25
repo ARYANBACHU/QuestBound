@@ -4,10 +4,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, PanResponder, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { PanResponder, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ink, realm, shadow, space } from '@/shared/theme';
+import { useKeyboardVisible } from '@/components/shell/KeyboardSafe';
 import { Sage } from './Sage';
 import { useWizard } from './WizardProvider';
 
@@ -22,7 +23,7 @@ export function WizardFab({ bottom }: { bottom: number }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const [corner, setCorner] = useState<Corner>('br');
-  const [kbOpen, setKbOpen] = useState(false);
+  const kbOpen = useKeyboardVisible();
 
   const spots = useMemo(() => {
     const left = MARGIN;
@@ -42,12 +43,6 @@ export function WizardFab({ bottom }: { bottom: number }) {
     x.value = withSpring(spots[corner].x, { damping: 16, stiffness: 180 });
     y.value = withSpring(spots[corner].y, { damping: 16, stiffness: 180 });
   }, [corner, spots, x, y]);
-
-  useEffect(() => {
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
-    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));
-    return () => { show.remove(); hide.remove(); };
-  }, []);
 
   const start = useRef({ x: 0, y: 0 });
   const pan = useMemo(() => PanResponder.create({

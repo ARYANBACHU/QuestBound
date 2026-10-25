@@ -7,10 +7,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionMenu, type MenuItem } from '@/components/shell/ActionMenu';
 import { Button } from '@/components/shell/Button';
+import { KeyboardSafe, KeyboardSafeScroll } from '@/components/shell/KeyboardSafe';
 import { MagicMirror } from '@/components/shell/MagicMirror';
 import { regionLabel } from '@/components/shell/missionUtils';
 import { ParchmentLoading } from '@/components/shell/ParchmentLoading';
@@ -202,8 +203,8 @@ export default function MissionDetail() {
 
   return (
     <Shell mood={mood} onClose={() => router.back()} menu={menu}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fill} keyboardVerticalOffset={44}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <KeyboardSafe>
+        <KeyboardSafeScroll contentContainerStyle={styles.content}>
           {/* Header: the focal point */}
           <View style={styles.kicker}>
             <View style={[styles.typeIcon, { backgroundColor: mood.tintStrong }]}>
@@ -330,7 +331,7 @@ export default function MissionDetail() {
               ) : null}
             </View>
           )}
-        </ScrollView>
+        </KeyboardSafeScroll>
 
         <Footer>
           {mission.status === 'complete' ? (
@@ -341,7 +342,7 @@ export default function MissionDetail() {
             <Button label={primaryLabel} onPress={submit} disabled={!canSubmit} />
           )}
         </Footer>
-      </KeyboardAvoidingView>
+      </KeyboardSafe>
 
       <RerollSheet
         mission={mission}

@@ -1,8 +1,9 @@
 // Owner: AB. Bottom sheet frame for AB pop-ups: one radius on the container AND every edge-touching child
 // (overflow hidden) — no jagged corners. Parchment panel, ink border, grabber.
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Modal, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ink, panel, scrim, space, ui } from '@/shared/theme';
+import { KeyboardSafe } from './KeyboardSafe';
 
 export const SHEET_RADIUS = ui.cardRadius + 6;
 
@@ -13,12 +14,12 @@ export function Sheet({ visible, onClose, children, style, dismissable = true }:
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={dismissable ? onClose : () => {}}>
       <Pressable style={styles.backdrop} onPress={dismissable ? onClose : undefined} accessibilityLabel="Close" />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.wrap} pointerEvents="box-none">
+      <KeyboardSafe style={styles.wrap} pointerEvents="box-none" dismissOnTap={false}>
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.lg) }, style]}>
           <View style={styles.grabber} />
           {children}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardSafe>
     </Modal>
   );
 }

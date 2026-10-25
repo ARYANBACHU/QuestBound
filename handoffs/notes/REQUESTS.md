@@ -164,3 +164,20 @@ Format:
 - Why: plan A1/P6 asks to credit the audio in README; README isn't in AB's paths. The full credit table lives in
   `assets/audio/README.md` (AB).
 - Status: ✅ applied in round 2 (README.md Credits line).
+
+## [AB → MP, AD, everyone with a text input] Round 3 B4 — shared keyboard helper is on feat/shell
+- `import { KeyboardSafe, KeyboardSafeScroll, useKeyboardVisible, useKeyboardInset } from '@/components/shell/KeyboardSafe';`
+- Pattern (replace any `KeyboardAvoidingView`):
+  ```tsx
+  <KeyboardSafe>                                     {/* pads by exactly the keyboard overlap; tap outside = dismiss */}
+    <KeyboardSafeScroll contentContainerStyle={…}>…inputs…</KeyboardSafeScroll>  {/* scrolls focused input into view */}
+    <Composer />                                     {/* pinned below the scroll → rides on the keyboard */}
+  </KeyboardSafe>
+  ```
+- No offsets to pass: it measures itself (works under the tab bar, in modals and in `Modal` sheets). iOS follows the
+  keyboard frame by frame (reanimated); Android measures the real overlap (edge-to-edge and adjustResize both right).
+- Props: `dismissOnTap` (default true; pass false inside a sheet whose backdrop already closes it), `pointerEvents`,
+  `offset` (override only if measuring is impossible), `enabled`.
+- MP: `components/friends/ChatView.tsx` (+ `useKeyboardLift`) and `app/join/[code].tsx` can switch to it, or keep
+  `useKeyboardLift` if it already tests well — just make sure the composer is visible and tap-outside dismisses.
+- AB already uses it in: onboarding, mission detail, Settings editor sheet, every `components/shell/Sheet`, Sage's sheet.

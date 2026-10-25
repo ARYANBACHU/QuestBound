@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionMenu } from '@/components/shell/ActionMenu';
 import { AvailabilityPicker, BudgetPicker } from '@/components/shell/BudgetTimePicker';
 import { Button } from '@/components/shell/Button';
+import { KeyboardSafeScroll } from '@/components/shell/KeyboardSafe';
 import { CrayonPicker, CrayonPreview, crayonName } from '@/components/shell/CrayonPicker';
 import { CrestPicker } from '@/components/shell/CrestPicker';
 import { INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
@@ -251,7 +252,7 @@ function ProfileEditor({ editing, onClose, onSaved, profile, save, takenBy }: {
   return (
     <Sheet visible={!!editing} onClose={onClose}>
       <T variant="title">{editing ? title[editing] : ''}</T>
-      <ScrollView style={styles.editor} contentContainerStyle={styles.editorBody} keyboardShouldPersistTaps="handled">
+      <KeyboardSafeScroll style={styles.editor} contentContainerStyle={styles.editorBody}>
         {editing === 'identity' ? (
           <>
             <TextInput value={name} onChangeText={setName} maxLength={24} placeholder="Your name" placeholderTextColor={ink.muted}
@@ -279,7 +280,7 @@ function ProfileEditor({ editing, onClose, onSaved, profile, save, takenBy }: {
           </>
         ) : null}
         {error ? <T variant="small" color={ink.danger}>{error}</T> : null}
-      </ScrollView>
+      </KeyboardSafeScroll>
       <View style={styles.editorFoot}>
         <Button label="Save" onPress={onSave} loading={saving} disabled={!valid} />
         <Button label="Cancel" variant="ghost" onPress={onClose} />

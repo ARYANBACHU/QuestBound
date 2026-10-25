@@ -5,10 +5,10 @@ import { usePathname, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  type ScrollViewInstance, ActivityIndicator, Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TextInput,
+  type ScrollViewInstance, ActivityIndicator, Keyboard, PanResponder, Pressable, ScrollView, StyleSheet, TextInput,
   View, useWindowDimensions,
 } from 'react-native';
-import Animated, { useAnimatedKeyboard, useAnimatedStyle, useSharedValue, withTiming, FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { wizardChat } from '@/lib/api';
 import { useChat } from '@/lib/chat';
@@ -17,6 +17,7 @@ import { useFellowship } from '@/lib/fellowship';
 import { useMissions, useStoryline } from '@/lib/game';
 import { useSession } from '@/lib/session';
 import { accent, fonts, ink, motion, panel, realm, radius, scrim, shadow, space, type, ui } from '@/shared/theme';
+import { useKeyboardInset, useKeyboardVisible } from '@/components/shell/KeyboardSafe';
 import { TAB_BAR_HEIGHT } from '@/components/shell/TabBar';
 import { T } from '@/components/shell/T';
 import { localMuse } from './localMuse';
@@ -42,7 +43,6 @@ export function WizardSheet() {
   const chat = useChat(fellowship?.id ?? null);
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState(false);
-  const [kbOpen, setKbOpen] = useState(false);
   const scroll = useRef<ScrollViewInstance>(null);
   const { messages, setMessages, mode, setMode } = wiz;
 
@@ -51,17 +51,12 @@ export function WizardSheet() {
   const HALF = Math.min(FULL, Math.round(winH * 0.58));
   const target = mode === 'full' ? FULL : HALF;
   const h = useSharedValue(target);
-  const kb = useAnimatedKeyboard();
+  const kbInset = useKeyboardInset(0);
+  const kbOpen = useKeyboardVisible();
   useEffect(() => { h.value = withTiming(target, { duration: motion.sheet }); }, [target, h]);
 
-  useEffect(() => {
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
-    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));
-    return () => { show.remove(); hide.remove(); };
-  }, []);
-
   const sheetStyle = useAnimatedStyle(() => {
-    const k = kb.height.value;
+    const k = kbInset.value;
     return { bottom: k, height: Math.max(160, Math.min(h.value, FULL - k)) };
   });
 

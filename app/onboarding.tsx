@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions,
+  Modal, Pressable, StyleSheet, TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AvailabilityPicker, BudgetPicker } from '@/components/shell/BudgetTimePicker';
@@ -16,6 +16,7 @@ import { CRAYON_QUIPS, CrayonPicker, CrayonPreview, crayonName } from '@/compone
 import { CrestPicker } from '@/components/shell/CrestPicker';
 import { CastleSkyline } from '@/components/shell/Decor';
 import { INTEREST_MAX, INTEREST_MIN, InterestPicker } from '@/components/shell/InterestPicker';
+import { KeyboardSafe, KeyboardSafeScroll } from '@/components/shell/KeyboardSafe';
 import { useMusicToggle } from '@/components/shell/music';
 import { QuillDots } from '@/components/shell/QuillDots';
 import { T } from '@/components/shell/T';
@@ -420,7 +421,7 @@ export default function Onboarding() {
   return (
     <LinearGradient colors={SCREEN_GRADIENTS.castle} style={styles.fill}>
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardSafe>
           <View style={styles.topRow}>
             {idx > 0 && idx < FIRST_LOCKED ? (
               <Pressable onPress={() => go(STEPS[idx - 1])} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
@@ -433,10 +434,9 @@ export default function Onboarding() {
 
           <View style={styles.fill} onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}>
           {leftover > 96 ? <CastleSkyline height={Math.min(leftover / 2 - space.lg, compact ? 80 : 120)} /> : null}
-          <ScrollView
+          <KeyboardSafeScroll
             style={styles.fill}
             contentContainerStyle={[styles.body, compact && styles.bodyCompact]}
-            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.group} onLayout={(e) => setContentH(e.nativeEvent.layout.height)}>
@@ -455,7 +455,7 @@ export default function Onboarding() {
               </View>
             ) : null}
             </View>
-          </ScrollView>
+          </KeyboardSafeScroll>
           </View>
 
           <View style={styles.bottom}>
@@ -464,7 +464,7 @@ export default function Onboarding() {
             ) : null}
             {secondary ? <Button label={secondary.label} variant="ghost" onPress={secondary.onPress} /> : null}
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardSafe>
         <Modal visible={scanning} animationType="slide" onRequestClose={() => setScanning(false)}>
           <QrScanner key={scanKey} onCode={join} onCancel={() => setScanning(false)} onTypeCode={() => setScanning(false)} />
         </Modal>
