@@ -1,5 +1,6 @@
 // Owner: MP. A proclamation in the group chat: a parchment scroll card with a gold wax seal (actor's crest),
 // a stripe in the crayon that painted the region, and Sage's line in Fraunces italic. Tap → where it happened.
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { haptic } from './haptics';
@@ -41,6 +42,8 @@ export interface ProclamationCardProps {
   onShowFellowship?: () => void;
   /** Long-press (e.g. open the reaction picker). */
   onLongPress?: () => void;
+  /** Called once when a fresh card mounts (so the list never replays the stamp). */
+  onPlayed?: () => void;
 }
 
 export function openProclamation(message: Message, onShowFellowship?: () => void) {
@@ -63,7 +66,12 @@ export function openProclamation(message: Message, onShowFellowship?: () => void
   }
 }
 
-export default function ProclamationCard({ message, members, fresh, onShowFellowship, onLongPress }: ProclamationCardProps) {
+export default function ProclamationCard({ message, members, fresh, onShowFellowship, onLongPress, onPlayed }: ProclamationCardProps) {
+  useEffect(() => {
+    if (fresh) onPlayed?.();
+    // mount-only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const p = message.payload;
   const event = p?.event ?? '';
   const actor = profileOf(members, p?.user_id ?? message.user_id);

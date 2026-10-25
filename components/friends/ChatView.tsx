@@ -21,7 +21,8 @@ import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
 import { ReactionChips, ReactionPicker } from './Reactions';
 import { useKeyboardLift, type ViewRef } from './useKeyboardLift';
-import { Sage } from './sage';
+import { Sage, playSfx } from './sage';
+import SageTalk from './SageTalk';
 
 type Row =
   | { key: string; type: 'day'; label: string }
@@ -93,10 +94,28 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
   useEffect(() => {
     if (newest && newest.user_id === myId) scrollToNewest();
   }, [newest?.id, newest?.user_id, myId]);
-  // Proclamations that arrive after the chat opened get the seal-stamp animation.
-  const openedAt = useRef(new Date().toISOString()).current;
+  // Messages already here when the chat opened (or finished loading) are the baseline; anything after is "fresh":
+  // proclamations stamp their seal, Sage talks + pings — once per message, never on reopen or scroll-back.
+  const [baseline, setBaseline] = useState<Set<string> | null>(null);
+  const settled = !(chat.loading && chat.messages.length === 0);
+  useEffect(() => {
+    if (!baseline && settled) setBaseline(new Set(chat.messages.map((m) => m.id)));
+  }, [baseline, settled, chat.messages]);
+  const isFresh = (id: string) => !!baseline && !baseline.has(id) && !id.startsWith('temp-');
+  const played = useRef(new Set<string>());
+  const pinged = useRef(new Set<string>());
+  useEffect(() => {
+    if (!baseline) return;
+    const fresh = chat.messages.filter(
+      (m) => (m.kind === 'wizard' || m.kind === 'proclamation') && !baseline.has(m.id) && !pinged.current.has(m.id),
+    );
+    if (!fresh.length) return;
+    fresh.forEach((m) => pinged.current.add(m.id));
+    // One sound per batch: Sage's soft chime wins over the seal stamp.
+    playSfx(fresh.some((m) => m.kind === 'wizard') ? 'ping' : 'seal');
+  }, [baseline, chat.messages]);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
-  const extraData = useMemo(() => ({ pickerFor, reactions: chat.reactions }), [pickerFor, chat.reactions]);
+  const extraData = useMemo(() => ({ pickerFor, reactions: chat.reactions, baseline }), [pickerFor, chat.reactions, baseline]);
   const openPicker = (id: string) => {
     if (id.startsWith('temp-')) return;
     haptic.select();
@@ -143,7 +162,8 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
           <ProclamationCard
             message={m}
             members={members}
-            fresh={m.created_at > openedAt}
+            fresh={isFresh(m.id) && !played.current.has(m.id)}
+            onPlayed={() => played.current.add(m.id)}
             onShowFellowship={onShowFellowship}
             onLongPress={() => openPicker(m.id)}
           />
@@ -151,7 +171,16 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
       case 'system':
         return <Text style={styles.system}>{m.body}</Text>;
       case 'wizard':
-        return <WizardBubble m={m} first={first} last={last} onLongPress={() => openPicker(m.id)} />;
+        return (
+          <WizardBubble
+            m={m}
+            first={first}
+            last={last}
+            talk={isFresh(m.id) && !played.current.has(m.id)}
+            onPlayed={() => played.current.add(m.id)}
+            onLongPress={() => openPicker(m.id)}
+          />
+        );
       default:
         return m.user_id && m.user_id === myId ? (
           <MyBubble m={m} chat={chat} members={members} last={last} onLongPress={() => openPicker(m.id)} />
@@ -316,19 +345,49 @@ function TheirBubble({
   );
 }
 
-function WizardBubble({ m, first, last, onLongPress }: { m: ChatMessage; first: boolean; last: boolean; onLongPress: () => void }) {
+function WizardBubble({
+  m,
+  first,
+  last,
+  talk,
+  onPlayed,
+  onLongPress,
+}: {
+  m: ChatMessage;
+  first: boolean;
+  last: boolean;
+  talk: boolean;
+  onPlayed: () => void;
+  onLongPress: () => void;
+}) {
+  const bubble = (
+    <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.bubble, styles.wizard]}>
+      <Text style={[styles.text, styles.wizardText]}>{m.body}</Text>
+    </Pressable>
+  );
   return (
     <View style={[styles.rowTheirs, last && styles.runEnd]}>
-      <View style={styles.sageCol}>{first ? <Sage expression="happy" size="sm" /> : null}</View>
+      <View style={styles.sageCol}>
+        {first ? (
+          <SageTalk talk={talk} onPlayed={onPlayed}>
+            <Sage expression="happy" size="sm" />
+          </SageTalk>
+        ) : null}
+      </View>
       <View style={styles.theirsCol}>
         {first ? (
           <Text style={styles.name}>
             Sage<Text style={styles.credit}>{`  ${SAGE_CREDIT}`}</Text>
           </Text>
         ) : null}
-        <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.bubble, styles.wizard]}>
-          <Text style={[styles.text, styles.wizardText]}>{m.body}</Text>
-        </Pressable>
+        {first ? (
+          bubble
+        ) : (
+          // No avatar on follow-up lines: the bubble itself does the little talk.
+          <SageTalk talk={talk} onPlayed={onPlayed}>
+            {bubble}
+          </SageTalk>
+        )}
       </View>
     </View>
   );
