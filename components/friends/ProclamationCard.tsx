@@ -1,24 +1,19 @@
-// Owner: MP. A proclamation in the group chat: a parchment scroll card with a gold wax seal (actor's crest),
-// a stripe in the crayon that painted the region, and Sage's line in Fraunces italic. Tap → where it happened.
+// Owner: MP. A proclamation in the group chat: a parchment card edged in the crayon that painted the region, a gold
+// seal with the hero's crest, and Sage's line in Fraunces italic. Tap → where it happened. If the mission has a
+// place: "Open in Maps" (always lib/maps openInMaps) and, separately, a small "Website" link.
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import { haptic } from './haptics';
 import { router } from 'expo-router';
 import Animated, { ZoomIn } from 'react-native-reanimated';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
-import type { FellowshipMember, Message } from '@/shared/types';
+import { accent, fonts, ink, panel, radius, shadow, space, type, ui } from '@/shared/theme';
+import type { FellowshipMember, Message, Mission } from '@/shared/types';
 import { profileOf } from '@/lib/fellowship';
+import { openInMaps } from '@/lib/maps';
 import { crestEmoji } from './Crest';
 import { crayonHex } from './color';
+import { haptic } from './haptics';
 
-const EVENT_LABEL: Record<string, string> = {
-  mission_complete: 'Mission complete',
-  page_complete: 'A page is finished',
-  book_complete: 'The book is complete',
-  storyline_ready: 'A new tale begins',
-  member_joined: 'A new hero arrives',
-};
 const EVENT_SEAL: Record<string, string> = {
   page_complete: '📖',
   book_complete: '👑',
@@ -36,9 +31,11 @@ const EVENT_CTA: Record<string, string> = {
 export interface ProclamationCardProps {
   message: Message;
   members: FellowshipMember[];
+  /** The completed mission (mission_complete) — shows its place with Open in Maps. */
+  mission?: Mission;
   /** Play the seal stamp (only for proclamations that arrive while the chat is open). */
   fresh?: boolean;
-  /** Called for member_joined (the Friends tab switches to the Fellowship view). */
+  /** Called for member_joined (the Friends tab shows the fellowship). */
   onShowFellowship?: () => void;
   /** Long-press (e.g. open the reaction picker). */
   onLongPress?: () => void;
@@ -66,7 +63,7 @@ export function openProclamation(message: Message, onShowFellowship?: () => void
   }
 }
 
-export default function ProclamationCard({ message, members, fresh, onShowFellowship, onLongPress, onPlayed }: ProclamationCardProps) {
+export default function ProclamationCard({ message, members, mission, fresh, onShowFellowship, onLongPress, onPlayed }: ProclamationCardProps) {
   useEffect(() => {
     if (fresh) onPlayed?.();
     // mount-only
@@ -75,86 +72,114 @@ export default function ProclamationCard({ message, members, fresh, onShowFellow
   const p = message.payload;
   const event = p?.event ?? '';
   const actor = profileOf(members, p?.user_id ?? message.user_id);
-  const stripe = p?.color ? crayonHex(p.color) : actor ? crayonHex(actor.color) : ink.gold;
+  const edge = p?.color ? crayonHex(p.color) : actor ? crayonHex(actor.color) : ink.gold;
   const seal = actor && (event === 'mission_complete' || event === 'member_joined') ? crestEmoji(actor.crest) : (EVENT_SEAL[event] ?? (actor ? crestEmoji(actor.crest) : '📜'));
   const tappable = !!EVENT_CTA[event];
+  const place = event === 'mission_complete' ? mission?.place ?? null : null;
 
   return (
     <View style={styles.wrap}>
-      <Pressable
-        disabled={!tappable && !onLongPress}
-        onLongPress={onLongPress}
-        delayLongPress={300}
-        onPress={() => {
-          if (!tappable) return;
-          openProclamation(message, onShowFellowship);
-          haptic.tap();
-        }}
-        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-        accessibilityRole={tappable ? 'button' : undefined}
-        accessibilityLabel={`Proclamation. ${message.body}`}
-      >
-        <View style={[styles.stripe, { backgroundColor: stripe }]} />
-        <View style={styles.row}>
+      <View style={[styles.card, { borderLeftColor: edge }]}>
+        <Pressable
+          disabled={!tappable && !onLongPress}
+          onLongPress={onLongPress}
+          delayLongPress={300}
+          onPress={() => {
+            if (!tappable) return;
+            haptic.tap();
+            openProclamation(message, onShowFellowship);
+          }}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          accessibilityRole={tappable ? 'button' : undefined}
+          accessibilityLabel={`Proclamation. ${message.body}`}
+          accessibilityHint={tappable ? EVENT_CTA[event] : undefined}
+        >
           <Animated.View entering={fresh ? ZoomIn.springify().damping(9) : undefined} style={styles.seal}>
-            <View style={styles.sealInner}>
-              <Text style={styles.sealEmoji} allowFontScaling={false}>
-                {seal}
-              </Text>
-            </View>
+            <Text style={styles.sealEmoji} allowFontScaling={false}>
+              {seal}
+            </Text>
           </Animated.View>
           <View style={styles.content}>
-            <Text style={styles.label}>{EVENT_LABEL[event] ?? 'Proclamation'}</Text>
             <Text style={styles.body}>{message.body}</Text>
             {p?.image_url ? <Image source={{ uri: p.image_url }} style={styles.thumb} contentFit="cover" transition={200} /> : null}
             {tappable ? <Text style={styles.cta}>{EVENT_CTA[event]} ›</Text> : null}
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
+        {place ? (
+          <View style={styles.placeRow}>
+            <Pressable
+              onPress={() => {
+                haptic.tap();
+                void openInMaps(place);
+              }}
+              hitSlop={6}
+              style={({ pressed }) => [styles.placeMain, pressed && styles.pressed]}
+              accessibilityRole="link"
+              accessibilityLabel={`Open ${place.title} in Maps`}
+            >
+              <Text style={styles.place} numberOfLines={1}>
+                📍 {place.title}
+              </Text>
+              <Text style={styles.maps}>Open in Maps</Text>
+            </Pressable>
+            {place.website ? (
+              <Pressable
+                onPress={() => void Linking.openURL(place.website!).catch(() => {})}
+                hitSlop={6}
+                accessibilityRole="link"
+                accessibilityLabel={`${place.title} website`}
+              >
+                <Text style={styles.website}>Website</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
 
-const SEAL = 52;
+const SEAL = 44;
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: space.lg, marginVertical: space.sm, alignItems: 'center' },
   card: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: ink.page,
-    borderWidth: 3,
+    backgroundColor: panel.parchment,
+    borderWidth: ui.borderWidth,
+    borderLeftWidth: 7,
     borderColor: ink.ink,
-    borderRadius: radius.md,
-    overflow: 'hidden',
+    borderRadius: ui.cardRadius, // no overflow:hidden — it would clip the iOS shadow; no child paints an edge
+    ...shadow.sm,
   },
-  pressed: { transform: [{ scale: 0.985 }], opacity: 0.92 },
-  stripe: { height: 6, borderBottomWidth: 2, borderBottomColor: ink.ink },
+  pressed: { opacity: 0.85 },
   row: { flexDirection: 'row', padding: space.md, gap: space.md, alignItems: 'flex-start' },
   seal: {
     width: SEAL,
     height: SEAL,
     borderRadius: SEAL / 2,
     backgroundColor: ink.gold,
-    borderWidth: 3,
+    borderWidth: ui.borderWidth,
     borderColor: ink.ink,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ rotate: '-8deg' }],
   },
-  sealInner: {
-    width: SEAL - 14,
-    height: SEAL - 14,
-    borderRadius: (SEAL - 14) / 2,
-    borderWidth: 1.5,
-    borderColor: ink.ink,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sealEmoji: { fontSize: 22 },
+  sealEmoji: { fontSize: 21 },
   content: { flex: 1 },
-  label: { fontFamily: fonts.bodyBold, fontSize: 11, color: ink.inkSoft, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 2 },
   body: { fontFamily: fonts.displayItalic, fontSize: type.body + 1, lineHeight: 23, color: ink.ink },
-  thumb: { marginTop: space.sm, width: '100%', aspectRatio: 4 / 3, borderRadius: radius.sm, borderWidth: 2, borderColor: ink.ink, backgroundColor: ink.lavenderMist },
-  cta: { fontFamily: fonts.bodyBold, fontSize: type.small, color: ink.inkSoft, marginTop: space.sm },
+  thumb: { marginTop: space.sm, width: '100%', aspectRatio: 4 / 3, borderRadius: radius.md, borderWidth: 2, borderColor: ink.ink, backgroundColor: ink.lavenderMist },
+  cta: { fontFamily: fonts.bodyBold, fontSize: type.small, color: accent.primary, marginTop: space.sm },
+  placeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    borderTopWidth: 1.5,
+    borderTopColor: panel.parchmentEdge,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+  },
+  placeMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  place: { flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: type.small, color: ink.ink },
+  maps: { fontFamily: fonts.bodyBold, fontSize: type.small, color: accent.secondary },
+  website: { fontFamily: fonts.body, fontSize: 12, color: ink.inkSoft, textDecorationLine: 'underline' },
 });

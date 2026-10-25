@@ -12,8 +12,8 @@ import {
   View,
 } from 'react-native';
 import { haptic } from './haptics';
-import { SAGE_CREDIT, SAGE_SIZES, fonts, ink, radius, space, type } from '@/shared/theme';
-import type { FellowshipMember } from '@/shared/types';
+import { SAGE_CREDIT, SAGE_SIZES, fonts, ink, radius, realm, sageColors, shadow, space, type, ui } from '@/shared/theme';
+import type { FellowshipMember, Mission } from '@/shared/types';
 import type { ChatMessage, ChatState } from '@/lib/chat';
 import { heroName, profileOf } from '@/lib/fellowship';
 import Crest from './Crest';
@@ -23,6 +23,7 @@ import { ReactionChips, ReactionPicker } from './Reactions';
 import { useKeyboardLift, type ViewRef } from './useKeyboardLift';
 import { Sage, playSfx } from './sage';
 import SageTalk from './SageTalk';
+import GameButton from './GameButton';
 
 type Row =
   | { key: string; type: 'day'; label: string }
@@ -77,9 +78,11 @@ export interface ChatViewProps {
   onShowFellowship?: () => void;
   /** Tap a friend's crest → their profile sheet. */
   onOpenMember?: (userId: string) => void;
+  /** Missions of the current book by id — proclamations show the mission's place (Open in Maps). */
+  missionsById?: Record<string, Mission>;
 }
 
-export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember }: ChatViewProps) {
+export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember, missionsById }: ChatViewProps) {
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
   const rootRef = useRef<ViewRef>(null);
   const listRef = useRef<FlatList<Row>>(null);
@@ -149,9 +152,7 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
     if (item.type === 'day') {
       return (
         <View style={styles.dayWrap}>
-          <View style={styles.dayLine} />
           <Text style={styles.day}>{item.label}</Text>
-          <View style={styles.dayLine} />
         </View>
       );
     }
@@ -162,6 +163,7 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
           <ProclamationCard
             message={m}
             members={members}
+            mission={m.payload?.mission_id ? missionsById?.[m.payload.mission_id] : undefined}
             fresh={isFresh(m.id) && !played.current.has(m.id)}
             onPlayed={() => played.current.add(m.id)}
             onShowFellowship={onShowFellowship}
@@ -202,7 +204,7 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
           </View>
         ) : chat.messages.length === 0 ? (
           <View style={styles.center}>
-            <Text style={styles.emptyEmoji}>🧙</Text>
+            <Sage expression="idle" size="md" />
             <Text style={styles.empty}>The fellowship is quiet. Say hello, or pick a mission to start the story.</Text>
             {chat.error ? <Text style={styles.error}>{chat.error}</Text> : null}
           </View>
@@ -265,14 +267,7 @@ function Composer({ chat, keyboardOpen, onSent }: { chat: ChatState; keyboardOpe
         returnKeyType="send"
         onSubmitEditing={submit}
       />
-      <Pressable
-        onPress={submit}
-        disabled={!canSend}
-        style={({ pressed }) => [styles.sendBtn, !canSend && styles.sendDisabled, pressed && styles.pressed]}
-        accessibilityLabel="Send"
-      >
-        <Text style={styles.sendText}>Send</Text>
-      </Pressable>
+      <GameButton label="Send" size="sm" onPress={submit} disabled={!canSend} />
     </View>
   );
 }
@@ -397,14 +392,23 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.xxl, gap: space.sm },
   muted: { fontFamily: fonts.body, color: ink.muted, fontSize: type.small },
-  emptyEmoji: { fontSize: 48 },
   empty: { fontFamily: fonts.displayItalic, fontSize: type.heading - 2, lineHeight: 26, color: ink.inkSoft, textAlign: 'center' },
   error: { fontFamily: fonts.body, fontSize: type.small, color: ink.danger, textAlign: 'center', padding: space.md },
   list: { paddingVertical: space.md },
-  dayWrap: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.xl, marginVertical: space.md, gap: space.sm },
-  dayLine: { flex: 1, height: 1.5, backgroundColor: ink.muted, opacity: 0.4 },
-  day: { fontFamily: fonts.bodyBold, fontSize: 12, color: ink.muted, letterSpacing: 1, textTransform: 'uppercase' },
-  system: { fontFamily: fonts.body, fontSize: type.small, color: ink.muted, textAlign: 'center', marginVertical: space.sm, paddingHorizontal: space.xl },
+  dayWrap: { alignItems: 'center', marginVertical: space.md },
+  day: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    color: ink.inkSoft,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    backgroundColor: ink.page,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    paddingHorizontal: space.md,
+    paddingVertical: 3,
+  },
+  system: { fontFamily: fonts.body, fontSize: type.small, color: ink.inkSoft, textAlign: 'center', marginVertical: space.sm, paddingHorizontal: space.xl },
   rowMine: { alignItems: 'flex-end', paddingHorizontal: space.lg, marginTop: 3 },
   rowTheirs: { flexDirection: 'row', paddingHorizontal: space.md, marginTop: 3 },
   runEnd: { marginBottom: space.sm },
@@ -412,10 +416,10 @@ const styles = StyleSheet.create({
   theirsCol: { flex: 1, alignItems: 'flex-start' },
   name: { fontFamily: fonts.bodyBold, fontSize: 12, color: ink.inkSoft, marginBottom: 2, marginLeft: 4 },
   bubble: { maxWidth: '82%', paddingHorizontal: space.md, paddingVertical: 9, borderRadius: radius.lg },
-  mine: { borderBottomRightRadius: 6, borderWidth: 2, borderColor: ink.ink },
+  mine: { borderBottomRightRadius: 6, borderWidth: ui.borderWidth, borderColor: ink.ink },
   sending: { opacity: 0.6 },
-  theirs: { backgroundColor: ink.page, borderWidth: 2, borderColor: ink.ink, borderBottomLeftRadius: 6 },
-  wizard: { backgroundColor: ink.lavenderMist, borderWidth: 2, borderColor: ink.inkSoft, borderBottomLeftRadius: 6 },
+  theirs: { backgroundColor: ink.page, borderWidth: ui.borderWidth, borderColor: ink.ink, borderBottomLeftRadius: 6 },
+  wizard: { backgroundColor: realm.royalMist, borderWidth: ui.borderWidth, borderColor: sageColors.robe, borderBottomLeftRadius: 6 },
   sageCol: { width: SAGE_SIZES.sm, marginRight: space.sm, justifyContent: 'flex-start', paddingTop: 14 },
   credit: { fontFamily: fonts.body, fontSize: 11, color: ink.muted },
   wizardText: { fontFamily: fonts.displayItalic },
@@ -429,18 +433,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: space.sm,
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderTopWidth: 2,
-    borderTopColor: ink.ink,
+    paddingTop: space.sm,
+    paddingBottom: space.sm - 2,
     backgroundColor: ink.paper,
+    ...shadow.sm,
   },
   input: {
     flex: 1,
-    minHeight: 44,
+    minHeight: ui.buttonHeightSm + ui.buttonDepth,
     maxHeight: 120,
-    borderWidth: 2,
+    borderWidth: ui.borderWidth,
     borderColor: ink.ink,
-    borderRadius: radius.lg,
+    borderRadius: ui.buttonRadius,
     paddingHorizontal: space.md,
     paddingTop: 11,
     paddingBottom: 11,
@@ -451,8 +455,5 @@ const styles = StyleSheet.create({
   },
   hideKb: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
   hideKbText: { fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 30, color: ink.inkSoft, marginTop: -8 },
-  sendBtn: { height: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, backgroundColor: ink.ink, alignItems: 'center', justifyContent: 'center' },
-  sendDisabled: { opacity: 0.35 },
-  sendText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.page },
   pressed: { opacity: 0.75 },
 });

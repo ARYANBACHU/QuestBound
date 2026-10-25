@@ -6,6 +6,8 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { haptic } from './haptics';
+import GameButton from './GameButton';
+import { Sage } from './sage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, ink, radius, space, type } from '@/shared/theme';
 
@@ -57,15 +59,13 @@ export default function QrScanner({ onCode, onCancel, onTypeCode, hint }: QrScan
   if (!permission.granted) {
     return (
       <View style={[styles.fill, styles.center, styles.paper, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <Text style={styles.bigEmoji}>🔮</Text>
+        <Sage expression="surprised" size="md" />
         <Text style={styles.title}>Sage needs your eyes</Text>
         <Text style={styles.body}>
           Allow the camera to scan a friend's invite. Or just type the six letters they show you.
         </Text>
         {permission.canAskAgain ? (
-          <Pressable onPress={requestPermission} style={({ pressed }) => [styles.btn, styles.btnInk, pressed && styles.pressed]}>
-            <Text style={styles.btnInkText}>Allow camera</Text>
-          </Pressable>
+          <GameButton label="Allow camera" onPress={() => void requestPermission()} style={styles.gameBtn} />
         ) : (
           <Text style={styles.small}>Camera is off for Questbound. Turn it on in Settings, or type the code.</Text>
         )}
@@ -117,13 +117,11 @@ const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: ink.ink },
   paper: { backgroundColor: ink.paper, paddingHorizontal: space.xl },
   center: { alignItems: 'center', justifyContent: 'center' },
-  bigEmoji: { fontSize: 56, marginBottom: space.md },
-  title: { fontFamily: fonts.display, fontSize: type.title, color: ink.ink, textAlign: 'center' },
+  title: { fontFamily: fonts.display, fontSize: type.title, color: ink.ink, textAlign: 'center', marginTop: space.md },
+  gameBtn: { alignSelf: 'stretch', marginTop: space.sm },
   body: { fontFamily: fonts.body, fontSize: type.body, color: ink.inkSoft, textAlign: 'center', marginTop: space.sm, marginBottom: space.lg },
   small: { fontFamily: fonts.body, fontSize: type.small, color: ink.muted, textAlign: 'center', marginBottom: space.md },
   btn: { borderRadius: radius.pill, borderWidth: 3, borderColor: ink.ink, paddingVertical: space.md, paddingHorizontal: space.xl, alignItems: 'center', marginTop: space.sm, alignSelf: 'stretch' },
-  btnInk: { backgroundColor: ink.ink },
-  btnInkText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.page },
   btnGhost: { backgroundColor: ink.page },
   btnGhostText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.ink },
   pressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },

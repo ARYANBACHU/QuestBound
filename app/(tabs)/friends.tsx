@@ -1,92 +1,110 @@
-// Owner: MP. Friends tab: fellowship header + Chat | Fellowship.
-import { useState } from 'react';
+// Owner: MP. Friends tab. The chat is the hero: header (name + crests + Invite) → one "Up next" strip → chat.
+// The fellowship roster (points, profiles) opens from the crests.
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
+import { SCREEN_GRADIENTS, fonts, ink, moodFor, space, type } from '@/shared/theme';
 import { useSession } from '@/lib/session';
 import { useFellowship } from '@/lib/fellowship';
 import { useChat } from '@/lib/chat';
 import { useMissions, useStoryline } from '@/lib/game';
 import ChatView from '@/components/friends/ChatView';
 import FellowshipHeader from '@/components/friends/FellowshipHeader';
+import GameButton from '@/components/friends/GameButton';
 import InviteSheet from '@/components/friends/InviteSheet';
 import MemberSheet from '@/components/friends/MemberSheet';
 import MembersView from '@/components/friends/MembersView';
-import SegmentControl from '@/components/friends/SegmentControl';
 import UpNext from '@/components/friends/UpNext';
+import { Sage } from '@/components/friends/sage';
+import { haptic } from '@/components/friends/haptics';
 
-type Segment = 'chat' | 'fellowship';
-const SEGMENTS: { value: Segment; label: string }[] = [
-  { value: 'chat', label: 'Chat' },
-  { value: 'fellowship', label: 'Fellowship' },
-];
+type View_ = 'chat' | 'fellowship';
 
 export default function FriendsScreen() {
   const insets = useSafeAreaInsets();
   const { userId } = useSession();
   const { fellowship, members, loading } = useFellowship();
   const chat = useChat(fellowship?.id ?? null);
-  const [segment, setSegment] = useState<Segment>('chat');
+  const [view, setView] = useState<View_>('chat');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [openMemberId, setOpenMemberId] = useState<string | null>(null);
   const { storyline, pages, activePage, loading: storyLoading } = useStoryline(fellowship?.id ?? null);
   const { missions } = useMissions(storyline?.id ?? null);
+  const missionsById = useMemo(() => Object.fromEntries(missions.map((m) => [m.id, m])), [missions]);
+  const gradient = SCREEN_GRADIENTS[moodFor(activePage?.template_id ?? pages[0]?.template_id).id];
 
   if (loading && !fellowship) {
     return (
-      <View style={[styles.screen, styles.center, { paddingTop: insets.top }]}>
+      <LinearGradient colors={gradient} style={[styles.screen, styles.center, { paddingTop: insets.top }]}>
+        <Sage expression="thinking" size="md" />
         <ActivityIndicator color={ink.ink} />
         <Text style={styles.muted}>Gathering your fellowship…</Text>
-      </View>
+      </LinearGradient>
     );
   }
 
   if (!fellowship) {
     return (
-      <View style={[styles.screen, styles.center, { paddingTop: insets.top }]}>
-        <Text style={styles.bigEmoji}>🧙</Text>
+      <LinearGradient colors={gradient} style={[styles.screen, styles.center, { paddingTop: insets.top }]}>
+        <Sage expression="sleepy" size="lg" />
         <Text style={styles.emptyTitle}>You walk alone, for now</Text>
         <Text style={styles.emptyBody}>Every tale needs companions. Found a fellowship, or join your friends with their code.</Text>
-        <Pressable
+        <GameButton
+          label="Find my fellowship"
           onPress={() => router.push({ pathname: '/onboarding', params: { step: 'fellowship' } })}
-          style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
-        >
-          <Text style={styles.ctaText}>Find my fellowship</Text>
-        </Pressable>
-      </View>
+          style={styles.cta}
+        />
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + space.sm }]}>
+    <LinearGradient colors={gradient} style={[styles.screen, { paddingTop: insets.top + space.sm }]}>
       <FellowshipHeader
         fellowship={fellowship}
         members={members}
         online={chat.online}
         onInvite={() => setInviteOpen(true)}
-        onPressMembers={() => setSegment('fellowship')}
+        onPressMembers={() => setView('fellowship')}
       />
-      <UpNext
-        storyline={storyline}
-        pages={pages}
-        activePage={activePage}
-        missions={missions}
-        members={members}
-        myId={userId}
-        loading={storyLoading}
-      />
-      <SegmentControl options={SEGMENTS} value={segment} onChange={setSegment} />
-      <View style={styles.body}>
-        {segment === 'chat' ? (
-          <ChatView
-            chat={chat}
+      {view === 'chat' ? (
+        <>
+          <UpNext
+            storyline={storyline}
+            pages={pages}
+            activePage={activePage}
+            missions={missions}
             members={members}
             myId={userId}
-            onShowFellowship={() => setSegment('fellowship')}
-            onOpenMember={setOpenMemberId}
+            loading={storyLoading}
           />
-        ) : (
+          <View style={styles.body}>
+            <ChatView
+              chat={chat}
+              members={members}
+              myId={userId}
+              missionsById={missionsById}
+              onShowFellowship={() => setView('fellowship')}
+              onOpenMember={setOpenMemberId}
+            />
+          </View>
+        </>
+      ) : (
+        <View style={styles.body}>
+          <Pressable
+            onPress={() => {
+              haptic.select();
+              setView('chat');
+            }}
+            hitSlop={10}
+            style={({ pressed }) => [styles.back, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Back to the chat"
+          >
+            <Text style={styles.backText}>‹ Back to the chat</Text>
+          </Pressable>
           <MembersView
             members={members}
             missions={missions}
@@ -95,8 +113,8 @@ export default function FriendsScreen() {
             onInvite={() => setInviteOpen(true)}
             onOpenMember={setOpenMemberId}
           />
-        )}
-      </View>
+        </View>
+      )}
       <InviteSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} fellowship={fellowship} />
       {openMemberId ? (
         <MemberSheet
@@ -110,19 +128,19 @@ export default function FriendsScreen() {
           onClose={() => setOpenMemberId(null)}
         />
       ) : null}
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: ink.paper },
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.xxl, gap: space.sm },
-  body: { flex: 1, marginTop: space.sm, backgroundColor: ink.paper },
-  muted: { fontFamily: fonts.body, fontSize: type.small, color: ink.muted },
-  bigEmoji: { fontSize: 56 },
-  emptyTitle: { fontFamily: fonts.display, fontSize: type.title, color: ink.ink, textAlign: 'center' },
+  body: { flex: 1 },
+  muted: { fontFamily: fonts.body, fontSize: type.small, color: ink.inkSoft },
+  emptyTitle: { fontFamily: fonts.display, fontSize: type.title, color: ink.ink, textAlign: 'center', marginTop: space.md },
   emptyBody: { fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.inkSoft, textAlign: 'center', lineHeight: 22 },
-  cta: { marginTop: space.lg, borderRadius: radius.pill, borderWidth: 3, borderColor: ink.ink, backgroundColor: ink.ink, paddingVertical: space.md, paddingHorizontal: space.xl },
-  ctaText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.page },
-  pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  cta: { marginTop: space.lg, alignSelf: 'stretch' },
+  back: { paddingHorizontal: space.lg, paddingVertical: space.xs, alignSelf: 'flex-start' },
+  backText: { fontFamily: fonts.bodyBold, fontSize: type.body - 1, color: ink.inkSoft },
+  pressed: { opacity: 0.7 },
 });

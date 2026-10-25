@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SAGE_CREDIT, fonts, ink, radius, space, type } from '@/shared/theme';
+import { SAGE_CREDIT, fonts, ink, radius, shadow, space, type } from '@/shared/theme';
 import type { Message } from '@/shared/types';
 import { useChat } from '@/lib/chat';
 import { heroName, profileOf, useFellowship } from '@/lib/fellowship';
@@ -109,7 +109,8 @@ export default function ProclamationToast() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: space.md, right: space.md, zIndex: 100, elevation: 12 },
+  // Shadow on the wrapper: the card clips its stripe with overflow:hidden, which would hide an iOS shadow.
+  wrap: { position: 'absolute', left: space.md, right: space.md, zIndex: 100, borderRadius: radius.md, ...shadow.lg, elevation: 12 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -121,10 +122,6 @@ const styles = StyleSheet.create({
     padding: space.md,
     paddingLeft: space.md + 6,
     overflow: 'hidden',
-    shadowColor: ink.ink,
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
   },
   pressed: { transform: [{ scale: 0.985 }] },
   stripe: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, borderRightWidth: 2, borderRightColor: ink.ink },

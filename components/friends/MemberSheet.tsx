@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CRESTS, INTERESTS, fonts, ink, radius, space, type, ui, type CrestId } from '@/shared/theme';
+import { CRESTS, INTERESTS, chips, fonts, ink, radius, scrim, space, type, ui, type CrestId } from '@/shared/theme';
 import { regionDef } from '@/shared/templates';
 import type { FellowshipMember, Mission, Page, Profile } from '@/shared/types';
 import type { ChatState } from '@/lib/chat';
@@ -11,6 +11,7 @@ import { heroName, profileOf } from '@/lib/fellowship';
 import Crest from './Crest';
 import { crayonHex, withAlpha } from './color';
 import { haptic } from './haptics';
+import GameButton from './GameButton';
 import { pointsFor } from './points';
 
 const INTEREST_LABEL = Object.fromEntries(INTERESTS.map((i) => [i.id, i.label]));
@@ -100,27 +101,22 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Crest crest={p.crest} color={p.color} size={96} online={online.has(member.user_id)} />
           <Text style={styles.name}>{p.display_name}</Text>
-          <Text style={styles.title}>the {CRESTS[p.crest as CrestId]?.title ?? 'Wanderer'}</Text>
+          <Text style={styles.title}>
+            the {CRESTS[p.crest as CrestId]?.title ?? 'Wanderer'}
+            {member.role === 'founder' ? ' · 👑 founder' : ''}
+          </Text>
           <View style={styles.badges}>
-            {member.role === 'founder' ? (
-              <View style={[styles.badge, styles.founder]}>
-                <Text style={styles.badgeText}>👑 Founder</Text>
-              </View>
-            ) : null}
             <View style={styles.badge}>
               <View style={[styles.swatch, { backgroundColor: crayonHex(p.color) }]} />
-              <Text style={styles.badgeText}>{cap(p.color)} crayon</Text>
+              <Text style={styles.badgeText}>
+                {cap(p.color)} crayon{online.has(member.user_id) ? ' · here now' : ''}
+              </Text>
             </View>
-            {online.has(member.user_id) ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>Here now</Text>
-              </View>
-            ) : null}
           </View>
 
           {p.interests?.length ? (
             <View style={styles.chips}>
-              {p.interests.map((id) => (
+              {p.interests.slice(0, 4).map((id) => (
                 <View key={id} style={styles.chip}>
                   <Text style={styles.chipText}>{INTEREST_LABEL[id] ?? id}</Text>
                 </View>
@@ -148,13 +144,13 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
 
           {!isMe ? (
             <View style={styles.nudgeBox}>
-              <Pressable
+              <GameButton
+                label={sent || cooling ? 'The raven is on its way' : 'Send a raven 🪶'}
+                tone="swamp"
                 disabled={sent || cooling}
                 onPress={nudge}
-                style={({ pressed }) => [styles.nudge, (sent || cooling) && styles.disabled, pressed && styles.pressed]}
-              >
-                <Text style={styles.nudgeText}>{sent || cooling ? 'The raven is on its way' : 'Send a raven 🪶'}</Text>
-              </Pressable>
+                style={styles.nudge}
+              />
               <Text style={styles.hint}>
                 {sent || cooling ? 'Give them a little while to answer.' : 'Sage will post a playful nudge in the chat.'}
               </Text>
@@ -168,7 +164,7 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: withAlpha(ink.ink, 0.45) },
+  backdrop: { flex: 1, backgroundColor: scrim.strong },
   sheet: {
     maxHeight: '85%',
     backgroundColor: ink.paper,
@@ -186,12 +182,11 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.displayItalic, fontSize: type.heading, color: ink.inkSoft },
   badges: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.sm, marginTop: space.md },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 2, borderColor: ink.ink, borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 3, backgroundColor: ink.page },
-  founder: { backgroundColor: ink.gold },
   badgeText: { fontFamily: fonts.bodyBold, fontSize: type.small, color: ink.ink },
   swatch: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: ink.ink },
   chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: space.md },
-  chip: { backgroundColor: ink.lavenderMist, borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 3 },
-  chipText: { fontFamily: fonts.body, fontSize: 12, color: ink.ink },
+  chip: { backgroundColor: chips.primary.bg, borderRadius: radius.pill, paddingHorizontal: space.sm + 2, paddingVertical: 3 },
+  chipText: { fontFamily: fonts.bodyBold, fontSize: 12, color: chips.primary.fg },
   section: {
     alignSelf: 'stretch',
     fontFamily: fonts.bodyBold,
@@ -209,10 +204,7 @@ const styles = StyleSheet.create({
   storyLine: { fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.ink, marginTop: space.xs },
   empty: { alignSelf: 'stretch', fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.inkSoft },
   nudgeBox: { alignSelf: 'stretch', marginTop: space.xl, alignItems: 'center' },
-  nudge: { alignSelf: 'stretch', borderRadius: radius.pill, borderWidth: 3, borderColor: ink.ink, backgroundColor: ink.ink, paddingVertical: space.md, alignItems: 'center' },
-  nudgeText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.page },
-  disabled: { opacity: 0.4 },
-  pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  nudge: { alignSelf: 'stretch' },
   hint: { fontFamily: fonts.body, fontSize: type.small, color: ink.muted, marginTop: space.sm, textAlign: 'center' },
   error: { fontFamily: fonts.body, fontSize: type.small, color: ink.danger, marginTop: space.sm, textAlign: 'center' },
 });

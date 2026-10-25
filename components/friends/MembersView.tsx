@@ -1,21 +1,17 @@
-// Owner: MP. The "Fellowship" segment: every hero with crest, crayon, interests, missions done, founder badge.
+// Owner: MP. The fellowship roster, ranked by points (leaderboard): crest, name, one line of progress.
+// Details (interests, regions colored, nudge) live in the MemberSheet a tap away.
 import { useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { CRESTS, INTERESTS, fonts, ink, radius, space, type, type CrestId } from '@/shared/theme';
+import { CRESTS, accent, fonts, ink, panel, shadow, space, type, ui, type CrestId } from '@/shared/theme';
 import type { FellowshipMember, Mission } from '@/shared/types';
 import Crest from './Crest';
-import { crayonHex } from './color';
+import GameButton from './GameButton';
 import { leaderboard } from './points';
-
-const INTEREST_LABEL = Object.fromEntries(INTERESTS.map((i) => [i.id, i.label]));
-
-function cap(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
+import { Sage } from './sage';
 
 export interface MembersViewProps {
   members: FellowshipMember[];
-  /** Missions of the current book (for "N missions colored"). */
+  /** Missions of the current book (points + missions colored). */
   missions: Mission[];
   online: Set<string>;
   myId: string | null;
@@ -24,119 +20,90 @@ export interface MembersViewProps {
 }
 
 export default function MembersView({ members, missions, online, myId, onInvite, onOpenMember }: MembersViewProps) {
-  const stats = useMemo(() => Object.fromEntries(leaderboard(members, missions).map((r) => [r.user_id, r])), [members, missions]);
-
-  // Founder first, then me, then by join order.
-  const sorted = useMemo(
-    () =>
-      [...members].sort((a, b) => {
-        if (a.role !== b.role) return a.role === 'founder' ? -1 : 1;
-        if (a.user_id === myId) return -1;
-        if (b.user_id === myId) return 1;
-        return a.joined_at < b.joined_at ? -1 : 1;
-      }),
-    [members, myId],
-  );
+  const rows = useMemo(() => {
+    const byId = Object.fromEntries(members.map((m) => [m.user_id, m]));
+    const board = leaderboard(members, missions);
+    // Ties share a rank (and a crown).
+    return board
+      .map((r) => ({ ...r, rank: 1 + board.filter((o) => o.points > r.points).length, member: byId[r.user_id] }))
+      .filter((r) => r.member);
+  }, [members, missions]);
 
   return (
     <FlatList
-      data={sorted}
-      keyExtractor={(m) => m.user_id}
+      data={rows}
+      keyExtractor={(r) => r.user_id}
       contentContainerStyle={styles.list}
       ListEmptyComponent={
-        <Text style={styles.empty}>A fellowship of one is still a fellowship. But stories are better with friends — invite some.</Text>
+        <View style={styles.emptyBox}>
+          <Sage expression="idle" size="md" />
+          <Text style={styles.empty}>A fellowship of one is still a fellowship. But stories are better with friends.</Text>
+        </View>
       }
       renderItem={({ item }) => {
-        const p = item.profile;
-        const s = stats[item.user_id];
+        const p = item.member.profile;
         const isMe = item.user_id === myId;
+        const crestTitle = p ? (CRESTS[p.crest as CrestId]?.title ?? 'Wanderer') : 'Wanderer';
         return (
           <Pressable
             onPress={() => onOpenMember(item.user_id)}
-            style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+            style={({ pressed }) => [styles.card, isMe && styles.cardMe, pressed && styles.pressed]}
             accessibilityRole="button"
-            accessibilityLabel={`Open ${p?.display_name ?? 'member'}`}
+            accessibilityLabel={`${p?.display_name ?? 'A wanderer'}, ${item.points} points. Open profile`}
           >
-            <Crest crest={p?.crest} color={p?.color} size={64} online={online.has(item.user_id)} />
+            <Text style={[styles.rank, item.rank === 1 && item.points > 0 && styles.rankTop]}>
+              {item.rank === 1 && item.points > 0 ? '👑' : item.rank}
+            </Text>
+            <Crest crest={p?.crest} color={p?.color} size={48} online={online.has(item.user_id)} />
             <View style={styles.info}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {p?.display_name ?? 'A wanderer'}
-                  {p ? <Text style={styles.crestTitle}> the {CRESTS[p.crest as CrestId]?.title ?? 'Wanderer'}</Text> : null}
-                </Text>
-              </View>
-              <View style={styles.badges}>
-                {item.role === 'founder' ? (
-                  <View style={[styles.badge, styles.founder]}>
-                    <Text style={styles.badgeText}>👑 Founder</Text>
-                  </View>
-                ) : null}
-                {isMe ? (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>You</Text>
-                  </View>
-                ) : null}
-                {p ? (
-                  <View style={styles.swatchRow}>
-                    <View style={[styles.swatch, { backgroundColor: crayonHex(p.color) }]} />
-                    <Text style={styles.swatchText}>{cap(p.color)}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.stat}>
-                {s?.missions ? `${s.missions} mission${s.missions === 1 ? '' : 's'} colored · ${s.points} pts` : 'No regions colored yet'}
+              <Text style={styles.name} numberOfLines={1}>
+                {p?.display_name ?? 'A wanderer'}
+                {isMe ? <Text style={styles.you}> (you)</Text> : null}
               </Text>
-              {p?.interests?.length ? (
-                <View style={styles.chips}>
-                  {p.interests.slice(0, 6).map((id) => (
-                    <View key={id} style={styles.chip}>
-                      <Text style={styles.chipText}>{INTEREST_LABEL[id] ?? id}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
+              <Text style={styles.sub} numberOfLines={1}>
+                the {crestTitle}
+                {item.member.role === 'founder' ? ' · founder' : ''}
+                {' · '}
+                {item.missions ? `${item.missions} region${item.missions === 1 ? '' : 's'}` : 'crayon still sharp'}
+              </Text>
             </View>
+            <Text style={styles.points}>
+              {item.points}
+              <Text style={styles.pts}> pts</Text>
+            </Text>
           </Pressable>
         );
       }}
-      ListFooterComponent={
-        <Pressable onPress={onInvite} style={({ pressed }) => [styles.invite, pressed && styles.pressed]}>
-          <Text style={styles.inviteText}>Invite friends</Text>
-        </Pressable>
-      }
+      ListFooterComponent={<GameButton label="Invite friends" tone="forest" onPress={onInvite} style={styles.invite} />}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  list: { padding: space.lg, gap: space.md },
-  empty: { fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.inkSoft, textAlign: 'center', padding: space.xl },
+  list: { padding: space.lg, paddingTop: space.sm, gap: space.sm },
+  emptyBox: { alignItems: 'center', gap: space.md, padding: space.xl },
+  empty: { fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.inkSoft, textAlign: 'center' },
   card: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: space.md,
-    padding: space.md,
-    backgroundColor: ink.page,
-    borderWidth: 3,
+    paddingVertical: space.sm + 2,
+    paddingHorizontal: space.md,
+    backgroundColor: panel.parchment,
+    borderWidth: ui.borderWidth,
     borderColor: ink.ink,
-    borderRadius: radius.lg,
+    borderRadius: ui.cardRadius,
+    ...shadow.sm,
   },
-  cardPressed: { transform: [{ scale: 0.985 }], backgroundColor: ink.lavenderMist },
+  cardMe: { backgroundColor: accent.primarySoft },
+  pressed: { opacity: 0.85, transform: [{ scale: ui.pressScale }] },
+  rank: { width: 26, textAlign: 'center', fontFamily: fonts.display, fontSize: type.heading, color: ink.inkSoft },
+  rankTop: { fontSize: type.heading - 2 },
   info: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center' },
-  name: { fontFamily: fonts.display, fontSize: type.heading, color: ink.ink, flexShrink: 1 },
-  crestTitle: { fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.inkSoft },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, marginTop: space.xs },
-  badge: { borderWidth: 2, borderColor: ink.ink, borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 1, backgroundColor: ink.page },
-  founder: { backgroundColor: ink.gold },
-  badgeText: { fontFamily: fonts.bodyBold, fontSize: 12, color: ink.ink },
-  swatchRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  swatch: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: ink.ink },
-  swatchText: { fontFamily: fonts.bodyBold, fontSize: 12, color: ink.inkSoft },
-  stat: { fontFamily: fonts.body, fontSize: type.small, color: ink.inkSoft, marginTop: space.sm },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: space.sm },
-  chip: { backgroundColor: ink.lavenderMist, borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 3 },
-  chipText: { fontFamily: fonts.body, fontSize: 12, color: ink.ink },
-  invite: { marginTop: space.md, borderRadius: radius.pill, borderWidth: 3, borderColor: ink.ink, backgroundColor: ink.ink, paddingVertical: space.md, alignItems: 'center' },
-  inviteText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.page },
-  pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  name: { fontFamily: fonts.display, fontSize: type.heading - 2, color: ink.ink },
+  you: { fontFamily: fonts.body, fontSize: type.small, color: ink.inkSoft },
+  sub: { fontFamily: fonts.body, fontSize: type.small, color: ink.inkSoft, marginTop: 1 },
+  points: { fontFamily: fonts.display, fontSize: type.heading, color: accent.primary },
+  pts: { fontFamily: fonts.bodyBold, fontSize: 12, color: ink.inkSoft },
+  invite: { marginTop: space.md },
 });
