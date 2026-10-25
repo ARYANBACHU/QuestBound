@@ -2,7 +2,7 @@
  * DEMO FIXTURES — used when EXPO_PUBLIC_USE_MOCKS=1 so every branch can build UI with zero backend.
  * Owner: EV (add more if your screen needs them; keep ids stable).
  */
-import type { BookRecap, Fellowship, FellowshipMember, Memory, Message, Mission, Page, Profile, Storyline } from '@/shared/types';
+import type { BookRecap, Completion, Fellowship, FellowshipMember, Memory, Message, Mission, Page, Profile, Storyline } from '@/shared/types';
 
 const now = new Date().toISOString();
 export const ME = 'u-aria';
@@ -68,45 +68,45 @@ export const MISSIONS: Mission[] = [
       description: 'Write two lines of a poem about your fellowship. The best lines are written into the book.',
       story_hook: 'The moat only lets poets pass.' }),
   // Chapter 2 — Whispers in the Wood (locked until chapter 1 is fully colored)
-  m({ id: 'm-7', page_id: 'p-2', status: 'locked', region_id: 'great_tree', title: 'Beneath the Great Tree', type: 'gathering', proof_type: 'group_photo', required_members: 4, points: 45,
+  m({ id: 'm-7', page_id: 'p-2', status: 'locked', region_id: 'great_tree', title: 'Beneath the Great Tree', type: 'gathering', proof_type: 'group_photo', required_members: 4, points: 40,
       description: 'Gather everyone at Pease Park and take a group photo under the biggest tree you can find.',
       story_hook: 'The Great Tree remembers every friend who has stood beneath it.',
       place: { title: 'Pease District Park', address: '1100 Kingsbury St, Austin, TX', rating: 4.7, category: 'Park', source: 'google_maps' },
       verification_hint: 'Group photo outdoors with a tree.' }),
-  m({ id: 'm-8', page_id: 'p-2', status: 'locked', region_id: 'mushroom_ring', title: 'The Mushroom Ring', type: 'duet', proof_type: 'photo', required_members: 2, points: 25,
+  m({ id: 'm-8', page_id: 'p-2', status: 'locked', region_id: 'mushroom_ring', title: 'The Mushroom Ring', type: 'duet', proof_type: 'photo', required_members: 2, points: 20,
       description: 'Two of you share a snack picnic on the grass and photograph your spread laid out in a circle.',
       story_hook: 'Sit inside the ring and the forest will share its secrets.', verification_hint: 'Snacks arranged in a circle.' }),
-  m({ id: 'm-9', page_id: 'p-2', status: 'locked', region_id: 'river', title: 'The Riddle of the River', type: 'trial', proof_type: 'answer', required_members: 2, points: 25,
+  m({ id: 'm-9', page_id: 'p-2', status: 'locked', region_id: 'river', title: 'The Riddle of the River', type: 'trial', proof_type: 'answer', required_members: 2, points: 20,
       trial_question: 'I run but never walk, I have a mouth but never talk, and a bed but never sleep. What am I?',
       description: 'Two of you solve the river spirit\'s riddle together.', story_hook: 'The river spirit lets only clever pairs cross.' }),
-  m({ id: 'm-10', page_id: 'p-2', status: 'locked', region_id: 'fireflies', title: 'Catch a Firefly', type: 'relic', proof_type: 'photo', points: 15,
+  m({ id: 'm-10', page_id: 'p-2', status: 'locked', region_id: 'fireflies', title: 'Catch a Firefly', type: 'relic', proof_type: 'photo', points: 10,
       description: 'Photograph a small glowing light: string lights, a lantern or a neon sign.', story_hook: 'Each firefly carries a spark of the stolen light.',
       verification_hint: 'A small glowing light.', assignee_ids: ['u-cleo'] }),
-  m({ id: 'm-11', page_id: 'p-2', status: 'locked', region_id: 'owl', title: 'The Owl\'s Question', type: 'bard', proof_type: 'text', points: 15,
+  m({ id: 'm-11', page_id: 'p-2', status: 'locked', region_id: 'owl', title: 'The Owl\'s Question', type: 'bard', proof_type: 'text', points: 10,
       description: 'Write the wisest thing someone in this fellowship has ever told you.', story_hook: 'The Wise Owl trades directions for wisdom.' }),
-  m({ id: 'm-12', page_id: 'p-2', status: 'locked', region_id: 'path', title: 'The Winding Path', type: 'relic', proof_type: 'photo', points: 15,
+  m({ id: 'm-12', page_id: 'p-2', status: 'locked', region_id: 'path', title: 'The Winding Path', type: 'relic', proof_type: 'photo', points: 10,
       description: 'Photograph an interesting trail or staircase at the Barton Creek Greenbelt.', story_hook: 'The path rearranges itself for the curious.',
       place: { title: 'Barton Creek Greenbelt', address: 'Austin, TX', rating: 4.8, category: 'Hiking area', source: 'google_maps' },
       verification_hint: 'A path, trail or staircase.', assignee_ids: ['u-dax'] }),
   // Chapter 3 — The Thief on the Peak
-  m({ id: 'm-13', page_id: 'p-3', status: 'locked', region_id: 'dragon', title: 'Face the Dragon', type: 'gathering', proof_type: 'group_photo', required_members: 4, points: 50,
+  m({ id: 'm-13', page_id: 'p-3', status: 'locked', region_id: 'dragon', title: 'Face the Dragon', type: 'gathering', proof_type: 'group_photo', required_members: 4, points: 40,
       description: 'Everyone meets at Mount Bonnell at sunset and takes a group photo in your fiercest dragon pose.',
       story_hook: 'Dragons are only defeated by friends who show up together.',
       place: { title: 'Mount Bonnell', address: '3800 Mount Bonnell Rd, Austin, TX', rating: 4.7, category: 'Scenic overlook', source: 'google_maps' },
       verification_hint: 'Group photo, dramatic poses.' }),
-  m({ id: 'm-14', page_id: 'p-3', status: 'locked', region_id: 'mountain', title: 'Climb the Mountain', type: 'duet', proof_type: 'photo', required_members: 2, points: 30,
+  m({ id: 'm-14', page_id: 'p-3', status: 'locked', region_id: 'mountain', title: 'Climb the Mountain', type: 'duet', proof_type: 'photo', required_members: 2, points: 20,
       description: 'Two of you climb to the highest point you can reach nearby and photograph the view together.',
       story_hook: 'From the summit you can see where the thief has gone.', verification_hint: 'A view from up high.' }),
-  m({ id: 'm-15', page_id: 'p-3', status: 'locked', region_id: 'treasure', title: 'Share the Hoard', type: 'gift', proof_type: 'confirm', required_members: 2, points: 30,
+  m({ id: 'm-15', page_id: 'p-3', status: 'locked', region_id: 'treasure', title: 'Share the Hoard', type: 'gift', proof_type: 'confirm', required_members: 2, points: 20,
       description: 'Give another member a treasure: a sticker, a snack, a book to borrow. They confirm when they get it.',
       story_hook: 'A dragon hoards. A fellowship shares.', verification_hint: 'Recipient confirms.' }),
-  m({ id: 'm-16', page_id: 'p-3', status: 'locked', region_id: 'clouds', title: 'The Storm\'s Riddle', type: 'trial', proof_type: 'answer', points: 20,
+  m({ id: 'm-16', page_id: 'p-3', status: 'locked', region_id: 'clouds', title: 'The Storm\'s Riddle', type: 'trial', proof_type: 'answer', points: 10,
       trial_question: 'The more of me you take, the more you leave behind. What am I?',
       description: 'Answer the riddle thundered from the storm clouds.', story_hook: 'The clouds part only for the wise.' }),
-  m({ id: 'm-17', page_id: 'p-3', status: 'locked', region_id: 'shield', title: 'The Knight\'s Shield', type: 'relic', proof_type: 'photo', points: 20,
+  m({ id: 'm-17', page_id: 'p-3', status: 'locked', region_id: 'shield', title: 'The Knight\'s Shield', type: 'relic', proof_type: 'photo', points: 10,
       description: 'Photograph something round and brave-looking: a clock, a manhole cover, a round sign.', story_hook: 'Every knight needs a shield, even a borrowed one.',
       verification_hint: 'A round object.', assignee_ids: ['u-bram'] }),
-  m({ id: 'm-18', page_id: 'p-3', status: 'locked', region_id: 'lantern', title: 'Light the Lantern', type: 'bard', proof_type: 'text', points: 20,
+  m({ id: 'm-18', page_id: 'p-3', status: 'locked', region_id: 'lantern', title: 'Light the Lantern', type: 'bard', proof_type: 'text', points: 10,
       description: 'Write one sentence about a moment this week when a friend made things brighter.', story_hook: 'The last lantern is lit with a true story.' }),
 ];
 
@@ -131,6 +131,16 @@ export const MEMORIES: Memory[] = [
     kind: 'photo', created_at: now },
 ];
 
+/** One completion per completed fixture mission (lib/game.ts useCompletions). */
+export const COMPLETIONS: Completion[] = [
+  { id: 'c-1', mission_id: 'm-2', user_id: 'u-bram', participant_ids: ['u-bram', 'u-cleo'], proof_url: 'https://picsum.photos/seed/questbound-bridge/900/1200',
+    proof_text: null, verdict: { pass: true, confidence: 0.92, reason: 'mock', flavor_text: 'The Magic Mirror gleams. Two heroes, one bridge, zero trolls.', lens_titles: ['Lamar pedestrian bridge at dusk'] },
+    story_line: 'Sir Bram and Lady Cleo crossed the drawbridge as the sun sank, and the chains sang.', created_at: now },
+  { id: 'c-2', mission_id: 'm-4', user_id: 'u-aria', participant_ids: ['u-aria'], proof_url: 'https://picsum.photos/seed/questbound-moon/900/1200',
+    proof_text: null, verdict: { pass: true, confidence: 0.9, reason: 'mock', flavor_text: 'You caught the moon! Do not let it escape.', lens_titles: ['Full moon over the Austin skyline'] },
+    story_line: 'Aria the Fox caught the moon in a glass jar of pixels.', created_at: now },
+];
+
 /** What a finished book's recap looks like (mock mode uses it when the last page is colored). */
 export const MOCK_RECAP: BookRecap = {
   summary: 'And so the lanterns of Austin were lit again, one real adventure at a time. Four friends crossed bridges, solved riddles and shared a feast, and the city glowed brighter for it.',
@@ -146,7 +156,7 @@ export const MOCK_RECAP: BookRecap = {
     { user_id: 'u-cleo', title: 'Cleo the Far-Seeing', contribution: 'Caught the best moments in the Magic Mirror.' },
     { user_id: 'u-dax', title: 'Dax of the Trails', contribution: 'Found the paths no one else could.' },
   ],
-  next_book_hint: 'But far beyond the last page, a clockwork owl is stealing songs. Muse is already sharpening the quill.',
+  next_book_hint: 'But far beyond the last page, a clockwork owl is stealing songs. Sage is already sharpening the quill.',
 };
 
 /** Shape of what generate-storyline logs (lib/game.ts useGenerationInfo). */

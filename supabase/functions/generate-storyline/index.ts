@@ -9,7 +9,10 @@
 import { preflight, json, fail } from '../_shared/cors.ts';
 import { admin, callerId, proclaim } from '../_shared/db.ts';
 import { chat, HAS_LLM, parseJSON, withTimeout, type ChatMsg } from '../_shared/llm.ts';
-import { eventsSearch, mapsSearch, resetSerpStats, snapshotSerpStats } from '../_shared/serp.ts';
+import { eventsSearch, geocodeEvent, mapsSearch, resetSerpStats, snapshotSerpStats } from '../_shared/serp.ts';
+import { asDifficulty, type PointsDifficulty } from '../_shared/points.ts';
+import { archiveBook } from '../_shared/progress.ts';
+import { buildUTBook, verifyUTPlaces } from '../_shared/ut.ts';
 import { analyzeInterests, INTEREST_INFO } from '../_shared/interests.ts';
 import {
   CHAPTER_SCHEMA, chapterTask, OUTLINE_SCHEMA, type Outline, outlineTask, type SequelCtx, sequelAddendum, type StoryCtx,
@@ -40,7 +43,9 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const fellowship_id: string | undefined = body.fellowship_id;
   const mode: 'first' | 'sequel' = body.mode === 'sequel' ? 'sequel' : 'first';
-  const demo = body.demo === true;
+  const utDemo = body.demo === 'ut'; // E6: "The Legend of the Forty Acres" (real UT campus landmarks, GPS-gated)
+  const demo = body.demo === true || utDemo;
+  const replaceActive = body.replace_active === true;
   if (!fellowship_id) return fail('fellowship_id required');
 
   // 1. membership
@@ -53,7 +58,7 @@ Deno.serve(async (req) => {
     admin.from('fellowships').select('*').eq('id', fellowship_id).single(),
     admin.from('fellowship_members').select('user_id, joined_at, profile:profiles(*)').eq('fellowship_id', fellowship_id)
       .order('joined_at', { ascending: true }),
-    admin.from('storylines').select('id, status, book_number, title, recap, created_at').eq('fellowship_id', fellowship_id)
+    admin.from('storylines').select('id, status, book_number, title, recap, created_at, difficulty').eq('fellowship_id', fellowship_id)
       .order('created_at', { ascending: false }),
   ]);
   if (!fellowship) return fail('Fellowship not found', 404);
@@ -62,20 +67,22 @@ Deno.serve(async (req) => {
     .filter((p: Profile | null): p is Profile => !!p)
     .map((p: Profile) => memberCtx(p));
 
-  // Pre-warm (before judging): fill the SerpApi cache for this fellowship's themes + Muse's defaults. Writes no book.
+  // Pre-warm (before judging): fill the SerpApi cache for this fellowship's themes + Sage's defaults. Writes no book.
   if (body.prewarm === true) {
     const ia = analyzeInterests(members);
     const themes = [...new Set([...ia.themes, 'coffee', 'parks', 'live_music', 'board_games', 'food_trucks'])];
     const places = await ground(fellowship.lat ?? DEFAULT_LOCATION.lat, fellowship.lng ?? DEFAULT_LOCATION.lng,
-      fellowship.area_label ?? DEFAULT_LOCATION.label, themes, 10_000);
+      fellowship.area_label ?? DEFAULT_LOCATION.label, themes, 10_000, asDifficulty(body.difficulty));
     return json({ prewarmed: themes, places_count: places.length, serp: snapshotSerpStats() });
   }
 
-  // Idempotency: a double-tap while Muse is writing returns the same book.
+  // Idempotency: a double-tap while Sage is writing returns the same book.
   const generating = (books ?? []).find((b) => b.status === 'generating' && Date.now() - new Date(b.created_at).getTime() < 90_000);
   if (generating) return json({ storyline_id: generating.id, reused: true });
   const active = (books ?? []).find((b) => b.status === 'active');
-  if (mode === 'first' && !demo && active) return json({ storyline_id: active.id, reused: true });
+  if (mode === 'first' && !demo && !replaceActive && active) return json({ storyline_id: active.id, reused: true });
+  // Sequels keep the last book's difficulty unless the fellowship picks a new one.
+  const difficulty: PointsDifficulty = asDifficulty(body.difficulty, mode === 'sequel' ? asDifficulty(books?.[0]?.difficulty) : 'normal');
 
   const lat = fellowship.lat ?? DEFAULT_LOCATION.lat;
   const lng = fellowship.lng ?? DEFAULT_LOCATION.lng;
@@ -94,25 +101,51 @@ Deno.serve(async (req) => {
   const priorBook = (books ?? []).find((b) => b.status === 'complete') ?? active ?? null;
   const sequel = mode === 'sequel' && priorBook ? await loadSequel(fellowship_id, priorBook) : undefined;
 
-  // Placeholder row so every phone flips to the "Muse is writing…" ritual immediately.
+  // Placeholder row so every phone flips to the "Sage is writing…" ritual immediately.
   const { data: row, error: insErr } = await admin.from('storylines').insert({
-    fellowship_id, book_number: bookNumber, status: 'generating', title: 'Muse is writing…', synopsis: '',
-    theme_tags: interests.themes,
+    fellowship_id, book_number: bookNumber, status: 'generating', title: 'Sage is writing…', synopsis: '',
+    theme_tags: interests.themes, difficulty,
   }).select('id').single();
   if (insErr || !row) return fail(`Could not start the book: ${insErr?.message}`, 500);
   const storyline_id: string = row.id;
 
+  // Join race: two friends can tap "Summon" in the same second. The check above is read-then-insert, so re-check
+  // AFTER inserting: the oldest fresh 'generating' row wins and every other caller deletes its own row and reuses it.
+  const winner = await raceWinner(fellowship_id, storyline_id);
+  if (winner !== storyline_id) {
+    await admin.from('storylines').delete().eq('id', storyline_id);
+    return json({ storyline_id: winner, reused: true });
+  }
+
   try {
+    if (utDemo) {
+      const tUT = Date.now();
+      const { places: utPlaces, verify } = await verifyUTPlaces(5_000);
+      const { book: utBook } = buildUTBook(utPlaces, difficulty, members);
+      await writeBookRows(storyline_id, fellowship_id, utBook, members.length);
+      const serp = snapshotSerpStats();
+      const generation_context = {
+        mode, demo: 'ut', difficulty, replace_active: replaceActive, book_number: bookNumber,
+        interests: { counts: interests.counts, shared: interests.shared, unique: interests.unique, themes: interests.themes },
+        places: Object.values(utPlaces), serp, ut_verify: verify, prior_recap: null, adaptation: null,
+        source: { outline: 'ut_demo', chapters: utBook.chapters.map(() => 'ut_demo'), repaired: 0, llm_available: HAS_LLM },
+        timings_ms: { ut_verify: Date.now() - tUT, total: Date.now() - t0 },
+      };
+      await activateAndProclaim(storyline_id, fellowship_id, utBook, generation_context, members, null);
+      console.log('[generate-storyline] ut demo', JSON.stringify({ storyline_id, serp, verified: verify.filter((v) => v.used === 'serpapi').length, ms: Date.now() - t0 }));
+      return json({ storyline_id, serp, adaptation: null, difficulty });
+    }
+
     const ctx: StoryCtx = {
       mode, fellowshipName: fellowship.name, areaLabel, members, shared: interests.shared, themes: interests.themes,
-      unique: interests.unique, places: [], chapters, preferFree: interests.preferFree, sequel,
+      unique: interests.unique, places: [], chapters, preferFree: interests.preferFree, difficulty, sequel,
     };
     const timings: Record<string, number> = {};
     const seed = demo ? 0 : hashSeed(`${fellowship_id}:${bookNumber}`);
     const useLLM = HAS_LLM && !demo;
 
     // 4 + 6a. SerpApi grounding in parallel with the outline (the outline doesn't need places).
-    const groundP = ground(lat, lng, areaLabel, interests.themes, demo ? 4_000 : 7_000).then((p) => {
+    const groundP = ground(lat, lng, areaLabel, interests.themes, demo ? 4_000 : 7_000, difficulty).then((p) => {
       timings.serp = Date.now() - t0;
       return p;
     });
@@ -161,7 +194,7 @@ Deno.serve(async (req) => {
         repaired += r.repaired;
         chapterSources.push(r.repaired >= 4 ? 'fallback' : 'llm');
       } else {
-        missions = fallbackChapterMissions(c.template_id, i, picker, prefer[i]);
+        missions = fallbackChapterMissions(c.template_id, i, picker, prefer[i], difficulty);
         chapterSources.push('fallback');
       }
       ensureCoverage(missions, members, interests.unique);
@@ -174,38 +207,69 @@ Deno.serve(async (req) => {
     const adaptation = sequel ? buildAdaptation(sequel, priorBook!.id, book) : null;
     const serp = snapshotSerpStats();
     const generation_context = {
-      mode, demo, book_number: bookNumber,
+      mode, demo, difficulty, replace_active: replaceActive, book_number: bookNumber,
       interests: { counts: interests.counts, shared: interests.shared, unique: interests.unique, themes: interests.themes },
       places, serp, prior_recap: sequel?.recap ?? null, adaptation,
       source: { outline: outlineSource, chapters: chapterSources, repaired, llm_available: HAS_LLM },
       timings_ms: { ...timings, total: Date.now() - t0 },
     };
-    const { error: upErr } = await admin.from('storylines').update({
-      title: book.title, synopsis: book.synopsis, theme_tags: book.theme_tags, status: 'active', generation_context,
-    }).eq('id', storyline_id);
-    if (upErr) throw new Error(`activate storyline: ${upErr.message}`);
-    // Only one active book per fellowship.
-    await admin.from('storylines').update({ status: 'complete' })
-      .eq('fellowship_id', fellowship_id).eq('status', 'active').neq('id', storyline_id);
-
-    // 9. proclaim
-    const first = book.chapters[0];
-    await proclaim(
-      fellowship_id,
-      `Hear ye! Muse has written a new tale: "${book.title}". Chapter I: ${first.title} awaits.` +
-        (adaptation?.note ? ` ${adaptation.note}` : ''),
-      { event: 'storyline_ready', storyline_id },
-    );
+    // 9. activate + shelve the old book + proclaim
+    await activateAndProclaim(storyline_id, fellowship_id, book, generation_context, members, adaptation?.note ?? null);
     console.log('[generate-storyline]', JSON.stringify({ storyline_id, ...generation_context.source, serp, ms: Date.now() - t0 }));
-    return json({ storyline_id, serp, adaptation });
+    return json({ storyline_id, serp, adaptation, difficulty });
   } catch (e) {
     console.error('[generate-storyline] failed, rolling back', String(e));
     await admin.from('storylines').delete().eq('id', storyline_id);
-    return fail('Muse dropped the quill. Try summoning the story again.', 500);
+    return fail('Sage dropped the quill. Try summoning the story again.', 500);
   }
 });
 
 // ---------------------------------------------------------------- helpers
+
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
+const READY_FLOURISH = [
+  'Sharpen your crayons.',
+  'Snacks are strongly encouraged.',
+  'Sage has already spilled ink on page one.',
+  'Bring friends. Dragons hate crowds.',
+];
+
+/** Flip the 'generating' row to active, shelve any other active book (recap.abandoned), proclaim in chat. */
+async function activateAndProclaim(
+  storylineId: string, fellowshipId: string, book: DraftBook, generation_context: Record<string, unknown>,
+  members: MemberCtx[], note: string | null,
+) {
+  const { error: upErr } = await admin.from('storylines').update({
+    title: book.title, synopsis: book.synopsis, theme_tags: book.theme_tags, status: 'active', generation_context,
+  }).eq('id', storylineId);
+  if (upErr) throw new Error(`activate storyline: ${upErr.message}`);
+  // Only one active book per fellowship: shelve the old one (unfinished -> recap marked abandoned).
+  const { data: others } = await admin.from('storylines').select('id, title')
+    .eq('fellowship_id', fellowshipId).eq('status', 'active').neq('id', storylineId);
+  await Promise.all((others ?? []).map((b: { id: string; title: string }) => archiveBook(b.id, b.title, members)));
+  const first = book.chapters[0];
+  const flourish = READY_FLOURISH[Math.abs(hashSeed(storylineId)) % READY_FLOURISH.length];
+  await proclaim(
+    fellowshipId,
+    `Hear ye! Sage has written a new tale: "${book.title}". Chapter ${ROMAN[1]}: ${first.title} awaits. ` +
+      (note ? note : flourish),
+    { event: 'storyline_ready', storyline_id: storylineId },
+  );
+}
+
+function stripVenue(p: Place): Place {
+  const { venue: _v, ...clean } = p as Place & { venue?: string };
+  return clean;
+}
+
+/** The oldest fresh 'generating' storyline of this fellowship (ties broken by id). */
+async function raceWinner(fellowshipId: string, mine: string): Promise<string> {
+  const since = new Date(Date.now() - 90_000).toISOString();
+  const { data } = await admin.from('storylines').select('id, created_at').eq('fellowship_id', fellowshipId)
+    .eq('status', 'generating').gte('created_at', since)
+    .order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1);
+  return data?.[0]?.id ?? mine;
+}
 
 function hashSeed(s: string): number {
   let h = 0;
@@ -275,11 +339,18 @@ function normalizeOutline(raw: Outline | null, ctx: StoryCtx, seed: number): Out
 }
 
 /** SerpApi: one Maps search per theme + one Events search, each with its own timeout. Interleaved + deduped. */
-async function ground(lat: number, lng: number, area: string, themes: string[], timeoutMs: number): Promise<Place[]> {
+async function ground(lat: number, lng: number, area: string, themes: string[], timeoutMs: number, difficulty: PointsDifficulty = 'normal'): Promise<Place[]> {
+  // Easy books search a tighter map (closer places), hard books a wider one (across town).
+  const zoom = difficulty === 'easy' ? 15 : difficulty === 'hard' ? 12 : 14;
   const tasks: Promise<Place[]>[] = themes.map((t) =>
-    withTimeout(mapsSearch(INTEREST_INFO[t]?.query ?? t.replace(/_/g, ' '), lat, lng, 4), timeoutMs, [], `maps:${t}`)
+    withTimeout(mapsSearch(INTEREST_INFO[t]?.query ?? t.replace(/_/g, ' '), lat, lng, 4, zoom), timeoutMs, [], `maps:${t}`)
   );
-  tasks.push(withTimeout(eventsSearch(`events in ${area}`, 6), timeoutMs, [], 'events'));
+  // Events are geocoded (venue lookup on Google Maps) so GPS-gated missions work for them too.
+  tasks.push(
+    withTimeout(eventsSearch(`events in ${area}`, 6), timeoutMs, [], 'events').then((evs) =>
+      Promise.all(evs.map((e) => withTimeout(geocodeEvent(e, lat, lng), 4_000, stripVenue(e), `geocode:${e.title}`)))
+    ),
+  );
   const lists = await Promise.all(tasks);
   const out: Place[] = [];
   const seen = new Set<string>();
@@ -355,9 +426,9 @@ function buildAdaptation(seq: SequelCtx, priorId: string, book: DraftBook) {
   const [a, b] = seq.loved_types;
   const wove = a && (after[a] ?? 0) >= 3;
   const note = a
-    ? `Muse noticed you love ${label(a)}${b ? ` and ${label(b)}` : ''}${wove ? ', so this book has more of them' : ''}.` +
+    ? `Sage noticed you love ${label(a)}${b ? ` and ${label(b)}` : ''}${wove ? ', so this book has more of them' : ''}.` +
       (seq.skipped_types[0] && (after[seq.skipped_types[0]] ?? 0) <= 2 ? ` Fewer ${label(seq.skipped_types[0])} this time.` : '')
-    : 'Muse remembered everything you did last time.';
+    : 'Sage remembered everything you did last time. Everything.';
   return {
     prior_storyline_id: priorId,
     loved_types: seq.loved_types,

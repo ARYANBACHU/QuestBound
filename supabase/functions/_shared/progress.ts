@@ -1,5 +1,5 @@
 // Owner: EV. What happens after a proof passes: answer matching, story lines, page/book progression helpers,
-// chapter illustrations (Muse Image -> 'art' bucket), recap, montage frames.
+// chapter illustrations (Muse Image model -> 'art' bucket), recap, montage frames. Narrator copy says "Sage".
 import { admin, proclaim } from './db.ts';
 import { chatJSON, generateImage, HAS_LLM, withTimeout } from './llm.ts';
 import { illustrationPrompt, montagePrompt, recapSystem, recapUser } from './prompts.ts';
@@ -50,16 +50,42 @@ export function joinNames(names: string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
-export function fallbackStoryLine(mission: Pick<Mission, 'title' | 'place' | 'type'>, heroes: MemberCtx[]): string {
+/** E5: the first line of a bard's verse (what the story line quotes). Null for empty text. */
+export function firstVerseLine(text: string | null | undefined): string | null {
+  const t = (text ?? '').trim();
+  if (!t) return null;
+  let line = t.split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? t;
+  line = line.replace(/^["“”'‘’]+|["“”'‘’]+$/g, '').replace(/[,;:\-–—]+$/, '').trim();
+  if (line.length > 110) {
+    const cut = line.slice(0, 110);
+    const stop = Math.max(cut.lastIndexOf(','), cut.lastIndexOf(';'), cut.lastIndexOf('.'), cut.lastIndexOf(' '));
+    line = `${cut.slice(0, stop > 50 ? stop : 110).trim()}…`;
+  }
+  return line || null;
+}
+
+/** Bard story lines must quote the verse's first line; true if `line` already does. */
+export function quotesVerse(line: string, first: string): boolean {
+  const n = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return n(line).includes(n(first.replace(/…$/, '')).slice(0, 30));
+}
+
+export function bardStoryLine(mission: Pick<Mission, 'title'>, heroes: MemberCtx[], first: string): string {
+  return `${joinNames(heroes.map(heroName))} sang for "${mission.title}": “${first}”`;
+}
+
+export function fallbackStoryLine(mission: Pick<Mission, 'title' | 'place' | 'type'>, heroes: MemberCtx[], proofText?: string): string {
   const who = joinNames(heroes.map(heroName));
+  const verse = mission.type === 'bard' ? firstVerseLine(proofText) : null;
+  if (verse) return bardStoryLine(mission, heroes, verse);
   const where = mission.place ? ` at ${mission.place.title}` : '';
   switch (mission.type) {
-    case 'gathering': return `${who} gathered${where} for "${mission.title}", and the whole page leaned in to listen.`;
-    case 'duet': return `${who} set out side by side${where} and completed "${mission.title}", and the ink sang.`;
-    case 'gift': return `${who} traded a small kindness, and "${mission.title}" glowed with it.`;
-    case 'trial': return `${who} solved the riddle of "${mission.title}", and the lock clicked open.`;
+    case 'gathering': return `${who} gathered${where} for "${mission.title}", and the whole page leaned in to eavesdrop.`;
+    case 'duet': return `${who} set out side by side${where} and completed "${mission.title}". The ink hummed a duet.`;
+    case 'gift': return `${who} traded a small kindness, and "${mission.title}" glowed so bright the moon got jealous.`;
+    case 'trial': return `${who} out-riddled "${mission.title}", and the lock clicked open in grudging respect.`;
     case 'bard': return `${who} wrote verses for "${mission.title}", and the words danced onto the page.`;
-    default: return `${who} completed "${mission.title}"${where}, and the page drank in the color.`;
+    default: return `${who} completed "${mission.title}"${where}, and the page drank in the color like warm cocoa.`;
   }
 }
 
@@ -182,8 +208,36 @@ function fallbackRecap(title: string, members: MemberCtx[], done: Mission[], sta
       const n = done.filter((d) => d.completed_by.includes(m.user_id)).length;
       return { user_id: m.user_id, title: heroName(m), contribution: n ? `Colored ${n} region${n === 1 ? '' : 's'} with ${m.color}.` : 'Cheered the fellowship on from the margins.' };
     }),
-    next_book_hint: 'But far beyond the last page, something new is stirring. Muse is already sharpening the quill.',
+    next_book_hint: 'But far beyond the last page, something new is stirring. Sage is already sharpening the quill (and hiding the snacks).',
   };
+}
+
+/**
+ * Shelve an unfinished book (E2 replace_active, or a demo/sequel replacing it): status 'complete' and a quick recap
+ * with `abandoned: true` so the Storybook can show it as "set aside". Writes no proclamation. No LLM (instant).
+ */
+export async function archiveBook(storylineId: string, title: string, members: MemberCtx[]) {
+  const { data: missions } = await admin.from('missions').select('title, type, story_line, completed_by, place, status, completed_at')
+    .eq('storyline_id', storylineId);
+  const done = (missions ?? []).filter((m) => m.status === 'complete') as Mission[];
+  const { count: photos } = await admin.from('memories').select('id', { count: 'exact', head: true })
+    .eq('storyline_id', storylineId).eq('kind', 'photo');
+  const stats = {
+    missions_completed: done.length,
+    photos: photos ?? 0,
+    places_visited: new Set(done.filter((m) => m.place).map((m) => m.place!.title)).size,
+    members_active: new Set(done.flatMap((m) => m.completed_by)).size,
+  };
+  const base = fallbackRecap(title, members, done, stats);
+  const total = (missions ?? []).length;
+  const recap: BookRecap = {
+    ...base,
+    summary: `"${title}" was set aside with ${done.length} of ${total} regions colored. Sage tucked a bookmark in it, ` +
+      'just in case. Some tales are better as a teaser.',
+    next_book_hint: 'A fresh book is already being inked.',
+    abandoned: true,
+  };
+  await admin.from('storylines').update({ status: 'complete', recap }).eq('id', storylineId).neq('status', 'complete');
 }
 
 export async function announceBook(fellowshipId: string, storylineId: string, title: string, recap: BookRecap) {

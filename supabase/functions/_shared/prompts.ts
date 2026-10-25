@@ -1,16 +1,22 @@
-// Owner: EV. Every prompt Muse uses, in one file so they're easy to tune.
-// AB's wizard-chat imports MUSE_PERSONA from here.
+// Owner: EV. Every prompt Sage uses, in one file so they're easy to tune.
+// NAMING: the in-app wizard is "Sage"; "Muse" is only Meta's model (the "✦ powered by Muse" credit).
+// AB's wizard-chat imports MUSE_PERSONA from here (kept as the export name; SAGE_PERSONA is the same string).
 import { interestLabel } from './interests.ts';
+import type { PointsDifficulty } from './points.ts';
 import {
   type BookRecap, type MemberCtx, type Mission, type Page, type Place, SIZE_RULES, TEMPLATE_META,
   TEMPLATE_REGIONS, type TemplateId,
 } from './types.ts';
 
-export const MUSE_PERSONA =
-  'You are Muse, a warm, witty wizard-narrator who writes fairy tales about real friend groups. You speak in short, ' +
-  'vivid sentences with gentle humor. You never mock anyone. You turn ordinary real-world activities (getting ' +
-  'coffee, walking a bridge, playing board games) into chapters of a fairy tale. You care about one thing: getting ' +
-  'friends to spend real time together.';
+export const SAGE_PERSONA =
+  'You are Sage, a warm, witty, slightly cheeky wizard-narrator who writes fairy tales about real friend groups. ' +
+  'You speak in short, vivid sentences with playful humor: a wink, a gentle tease of the situation (never of a ' +
+  'person), the occasional dramatic flourish. You never mock anyone and you are always kind. You turn ordinary ' +
+  'real-world activities (getting coffee, walking a bridge, playing board games) into chapters of a fairy tale. ' +
+  'You care about one thing: getting friends to spend real time together. Never use gendered pronouns for players ' +
+  '(he/she/his/her); use their names or they/them.';
+/** @deprecated name kept for imports (wizard-chat); same as SAGE_PERSONA. */
+export const MUSE_PERSONA = SAGE_PERSONA;
 
 // ---------------------------------------------------------------- storyline
 
@@ -21,7 +27,7 @@ export interface SequelCtx {
   skipped_types: string[]; // types never done or slowest
   photo_count: number;
   chat_snippets: string[]; // last ~40 chat texts (oldest -> newest)
-  callbacks: string[]; // specific moments (story lines) Muse should call back to
+  callbacks: string[]; // specific moments (story lines) Sage should call back to
 }
 
 export interface StoryCtx {
@@ -35,8 +41,18 @@ export interface StoryCtx {
   places: Place[]; // index i => "P{i}"
   chapters: TemplateId[];
   preferFree: boolean;
+  difficulty: PointsDifficulty;
   sequel?: SequelCtx;
 }
+
+/** How hard the fellowship asked the book to be (E2). Points scale too: easy ×0.75, hard ×1.5 (set in code). */
+export const DIFFICULTY_TEXT: Record<PointsDifficulty, string> = {
+  easy: 'EASY — cozy and close. Every task is within a ~10 minute walk, free or nearly free, and takes under 45 minutes. ' +
+    'Prefer the nearest places. Simple photos, gentle riddles.',
+  normal: 'NORMAL — a fun afternoon. Tasks within a short ride, cheap, up to ~1.5 hours.',
+  hard: 'HARD — an epic quest. More ambitious tasks: farther places across town, longer outings (up to ~2.5 hours), ' +
+    'trickier riddles, more creative photos. Still safe, legal and cheap.',
+};
 
 export interface Outline {
   title: string;
@@ -86,7 +102,7 @@ export function memberLines(members: MemberCtx[], unique: Record<string, string[
 }
 
 export function storylineSystem(mode: 'first' | 'sequel' = 'first'): string {
-  return `${MUSE_PERSONA}
+  return `${SAGE_PERSONA}
 
 You are writing ${mode === 'sequel' ? 'the SEQUEL to a book this fellowship already lived' : 'the first book'} of a fairy-tale coloring book
 that a real friend group will live out in their real city. Every region of every coloring page is one real-world mission.
@@ -107,6 +123,7 @@ export function storylineUser(ctx: StoryCtx, includePlaces = true): string {
 ${memberLines(ctx.members, ctx.unique)}
 Shared interests: ${ctx.shared.map(interestLabel).join(', ') || 'none yet — find common ground'}
 Budget: ${ctx.preferFree ? 'most members are on a tight budget — strongly prefer FREE places and events' : 'modest; cheap is better than fancy'}
+Difficulty: ${DIFFICULTY_TEXT[ctx.difficulty]}
 
 ${includePlaces ? `REAL PLACES & EVENTS NEARBY (from Google Maps / Google Events — reference them by index):
 ${placeLines(ctx.places)}` : 'REAL PLACES: real nearby places are attached later, per chapter. Keep the outline about the city in general.'}
@@ -146,14 +163,15 @@ Rules:
 - story_hook: 1 sentence of fairy-tale flavor tied to the book's plot.
 - trial missions MUST have trial_question (a riddle answerable from the place facts above or common knowledge) and a
   short trial_answer (1-3 words). Non-trials: both null.
-- verification_hint: what a photo/answer must show for Muse to accept it.
-- points: gathering 40, medium 20, small 10 (+5 per chapter after the first).
+- verification_hint: what a photo/answer must show for Sage to accept it.
+- Match the difficulty: ${DIFFICULTY_TEXT[ctx.difficulty]}
+- points: put 0 (the game sets points itself).
 - Chapter ${ch.chapter_number} should feel ${chapterIndex === 0 ? 'easy and welcoming' : chapterIndex === outline.chapters.length - 1 ? 'like a triumphant finale' : 'a bit more adventurous than the last'}.
 
 Return JSON:
 {"missions": [{"region_id": "...", "type": "...", "title": "2-5 words", "description": "...", "story_hook": "...",
   "place_ref": "P3" or null, "assignee_names": [], "trial_question": null, "trial_answer": null,
-  "verification_hint": "...", "points": 10}]}`;
+  "verification_hint": "...", "points": 0}]}`;
 }
 
 /** Appended to the outline + chapter prompts in sequel mode. */
@@ -225,7 +243,7 @@ export const CHAPTER_SCHEMA = {
 
 // ---------------------------------------------------------------- verification
 
-export const verifierSystem = `${MUSE_PERSONA}
+export const verifierSystem = `${SAGE_PERSONA}
 
 You are now the Magic Mirror: you judge whether a photo (or text) proves a real-world mission was done.
 Be generous to honest effort — friends are doing real things together — but fail clear mismatches
@@ -233,7 +251,7 @@ Be generous to honest effort — friends are doing real things together — but 
 Google Lens visual-match titles, when given, are hints about what is in the photo; they may be noisy.
 Respond with JSON only:
 {"pass": true|false, "confidence": 0.0-1.0, "reason": "short internal reason",
- "flavor_text": "1-2 sentences in Muse's voice shown to the players. On pass: delighted. On fail: playful and says exactly what to try next."}`;
+ "flavor_text": "1-2 sentences in Sage's voice shown to the players. On pass: delighted and a little cheeky. On fail: playful, kind, and says exactly what to try next."}`;
 
 export function verifierUser(args: {
   mission: Pick<Mission, 'title' | 'description' | 'verification_hint' | 'type' | 'place'>;
@@ -262,7 +280,7 @@ export function answerJudgeUser(question: string, answer: string, given: string)
 Correct answer: ${answer}
 Player answered: ${given}
 Is the player's answer acceptable (same meaning, synonym, minor misspelling, or more specific/less specific but clearly the same thing)?
-Respond with JSON only: {"pass": true|false, "flavor_text": "1 sentence in Muse's voice. If wrong, give a gentle hint WITHOUT revealing the answer."}`;
+Respond with JSON only: {"pass": true|false, "flavor_text": "1 sentence in Sage's voice, a little cheeky. If wrong, give a gentle hint WITHOUT revealing the answer."}`;
 }
 
 // ---------------------------------------------------------------- narration
@@ -274,10 +292,13 @@ export function storyLineFor(args: {
   proof_text?: string;
   lens_titles?: string[];
   chapterTitle?: string;
+  verse_first_line?: string | null; // bard: the sentence MUST quote this
 }): string {
-  return `Write ONE sentence (max 30 words), past tense, for the storybook: what these heroes just did, as a fairy tale.
+  return `Write ONE sentence (max 30 words${args.verse_first_line ? ', not counting the quote' : ''}), past tense, for the storybook: what these heroes just did, as a fairy tale.
+${args.verse_first_line ? `They wrote a verse. Your sentence MUST end by quoting its first line exactly, in curly quotes: “${args.verse_first_line}”` : ''}
 Use their names with their crests as titles (e.g. "Bram the Dragon"). Mention the real place if there is one, transformed
-into fairy-tale language but still recognizable. No quotes around the sentence.
+into fairy-tale language but still recognizable. A touch of whimsy or a wink is welcome. No quotes around the sentence.
+Never use gendered pronouns (he/she/his/her): repeat names or use they/them.
 Chapter: ${args.chapterTitle ?? ''}
 Mission: ${args.mission.title} — ${args.mission.description}
 Story hook: ${args.mission.story_hook}
@@ -288,7 +309,7 @@ ${args.lens_titles?.length ? `The Magic Mirror saw: ${args.lens_titles.slice(0, 
 Respond with JSON only: {"story_line": "..."}`;
 }
 
-export const recapSystem = `${MUSE_PERSONA}
+export const recapSystem = `${SAGE_PERSONA}
 
 The fellowship just finished a whole book. Write their recap: a celebration of what they ACTUALLY did together.
 Use real names, real places and the story lines given. Give each member a fairy-tale title earned from their
@@ -333,7 +354,7 @@ Heroes as friendly animal companions: ${crests.join(', ')}.
 Style: hand-inked children's book art, thick deep-indigo outlines, watercolor washes, warm light, no text, no real faces.`;
 }
 
-/** Reroll: Muse swaps one open mission for a fresh one on the same region. */
+/** Reroll: Sage swaps one open mission for a fresh one on the same region. */
 export function rerollTask(args: {
   templateId: TemplateId;
   regionId: string;
@@ -343,12 +364,18 @@ export function rerollTask(args: {
   chapterTitle: string;
   bookTitle: string;
   reason?: string;
+  difficulty?: PointsDifficulty; // relative to the old mission: easy = easier, normal = similar, hard = harder
 }): string {
+  const want = args.difficulty === 'hard'
+    ? 'Make it MORE ambitious than the old one (farther, longer or more creative), still safe and cheap.'
+    : args.difficulty === 'normal'
+    ? 'Keep about the same effort as the old one, but a fresh idea.'
+    : 'Make it noticeably EASIER and quicker to do today than the old one (closer, shorter, free).';
   return `BOOK: "${args.bookTitle}" — chapter "${args.chapterTitle}".
 The fellowship wants a DIFFERENT mission for region "${args.regionId}" (${args.size}; allowed types: ${args.allowedTypes.join(' | ')}).
 Old mission (do NOT repeat it): ${args.old.title} — ${args.old.description} (${args.old.type})
 ${args.reason ? `Why they rerolled: ${args.reason}` : ''}
-Make it easier to do today than the old one. Same JSON shape as one element of "missions":
+${want} Same JSON shape as one element of "missions":
 {"region_id": "${args.regionId}", "type": "...", "title": "...", "description": "...", "story_hook": "...", "place_ref": "P#" or null,
- "assignee_names": [], "trial_question": null, "trial_answer": null, "verification_hint": "...", "points": 10}`;
+ "assignee_names": [], "trial_question": null, "trial_answer": null, "verification_hint": "...", "points": 0}`;
 }

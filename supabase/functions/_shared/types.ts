@@ -10,7 +10,11 @@ export interface Place {
   thumbnail?: string; when?: string; link?: string; maps_url?: string; website?: string; source: 'google_maps' | 'google_events' | 'manual'; source_id?: string;
 }
 
-export interface Verdict { pass: boolean; confidence: number; reason: string; flavor_text: string; lens_titles?: string[] }
+export interface Verdict {
+  pass: boolean; confidence: number; reason: string; flavor_text: string; lens_titles?: string[];
+  distance_m?: number; // GPS: meters between the submitter and the mission's place
+}
+export type Difficulty = 'easy' | 'normal' | 'hard';
 
 export const TEMPLATE_REGIONS: Record<TemplateId, { id: string; label: string; size: RegionSize }[]> = {
   castle_gate: [
@@ -120,17 +124,27 @@ export interface BookRecap {
   highlights: string[];
   per_member: { user_id: string; title: string; contribution: string }[];
   next_book_hint: string;
+  abandoned?: boolean; // E2: book shelved unfinished by replace_active
 }
 
 export interface Storyline {
   id: string; fellowship_id: string; book_number: number; title: string; synopsis: string; theme_tags: string[];
   status: 'generating' | 'active' | 'complete'; recap: BookRecap | null; created_at: string;
+  difficulty?: Difficulty;
   generation_context?: Record<string, unknown> | null;
 }
 
 export interface SubmitProofRequest {
   mission_id: string; participant_ids: string[]; proof_url?: string; proof_text?: string; confirm_for?: string;
+  lat?: number; lng?: number; accuracy_m?: number; // GPS proof for place missions
 }
+
+export interface GenerateStorylineRequest {
+  fellowship_id: string; mode: 'first' | 'sequel'; demo?: boolean | 'ut'; difficulty?: Difficulty;
+  replace_active?: boolean; prewarm?: boolean;
+}
+
+export interface RerollMissionRequest { mission_id: string; reason?: string; difficulty?: Difficulty }
 
 /** A member as the engine sees them (profile flattened for prompts). */
 export interface MemberCtx {

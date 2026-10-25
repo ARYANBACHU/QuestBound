@@ -2,6 +2,7 @@
 // deterministic fallback missions, validate+repair of LLM output, and the DB writer.
 // Rule: never trust the model. Everything that reaches the DB passes through repairMission().
 import { admin } from './db.ts';
+import { missionPoints, type PointsDifficulty } from './points.ts';
 import type { Outline, StoryCtx } from './prompts.ts';
 import {
   type MemberCtx, type MissionType, type Place, PROOF_FOR_TYPE, type RegionSize, SIZE_RULES, TEMPLATE_META,
@@ -207,8 +208,9 @@ const DEFAULT_HINT: Record<MissionType, string> = {
   gift: 'The recipient confirms they received it.',
 };
 
-export function defaultPoints(size: RegionSize, chapterIndex: number): number {
-  return (size === 'large' ? 40 : size === 'medium' ? 20 : 10) + 5 * chapterIndex;
+/** Points are always set server-side: size base × difficulty multiplier (_shared/points.ts). */
+export function defaultPoints(size: RegionSize, difficulty: PointsDifficulty = 'normal'): number {
+  return missionPoints(size, difficulty);
 }
 
 export function requiredMembers(size: RegionSize, memberCount: number): number {
@@ -216,14 +218,14 @@ export function requiredMembers(size: RegionSize, memberCount: number): number {
   return rule === 'all' ? Math.max(2, memberCount) : rule;
 }
 
-export function fallbackMission(templateId: TemplateId, regionId: string, chapterIndex: number, place: Place | null): DraftMission {
+export function fallbackMission(templateId: TemplateId, regionId: string, _chapterIndex: number, place: Place | null, difficulty: PointsDifficulty = 'normal'): DraftMission {
   const spec = FALLBACK[templateId][regionId];
   const size = TEMPLATE_REGIONS[templateId].find((r) => r.id === regionId)!.size;
   const p = spec.wantsPlace ? place : null;
   return {
     region_id: regionId, type: spec.type, title: spec.title, description: spec.desc(p), story_hook: spec.hook,
     place: p, assignee_ids: [], trial_question: spec.trial?.q ?? null, trial_answer: spec.trial?.a ?? null,
-    verification_hint: spec.hint, points: defaultPoints(size, chapterIndex), source: 'fallback',
+    verification_hint: spec.hint, points: defaultPoints(size, difficulty), source: 'fallback',
   };
 }
 
@@ -253,10 +255,10 @@ export function preferredPlaces(places: Place[], chapterIndex: number, chapterCo
   return places.map((_, i) => i).filter((i) => i % chapterCount === chapterIndex);
 }
 
-export function fallbackChapterMissions(templateId: TemplateId, chapterIndex: number, picker: PlacePicker, prefer: number[]): DraftMission[] {
+export function fallbackChapterMissions(templateId: TemplateId, chapterIndex: number, picker: PlacePicker, prefer: number[], difficulty: PointsDifficulty = 'normal'): DraftMission[] {
   return TEMPLATE_REGIONS[templateId].map((r) => {
     const spec = FALLBACK[templateId][r.id];
-    return fallbackMission(templateId, r.id, chapterIndex, spec.wantsPlace ? picker.pick(spec.type, prefer) : null);
+    return fallbackMission(templateId, r.id, chapterIndex, spec.wantsPlace ? picker.pick(spec.type, prefer) : null, difficulty);
   });
 }
 
@@ -315,11 +317,17 @@ export function resolveAssignees(names: unknown, members: MemberCtx[]): string[]
 
 /** Coerce one raw LLM mission into a valid DraftMission for (template, region). Returns null if unusable. */
 // deno-lint-ignore no-explicit-any
-export function repairMission(raw: any, templateId: TemplateId, regionId: string, chapterIndex: number, ctx: Pick<StoryCtx, 'places' | 'members'>): DraftMission | null {
+export function repairMission(raw: any, templateId: TemplateId, regionId: string, _chapterIndex: number, ctx: Pick<StoryCtx, 'places' | 'members'> & { difficulty?: PointsDifficulty }): DraftMission | null {
   const size = TEMPLATE_REGIONS[templateId].find((r) => r.id === regionId)?.size;
   if (!size || !raw || typeof raw !== 'object') return null;
   const allowed = SIZE_RULES[size].types;
   let type: MissionType = allowed.includes(raw.type) ? raw.type : allowed[0];
+  // The model sometimes leaks our place indexes ("… Mural (P6)") into player-facing text: drop "(P6)", name bare "P6".
+  const deref = (t: string) => t.replace(/\s*\(\s*P\d+\s*\)/g, '')
+    .replace(/\bP(\d+)\b/g, (_m, i) => ctx.places[Number(i)]?.title ?? 'a nearby spot');
+  for (const k of ['title', 'description', 'story_hook', 'verification_hint', 'trial_question']) {
+    if (typeof raw[k] === 'string') raw = { ...raw, [k]: deref(raw[k]) };
+  }
   const title = str(raw.title, 60);
   const description = str(raw.description, 400);
   if (!title || !description) return null;
@@ -341,8 +349,6 @@ export function repairMission(raw: any, templateId: TemplateId, regionId: string
   let place = resolvePlace(raw.place_ref ?? raw.place, ctx.places);
   // Events are for groups (a solo relic at a concert is weird); gifts happen wherever.
   if (place?.source === 'google_events' && type !== 'gathering' && type !== 'duet') place = null;
-  const pts = Number(raw.points);
-  const dflt = defaultPoints(size, chapterIndex);
   return {
     region_id: regionId,
     type,
@@ -354,7 +360,7 @@ export function repairMission(raw: any, templateId: TemplateId, regionId: string
     trial_question,
     trial_answer,
     verification_hint: str(raw.verification_hint, 240, DEFAULT_HINT[type]),
-    points: Number.isFinite(pts) && pts >= dflt / 2 && pts <= dflt * 2 ? Math.round(pts) : dflt,
+    points: defaultPoints(size, ctx.difficulty), // never trust the model with the score
     source: 'llm',
   };
 }
@@ -374,7 +380,7 @@ export function repairChapter(rawMissions: any, templateId: TemplateId, chapterI
     }
     repaired++;
     const spec = FALLBACK[templateId][r.id];
-    return fallbackMission(templateId, r.id, chapterIndex, spec.wantsPlace ? picker.pick(spec.type, prefer) : null);
+    return fallbackMission(templateId, r.id, chapterIndex, spec.wantsPlace ? picker.pick(spec.type, prefer) : null, ctx.difficulty);
   });
   return { missions, repaired };
 }
@@ -460,7 +466,7 @@ export const ALTERNATES: Record<RegionSize, FallbackSpec[]> = {
   ],
 };
 
-export function alternateMission(templateId: TemplateId, regionId: string, chapterIndex: number, currentTitle: string, place: Place | null, seed: number): DraftMission {
+export function alternateMission(templateId: TemplateId, regionId: string, _chapterIndex: number, currentTitle: string, place: Place | null, seed: number, difficulty: PointsDifficulty = 'normal'): DraftMission {
   const size = TEMPLATE_REGIONS[templateId].find((r) => r.id === regionId)!.size;
   const base = FALLBACK[templateId][regionId];
   const pool = [base, ...ALTERNATES[size]].filter((s) => s.title !== currentTitle);
@@ -469,6 +475,6 @@ export function alternateMission(templateId: TemplateId, regionId: string, chapt
   return {
     region_id: regionId, type: spec.type, title: spec.title, description: spec.desc(p), story_hook: spec.hook, place: p,
     assignee_ids: [], trial_question: spec.trial?.q ?? null, trial_answer: spec.trial?.a ?? null,
-    verification_hint: spec.hint, points: defaultPoints(size, chapterIndex), source: 'fallback',
+    verification_hint: spec.hint, points: defaultPoints(size, difficulty), source: 'fallback',
   };
 }

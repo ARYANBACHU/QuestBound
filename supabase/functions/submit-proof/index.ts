@@ -1,5 +1,5 @@
 // Owner: EV. POST SubmitProofRequest -> SubmitProofResponse. Spec: handoffs/EV.md Task 3. Budget < 15 s.
-// A failed verification is NOT an HTTP error: it returns 200 with verdict.pass=false and Muse's flavor_text.
+// A failed verification is NOT an HTTP error: it returns 200 with verdict.pass=false and Sage's flavor_text.
 // HTTP errors are reserved for auth / bad input / missing rows.
 //
 // Gift flow (proof_type 'confirm'):
@@ -11,9 +11,10 @@ import { preflight, json, fail } from '../_shared/cors.ts';
 import { admin, callerId, DEMO_FORCE_PASS, proclaim } from '../_shared/db.ts';
 import { chatJSON, HAS_LLM, withTimeout } from '../_shared/llm.ts';
 import { lensTitles, resetSerpStats } from '../_shared/serp.ts';
+import { checkGeo, GEO_DEFAULT_RADIUS_M } from '../_shared/geo.ts';
 import { answerJudgeUser, storyLineFor, verifierSystem, verifierUser } from '../_shared/prompts.ts';
 import {
-  announceBook, answerMatches, background, buildRecap, effectiveRequired, fallbackStoryLine, paintChapter,
+  announceBook, answerMatches, background, bardStoryLine, buildRecap, effectiveRequired, fallbackStoryLine, firstVerseLine, paintChapter, quotesVerse,
   paintMontage, roman,
 } from '../_shared/progress.ts';
 import {
@@ -22,6 +23,9 @@ import {
 } from '../_shared/types.ts';
 
 const BUDGET_MS = 14_000;
+// E3 GPS gate: a mission whose place has coordinates needs the submitter within this many meters
+// (+ their reported GPS accuracy, up to 150 m of slack). Secret GEO_RADIUS_M, default 400.
+const GEO_RADIUS_M = Math.max(50, Number(Deno.env.get('GEO_RADIUS_M') ?? '') || GEO_DEFAULT_RADIUS_M);
 
 Deno.serve(async (req) => {
   const pre = preflight(req); if (pre) return pre;
@@ -50,14 +54,20 @@ Deno.serve(async (req) => {
   const me = members.find((m) => m.user_id === uid);
   if (!me) return fail('Only members of this fellowship can submit proof.', 403);
   if (!page || !storyline) return fail('This page is missing. Pull to refresh.', 404);
+  if (storyline.status !== 'active') {
+    return json({
+      verdict: { pass: false, confidence: 1, reason: 'book_shelved', flavor_text: 'This book is on the shelf now. Its missions rest. Open the current book to keep coloring!' },
+      mission, completion: null, page_completed: false, book_completed: false,
+    });
+  }
 
   const respond = (verdict: Verdict, m: Mission, completion: Completion | null = null, page_completed = false, book_completed = false) =>
     json({ verdict, mission: m, completion, page_completed, book_completed });
   const nope = (flavor_text: string, reason: string, extra: Partial<Verdict> = {}) =>
     respond({ pass: false, confidence: 1, reason, flavor_text, ...extra }, mission);
 
-  if (mission.status === 'complete') return nope('This region is already colored! Pick another glowing spot on the page.', 'already_complete');
-  if (mission.status === 'locked') return nope('This chapter is still sealed. Finish the current page to turn to it.', 'locked');
+  if (mission.status === 'complete') return nope('This region is already colored! Sage admires the enthusiasm. Pick another glowing spot on the page.', 'already_complete');
+  if (mission.status === 'locked') return nope('No peeking! This chapter is still sealed. Finish the current page to turn to it.', 'locked');
 
   // 2. participants (members only, caller always included)
   const memberIds = new Set(members.map((m) => m.user_id));
@@ -109,6 +119,10 @@ Deno.serve(async (req) => {
     );
   }
 
+  // ---------------------------------------------------------------- GPS (place missions)
+  const geo = checkGeo(mission.place, body, GEO_RADIUS_M, DEMO_FORCE_PASS);
+  if (!geo.ok) return nope(geo.flavor, geo.reason, geo.distance_m != null ? { distance_m: geo.distance_m } : {});
+
   // ---------------------------------------------------------------- verify
   let verdict: Verdict;
   switch (mission.proof_type) {
@@ -117,13 +131,14 @@ Deno.serve(async (req) => {
       break;
     case 'photo':
     case 'group_photo':
-      if (!proof_url) return nope('The Magic Mirror needs a photo! Snap one and try again.', 'no_photo');
+      if (!proof_url) return nope('The Magic Mirror needs a photo. It is a mirror, after all! Snap one and try again.', 'no_photo');
       verdict = await verifyPhoto(mission, proof_url, mission.proof_type === 'group_photo' ? need : undefined, left);
       break;
     default: // text, voice
-      if (!proof_text) return nope('The page is blank! Write a few words and try again.', 'no_text');
+      if (!proof_text) return nope('The page is blank! Even Sage needs a few words to work with. Try again.', 'no_text');
       verdict = await verifyText(mission, proof_text, left);
   }
+  if (geo.distance_m != null) verdict = { ...verdict, distance_m: geo.distance_m };
   if (!verdict.pass) return respond(verdict, mission);
   return await complete(verdict, participants, uid);
 
@@ -136,7 +151,7 @@ Deno.serve(async (req) => {
     const { data: done } = await admin.from('missions').update({
       status: 'complete', completed_by: credited, completed_at: now, story_line,
     }).eq('id', mission!.id).in('status', ['open', 'pending']).select('*').maybeSingle<Mission>();
-    if (!done) return nope('A friend just colored this region a moment before you! Pick another.', 'race');
+    if (!done) return nope('A friend colored this region a heartbeat before you. Great minds color alike! Pick another.', 'race');
 
     const { data: completion } = await admin.from('completions').insert({
       mission_id: mission!.id, user_id: uid, participant_ids: credited, proof_url: proof_url || null,
@@ -169,7 +184,7 @@ Deno.serve(async (req) => {
           await admin.from('missions').update({ status: 'open' }).eq('page_id', next.id).eq('status', 'locked');
           await admin.from('pages').update({ status: 'active' }).eq('id', next.id);
           await proclaim(mission!.fellowship_id,
-            `Chapter ${roman(page!.chapter_number)} is fully colored! The page turns… Chapter ${roman(next.chapter_number)}: ${next.title} begins.`,
+            `Chapter ${roman(page!.chapter_number)} is fully colored, not a single white gap! The page turns… Chapter ${roman(next.chapter_number)}: ${next.title} begins.`,
             { event: 'page_complete', page_id: page!.id, storyline_id: page!.storyline_id });
         } else {
           book_completed = true;
@@ -191,10 +206,10 @@ Deno.serve(async (req) => {
 // ---------------------------------------------------------------- verifiers
 
 async function verifyAnswer(mission: Mission, answer: string | null, given: string): Promise<Verdict> {
-  if (!given) return { pass: false, confidence: 1, reason: 'empty', flavor_text: 'The riddle waits for an answer. Type your best guess!' };
-  if (DEMO_FORCE_PASS) return { pass: true, confidence: 1, reason: 'demo_force_pass', flavor_text: 'Correct! The lock clicks open.' };
+  if (!given) return { pass: false, confidence: 1, reason: 'empty', flavor_text: 'The riddle taps its foot, waiting. Type your best guess!' };
+  if (DEMO_FORCE_PASS) return { pass: true, confidence: 1, reason: 'demo_force_pass', flavor_text: 'Correct! The lock clicks open and looks a little embarrassed.' };
   if (!answer) return { pass: true, confidence: 0.5, reason: 'no_answer_on_file', flavor_text: 'The riddle-keeper shrugs and lets you pass. Well argued!' };
-  if (answerMatches(given, answer)) return { pass: true, confidence: 1, reason: 'exact', flavor_text: 'Correct! The lock clicks open.' };
+  if (answerMatches(given, answer)) return { pass: true, confidence: 1, reason: 'exact', flavor_text: 'Correct! The lock clicks open and looks a little embarrassed.' };
   if (HAS_LLM) {
     const r = await withTimeout(
       chatJSON<{ pass?: boolean; flavor_text?: string }>(
@@ -210,7 +225,7 @@ async function verifyAnswer(mission: Mission, answer: string | null, given: stri
       };
     }
   }
-  return { pass: false, confidence: 0.9, reason: 'mismatch', flavor_text: `"${given.slice(0, 40)}"? The lock doesn't budge. Read the riddle once more, slowly.` };
+  return { pass: false, confidence: 0.9, reason: 'mismatch', flavor_text: `"${given.slice(0, 40)}"? The lock doesn't budge (Sage heard it snicker). Read the riddle once more, slowly.` };
 }
 
 async function verifyPhoto(mission: Mission, url: string, expectedPeople: number | undefined, left: () => number): Promise<Verdict> {
@@ -220,7 +235,7 @@ async function verifyPhoto(mission: Mission, url: string, expectedPeople: number
     .then((t) => (lens = t));
   if (DEMO_FORCE_PASS) {
     await lensP;
-    return { pass: true, confidence: 1, reason: 'demo_force_pass', flavor_text: 'The Magic Mirror gleams. Your proof is true!', lens_titles: lens };
+    return { pass: true, confidence: 1, reason: 'demo_force_pass', flavor_text: 'The Magic Mirror gleams. Your proof is true (and frankly, very photogenic)!', lens_titles: lens };
   }
   await Promise.race([lensP, new Promise((r) => setTimeout(r, 4_500))]);
   if (!HAS_LLM) {
@@ -244,13 +259,13 @@ async function verifyPhoto(mission: Mission, url: string, expectedPeople: number
     confidence: clamp01(v.confidence, v.pass ? 0.8 : 0.3),
     reason: typeof v.reason === 'string' ? v.reason.slice(0, 300) : '',
     flavor_text: typeof v.flavor_text === 'string' && v.flavor_text ? v.flavor_text.slice(0, 300)
-      : v.pass ? 'The Magic Mirror gleams. Your proof is true!' : `The Mirror squints… it can't find ${mission.verification_hint.toLowerCase() || 'the mission'} here. Try another photo!`,
+      : v.pass ? 'The Magic Mirror gleams. Your proof is true (and frankly, very photogenic)!' : `The Mirror squints… it can't find ${mission.verification_hint.toLowerCase() || 'the mission'} here. Try another photo!`,
     lens_titles: lens,
   };
 }
 
 async function verifyText(mission: Mission, text: string, left: () => number): Promise<Verdict> {
-  const pass: Verdict = { pass: true, confidence: 0.7, reason: 'generous', flavor_text: 'The ink accepts your words. Beautifully put!' };
+  const pass: Verdict = { pass: true, confidence: 0.7, reason: 'generous', flavor_text: 'The ink accepts your words. Sage may borrow them for a sequel.' };
   if (DEMO_FORCE_PASS || !HAS_LLM) return pass;
   const ms = Math.max(3_000, Math.min(6_000, left() - 5_000));
   const v = await withTimeout(
@@ -268,15 +283,19 @@ async function verifyText(mission: Mission, text: string, left: () => number): P
 }
 
 async function writeStoryLine(mission: Mission, heroes: MemberCtx[], page: Page, proofText: string, lens: string[] | undefined, left: () => number): Promise<string> {
-  const fallback = fallbackStoryLine(mission, heroes);
+  const fallback = fallbackStoryLine(mission, heroes, proofText);
   if (!HAS_LLM) return fallback;
+  const verse = mission.type === 'bard' ? firstVerseLine(proofText) : null;
   const ms = Math.max(2_000, Math.min(5_000, left() - 2_500));
   const r = await withTimeout(
-    chatJSON<{ story_line?: string }>([{ role: 'user', content: storyLineFor({ mission, heroes, proof_text: proofText, lens_titles: lens, chapterTitle: page.title }) }], { temperature: 0.9, timeoutMs: ms }),
+    chatJSON<{ story_line?: string }>([{ role: 'user', content: storyLineFor({ mission, heroes, proof_text: proofText, lens_titles: lens, chapterTitle: page.title, verse_first_line: verse }) }], { temperature: 0.9, timeoutMs: ms }),
     ms + 300, null, 'story-line',
   );
   const s = typeof r?.story_line === 'string' ? r.story_line.trim().replace(/^"|"$/g, '') : '';
-  return s.length >= 10 ? s.slice(0, 300) : fallback;
+  if (s.length < 10) return fallback;
+  // E5: a bard's line always quotes the first line of their verse (the full verse lives in completions.proof_text).
+  if (verse && !quotesVerse(s, verse)) return bardStoryLine(mission, heroes, verse);
+  return s.slice(0, verse ? 360 : 300);
 }
 
 function clamp01(v: unknown, d: number): number {
