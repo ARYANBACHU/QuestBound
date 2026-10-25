@@ -12,6 +12,7 @@ import { chat, HAS_LLM, parseJSON, withTimeout, type ChatMsg } from '../_shared/
 import { eventsSearch, geocodeEvent, mapsSearch, resetSerpStats, snapshotSerpStats } from '../_shared/serp.ts';
 import { asDifficulty, type PointsDifficulty } from '../_shared/points.ts';
 import { archiveBook } from '../_shared/progress.ts';
+import { buildUTBook, verifyUTPlaces } from '../_shared/ut.ts';
 import { analyzeInterests, INTEREST_INFO } from '../_shared/interests.ts';
 import {
   CHAPTER_SCHEMA, chapterTask, OUTLINE_SCHEMA, type Outline, outlineTask, type SequelCtx, sequelAddendum, type StoryCtx,
@@ -42,7 +43,8 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const fellowship_id: string | undefined = body.fellowship_id;
   const mode: 'first' | 'sequel' = body.mode === 'sequel' ? 'sequel' : 'first';
-  const demo = body.demo === true;
+  const utDemo = body.demo === 'ut'; // E6: "The Legend of the Forty Acres" (real UT campus landmarks, GPS-gated)
+  const demo = body.demo === true || utDemo;
   const replaceActive = body.replace_active === true;
   if (!fellowship_id) return fail('fellowship_id required');
 
@@ -99,7 +101,7 @@ Deno.serve(async (req) => {
   const priorBook = (books ?? []).find((b) => b.status === 'complete') ?? active ?? null;
   const sequel = mode === 'sequel' && priorBook ? await loadSequel(fellowship_id, priorBook) : undefined;
 
-  // Placeholder row so every phone flips to the "Muse is writing…" ritual immediately.
+  // Placeholder row so every phone flips to the "Sage is writing…" ritual immediately.
   const { data: row, error: insErr } = await admin.from('storylines').insert({
     fellowship_id, book_number: bookNumber, status: 'generating', title: 'Sage is writing…', synopsis: '',
     theme_tags: interests.themes, difficulty,
@@ -116,6 +118,24 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (utDemo) {
+      const tUT = Date.now();
+      const { places: utPlaces, verify } = await verifyUTPlaces(5_000);
+      const { book: utBook } = buildUTBook(utPlaces, difficulty, members);
+      await writeBookRows(storyline_id, fellowship_id, utBook, members.length);
+      const serp = snapshotSerpStats();
+      const generation_context = {
+        mode, demo: 'ut', difficulty, replace_active: replaceActive, book_number: bookNumber,
+        interests: { counts: interests.counts, shared: interests.shared, unique: interests.unique, themes: interests.themes },
+        places: Object.values(utPlaces), serp, ut_verify: verify, prior_recap: null, adaptation: null,
+        source: { outline: 'ut_demo', chapters: utBook.chapters.map(() => 'ut_demo'), repaired: 0, llm_available: HAS_LLM },
+        timings_ms: { ut_verify: Date.now() - tUT, total: Date.now() - t0 },
+      };
+      await activateAndProclaim(storyline_id, fellowship_id, utBook, generation_context, members, null);
+      console.log('[generate-storyline] ut demo', JSON.stringify({ storyline_id, serp, verified: verify.filter((v) => v.used === 'serpapi').length, ms: Date.now() - t0 }));
+      return json({ storyline_id, serp, adaptation: null, difficulty });
+    }
+
     const ctx: StoryCtx = {
       mode, fellowshipName: fellowship.name, areaLabel, members, shared: interests.shared, themes: interests.themes,
       unique: interests.unique, places: [], chapters, preferFree: interests.preferFree, difficulty, sequel,
@@ -193,33 +213,49 @@ Deno.serve(async (req) => {
       source: { outline: outlineSource, chapters: chapterSources, repaired, llm_available: HAS_LLM },
       timings_ms: { ...timings, total: Date.now() - t0 },
     };
-    const { error: upErr } = await admin.from('storylines').update({
-      title: book.title, synopsis: book.synopsis, theme_tags: book.theme_tags, status: 'active', generation_context,
-    }).eq('id', storyline_id);
-    if (upErr) throw new Error(`activate storyline: ${upErr.message}`);
-    // Only one active book per fellowship: shelve the old one (unfinished -> recap marked abandoned).
-    const { data: others } = await admin.from('storylines').select('id, title')
-      .eq('fellowship_id', fellowship_id).eq('status', 'active').neq('id', storyline_id);
-    await Promise.all((others ?? []).map((b: { id: string; title: string }) => archiveBook(b.id, b.title, members)));
-
-    // 9. proclaim
-    const first = book.chapters[0];
-    await proclaim(
-      fellowship_id,
-      `Hear ye! Muse has written a new tale: "${book.title}". Chapter I: ${first.title} awaits.` +
-        (adaptation?.note ? ` ${adaptation.note}` : ''),
-      { event: 'storyline_ready', storyline_id },
-    );
+    // 9. activate + shelve the old book + proclaim
+    await activateAndProclaim(storyline_id, fellowship_id, book, generation_context, members, adaptation?.note ?? null);
     console.log('[generate-storyline]', JSON.stringify({ storyline_id, ...generation_context.source, serp, ms: Date.now() - t0 }));
     return json({ storyline_id, serp, adaptation, difficulty });
   } catch (e) {
     console.error('[generate-storyline] failed, rolling back', String(e));
     await admin.from('storylines').delete().eq('id', storyline_id);
-    return fail('Muse dropped the quill. Try summoning the story again.', 500);
+    return fail('Sage dropped the quill. Try summoning the story again.', 500);
   }
 });
 
 // ---------------------------------------------------------------- helpers
+
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
+const READY_FLOURISH = [
+  'Sharpen your crayons.',
+  'Snacks are strongly encouraged.',
+  'Sage has already spilled ink on page one.',
+  'Bring friends. Dragons hate crowds.',
+];
+
+/** Flip the 'generating' row to active, shelve any other active book (recap.abandoned), proclaim in chat. */
+async function activateAndProclaim(
+  storylineId: string, fellowshipId: string, book: DraftBook, generation_context: Record<string, unknown>,
+  members: MemberCtx[], note: string | null,
+) {
+  const { error: upErr } = await admin.from('storylines').update({
+    title: book.title, synopsis: book.synopsis, theme_tags: book.theme_tags, status: 'active', generation_context,
+  }).eq('id', storylineId);
+  if (upErr) throw new Error(`activate storyline: ${upErr.message}`);
+  // Only one active book per fellowship: shelve the old one (unfinished -> recap marked abandoned).
+  const { data: others } = await admin.from('storylines').select('id, title')
+    .eq('fellowship_id', fellowshipId).eq('status', 'active').neq('id', storylineId);
+  await Promise.all((others ?? []).map((b: { id: string; title: string }) => archiveBook(b.id, b.title, members)));
+  const first = book.chapters[0];
+  const flourish = READY_FLOURISH[Math.abs(hashSeed(storylineId)) % READY_FLOURISH.length];
+  await proclaim(
+    fellowshipId,
+    `Hear ye! Sage has written a new tale: "${book.title}". Chapter ${ROMAN[1]}: ${first.title} awaits. ` +
+      (note ? note : flourish),
+    { event: 'storyline_ready', storyline_id: storylineId },
+  );
+}
 
 function stripVenue(p: Place): Place {
   const { venue: _v, ...clean } = p as Place & { venue?: string };

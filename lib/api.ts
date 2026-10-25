@@ -13,6 +13,7 @@ import { USE_MOCKS } from './env';
 import { supabase } from './supabase';
 import { addBook, addCompletion, addMemory, addMessage, advanceIfPageDone, emitMock, mock, patchMission, restoreDemoBook } from './mockStore';
 import { ME, MOCK_RECAP } from '@/fixtures/demo';
+import { utMockBook } from '@/fixtures/ut-campus';
 import { asDifficulty, missionPoints } from '@/supabase/functions/_shared/points';
 import { checkGeo, type GeoResult } from '@/supabase/functions/_shared/geo';
 import { TEMPLATES } from '@/shared/templates';
@@ -55,6 +56,7 @@ async function invoke<T>(fn: string, body: object): Promise<T> {
 export async function generateStoryline(req: GenerateStorylineRequest): Promise<GenerateStorylineResponse> {
   if (USE_MOCKS) {
     await wait(req.demo ? 600 : 2500);
+    if (req.demo === 'ut') return { storyline_id: mockUTBook(asDifficulty(req.difficulty)) };
     if (!mock.storyline) return { storyline_id: mockFirstBook() }; // join race: nobody had summoned yet
     const difficulty = asDifficulty(req.difficulty, req.mode === 'sequel' ? asDifficulty(mock.storyline.difficulty) : 'normal');
     if (req.mode === 'sequel' || req.replace_active || req.demo) {
@@ -182,9 +184,12 @@ async function mockSubmit(req: SubmitProofRequest): Promise<SubmitProofResponse>
   } else if (mission.proof_type === 'answer') {
     const given = (req.proof_text ?? '').trim();
     if (!given) return nope('The riddle waits for an answer. Type your best guess!', 'empty');
-    // Fixture riddle (m-5) is the UT Tower; other mock riddles accept anything 3+ letters.
-    const ok = mission.id === 'm-5' ? /tower/i.test(given) : given.length >= 3;
-    if (!ok) return nope(`"${given.slice(0, 40)}"? The lock doesn't budge. Hint: it glows orange after victories.`, 'mismatch');
+    // Fixture riddle (m-5) is the UT Tower; UT demo riddles use their real answers; others accept anything 3+ letters.
+    const norm = (x: string) => x.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').replace(/\b(a|an|the)\b/g, ' ').replace(/\s+/g, ' ').trim();
+    const ok = mission.id === 'm-5' ? /tower/i.test(given)
+      : mockAnswers[mission.id] ? mockAnswers[mission.id].split('|').some((a) => norm(a) === norm(given))
+      : given.length >= 3;
+    if (!ok) return nope(`"${given.slice(0, 40)}"? The lock doesn't budge. ${mission.id === 'm-5' ? 'Hint: it glows orange after victories.' : 'Read the riddle once more, slowly. The answer is nearby.'}`, 'mismatch');
     verdict = { pass: true, confidence: 1, reason: 'exact', flavor_text: 'Correct! The lock clicks open.' };
   } else if (mission.proof_type === 'photo' || mission.proof_type === 'group_photo') {
     if (!req.proof_url) return nope('The Magic Mirror needs a photo! Snap one and try again.', 'no_photo');
@@ -217,6 +222,28 @@ function complete(mission: Mission, credited: string[], line: string) {
     payload: { event: 'mission_complete', mission_id: mission.id, region_id: mission.region_id, color: painter.color, user_id: painter.id } });
   const { pageCompleted, bookCompleted } = advanceIfPageDone(mission.page_id);
   return { done, pageCompleted, bookCompleted };
+}
+
+/** Mock trial answers for books built in mock mode (the UT demo). Server keeps these in mission_secrets. */
+const mockAnswers: Record<string, string> = {};
+
+/** Mock UT demo: "The Legend of the Forty Acres" with the same verified places (GPS gate applies in mock too). */
+function mockUTBook(difficulty: Difficulty): string {
+  const prev = mock.storyline;
+  if (prev && prev.status !== 'complete') {
+    const done = mock.missions.filter((m) => m.storyline_id === prev.id && m.status === 'complete').length;
+    const total = mock.missions.filter((m) => m.storyline_id === prev.id).length;
+    const recap = { ...MOCK_RECAP, summary: `"${prev.title}" was set aside with ${done} of ${total} regions colored. Sage tucked a bookmark in it, just in case.`, abandoned: true };
+    mock.books = mock.books.map((b) => (b.id === prev.id ? { ...b, status: 'complete', recap } : b));
+  }
+  const { storyline, pages, missions, answers } = utMockBook(mock.fellowship.id, (prev?.book_number ?? 0) + 1, difficulty);
+  Object.assign(mockAnswers, answers);
+  addBook(storyline, pages, missions);
+  addMessage({ fellowship_id: mock.fellowship.id, user_id: null, kind: 'proclamation',
+    body: `Hear ye! Sage has written a new tale: "${storyline.title}". Chapter I: ${pages[0].title} awaits. Hook ’em, heroes.`,
+    payload: { event: 'storyline_ready', storyline_id: storyline.id } });
+  emitMock();
+  return storyline.id;
 }
 
 /** Mock first summon (from the empty state): the fixture book, as if any member had just summoned it. */
