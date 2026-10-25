@@ -7,10 +7,11 @@ import * as Clipboard from 'expo-clipboard';
 import { haptic } from './haptics';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
+import { fonts, ink, panel, radius, realm, scrim, shadow, space, type, ui } from '@/shared/theme';
 import type { Fellowship } from '@/shared/types';
 import { useFellowship } from '@/lib/fellowship';
-import { withAlpha } from './color';
+import GameButton from './GameButton';
+import { Sage } from './sage';
 
 export function inviteLink(code: string): string {
   return `questbound://join/${code}`;
@@ -32,7 +33,8 @@ export function InviteCard({ fellowship: given, qrSize = 200, style }: InviteCar
   if (!f) {
     return (
       <View style={[styles.card, style]}>
-        <Text style={styles.muse}>Found or join a fellowship first, and Muse will hand you its invite.</Text>
+        <Sage expression="idle" size="sm" />
+        <Text style={styles.muse}>Found or join a fellowship first, and Sage will hand you its invite.</Text>
       </View>
     );
   }
@@ -66,12 +68,8 @@ export function InviteCard({ fellowship: given, qrSize = 200, style }: InviteCar
         {code}
       </Text>
       <View style={styles.buttons}>
-        <Pressable onPress={copy} style={({ pressed }) => [styles.btn, styles.btnGhost, pressed && styles.pressed]}>
-          <Text style={styles.btnGhostText}>{copied ? 'Copied!' : 'Copy code'}</Text>
-        </Pressable>
-        <Pressable onPress={share} style={({ pressed }) => [styles.btn, styles.btnInk, pressed && styles.pressed]}>
-          <Text style={styles.btnInkText}>Share invite</Text>
-        </Pressable>
+        <GameButton label={copied ? 'Copied!' : 'Copy code'} tone="ghost" onPress={copy} style={styles.btn} />
+        <GameButton label="Share invite" tone="primary" onPress={share} style={styles.btn} />
       </View>
     </View>
   );
@@ -103,38 +101,36 @@ export default function InviteSheet({ visible, onClose, fellowship, title = 'Sum
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: withAlpha(ink.ink, 0.45) },
+  backdrop: { flex: 1, backgroundColor: scrim.strong },
   sheet: {
-    backgroundColor: ink.lavenderMist,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    backgroundColor: realm.royalMist,
+    borderTopLeftRadius: ui.cardRadius,
+    borderTopRightRadius: ui.cardRadius,
     borderWidth: 3,
     borderBottomWidth: 0,
     borderColor: ink.ink,
+    overflow: 'hidden',
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
   },
   grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: ink.muted, marginBottom: space.md },
   title: { fontFamily: fonts.display, fontSize: type.heading, color: ink.ink, textAlign: 'center', marginBottom: space.md },
   card: {
-    backgroundColor: ink.page,
-    borderWidth: 3,
+    backgroundColor: panel.parchment,
+    borderWidth: ui.borderWidth,
     borderColor: ink.ink,
-    borderRadius: radius.lg,
+    borderRadius: ui.cardRadius,
+    ...shadow.md,
     padding: space.lg,
     alignItems: 'center',
   },
   name: { fontFamily: fonts.display, fontSize: type.heading, color: ink.ink, textAlign: 'center' },
   muse: { fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.inkSoft, textAlign: 'center', marginTop: space.xs },
-  qrFrame: { marginTop: space.lg, padding: space.sm, borderWidth: 3, borderColor: ink.ink, borderRadius: radius.md, backgroundColor: ink.page },
+  qrFrame: { marginTop: space.lg, padding: space.sm, borderWidth: ui.borderWidth, borderColor: ink.ink, borderRadius: radius.md, overflow: 'hidden', backgroundColor: ink.page },
   label: { fontFamily: fonts.body, fontSize: type.small, color: ink.muted, marginTop: space.lg, textTransform: 'uppercase', letterSpacing: 1.5 },
   code: { fontFamily: fonts.display, fontSize: 44, color: ink.ink, letterSpacing: 8, marginTop: space.xs, paddingLeft: 8 },
   buttons: { flexDirection: 'row', gap: space.md, marginTop: space.lg, alignSelf: 'stretch' },
-  btn: { flex: 1, borderRadius: radius.pill, borderWidth: 3, borderColor: ink.ink, paddingVertical: space.md, alignItems: 'center' },
-  btnGhost: { backgroundColor: ink.page },
-  btnGhostText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.ink },
-  btnInk: { backgroundColor: ink.ink },
-  btnInkText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.page },
+  btn: { flex: 1 },
   pressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },
   done: { alignSelf: 'center', marginTop: space.md, paddingVertical: space.sm, paddingHorizontal: space.xl },
   doneText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.inkSoft },

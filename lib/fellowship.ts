@@ -157,8 +157,8 @@ function subscribeRealtime(fellowshipId: string) {
       // (Re)connected → catch up on anyone who joined while we were away.
       if (status === 'SUBSCRIBED') void reloadMembers();
     });
-  // Separate channel: `profiles`/`fellowships` aren't in the realtime publication until REQUESTS.md lands,
-  // and a rejected table must not take the members channel down with it.
+  // Profiles (crest / crayon / name changes) and the fellowship row (rename, area) — both in the realtime
+  // publication since 0002_round1.sql. Own channel so a hiccup here never drops the members channel.
   extrasChannel = supabase
     .channel(`fellowship-extras:${fellowshipId}`)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (p) => {
@@ -167,9 +167,17 @@ function subscribeRealtime(fellowshipId: string) {
       setSnap({ members: snap.members.map((m) => (m.user_id === updated.id ? { ...m, profile: updated } : m)) });
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'fellowships', filter: `id=eq.${fellowshipId}` }, (p) => {
-      if (snap.fellowship?.id === fellowshipId) setSnap({ fellowship: p.new as Fellowship });
+      if (snap.fellowship?.id === fellowshipId) setSnap({ fellowship: { ...snap.fellowship, ...(p.new as Fellowship) } });
     })
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') void reloadFellowshipRow(fellowshipId);
+    });
+}
+
+/** Catch up on a rename / area change made while we were offline. */
+async function reloadFellowshipRow(fellowshipId: string) {
+  const { data } = await supabase.from('fellowships').select('*').eq('id', fellowshipId).maybeSingle();
+  if (data && snap.fellowship?.id === fellowshipId) setSnap({ fellowship: data as Fellowship });
 }
 
 /** Load a fellowship + members and make it the active one. */
@@ -275,13 +283,13 @@ async function createFellowshipReal(name: string): Promise<Fellowship> {
       .single();
     if (error) {
       if (error.code === '23505') continue; // invite code collision → the DB rolls a new one
-      throw new Error(`Muse could not found your fellowship: ${error.message}. Try again.`);
+      throw new Error(`Sage could not found your fellowship: ${error.message}. Try again.`);
     }
     f = data as Fellowship;
   }
-  if (!f) throw new Error('Muse could not found your fellowship. Try again.');
+  if (!f) throw new Error('Sage could not found your fellowship. Try again.');
   const { error: mErr } = await supabase.from('fellowship_members').insert({ fellowship_id: f.id, user_id: uid, role: 'founder' });
-  if (mErr && mErr.code !== '23505') throw new Error(`Muse could not seat you in your fellowship: ${mErr.message}. Try again.`);
+  if (mErr && mErr.code !== '23505') throw new Error(`Sage could not seat you in your fellowship: ${mErr.message}. Try again.`);
   await setActive(f.id);
   const me = await myProfile(uid);
   await postSystem(f.id, uid, `${heroName(me)} founded the fellowship.`, null);
@@ -293,12 +301,12 @@ async function joinByCodeReal(raw: string): Promise<Fellowship> {
   if (code.length < 4) throw new Error(NOT_FOUND);
   const uid = await sessionStore.ensureSignedIn();
   const { data, error } = await supabase.from('fellowships').select('*').eq('invite_code', code).maybeSingle();
-  if (error) throw new Error(`Muse could not read the code: ${error.message}. Check your connection and try again.`);
+  if (error) throw new Error(`Sage could not read the code: ${error.message}. Check your connection and try again.`);
   if (!data) throw new Error(NOT_FOUND);
   const f = data as Fellowship;
   const { error: mErr } = await supabase.from('fellowship_members').insert({ fellowship_id: f.id, user_id: uid, role: 'member' });
   const alreadyMember = mErr?.code === '23505';
-  if (mErr && !alreadyMember) throw new Error(`Muse could not open the gate: ${mErr.message}. Try again.`);
+  if (mErr && !alreadyMember) throw new Error(`Sage could not open the gate: ${mErr.message}. Try again.`);
   await setActive(f.id);
   if (!alreadyMember) {
     const me = await myProfile(uid);
@@ -327,7 +335,7 @@ async function leaveReal() {
   const f = snap.fellowship;
   if (!uid || !f) return;
   const { error } = await supabase.from('fellowship_members').delete().eq('fellowship_id', f.id).eq('user_id', uid);
-  if (error) throw new Error(`Muse could not release you: ${error.message}. Try again.`);
+  if (error) throw new Error(`Sage could not release you: ${error.message}. Try again.`);
   await AsyncStorage.removeItem(ACTIVE_KEY).catch(() => {});
   await activate(null);
 }

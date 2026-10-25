@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
+import { SAGE_CREDIT, fonts, ink, radius, shadow, space, type } from '@/shared/theme';
 import type { Message } from '@/shared/types';
 import { useChat } from '@/lib/chat';
 import { heroName, profileOf, useFellowship } from '@/lib/fellowship';
@@ -14,6 +14,7 @@ import { useSession } from '@/lib/session';
 import Crest, { crestEmoji } from './Crest';
 import { crayonHex } from './color';
 import { haptic } from './haptics';
+import { Sage } from './sage';
 import { openProclamation } from './ProclamationCard';
 
 const SHOW_MS = 5000;
@@ -89,15 +90,14 @@ export default function ProclamationToast() {
             </Text>
           </View>
         ) : current.kind === 'wizard' ? (
-          <View style={styles.seal}>
-            <Text style={styles.sealEmoji}>🧙</Text>
-          </View>
+          <Sage expression="happy" size="sm" />
         ) : (
           <Crest crest={actor?.crest} color={actor?.color} size={40} />
         )}
         <View style={styles.text}>
           <Text style={styles.label} numberOfLines={1}>
-            {isProc ? 'Hear ye!' : current.kind === 'wizard' ? 'Muse' : heroName(actor)}
+            {isProc ? 'Hear ye!' : current.kind === 'wizard' ? 'Sage' : heroName(actor)}
+            {current.kind === 'wizard' ? <Text style={styles.credit}>{`  ${SAGE_CREDIT}`}</Text> : null}
           </Text>
           <Text style={isProc ? styles.bodyProc : styles.body} numberOfLines={2}>
             {current.body}
@@ -109,7 +109,8 @@ export default function ProclamationToast() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: space.md, right: space.md, zIndex: 100, elevation: 12 },
+  // Shadow on the wrapper: the card clips its stripe with overflow:hidden, which would hide an iOS shadow.
+  wrap: { position: 'absolute', left: space.md, right: space.md, zIndex: 100, borderRadius: radius.md, ...shadow.lg, elevation: 12 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -121,10 +122,6 @@ const styles = StyleSheet.create({
     padding: space.md,
     paddingLeft: space.md + 6,
     overflow: 'hidden',
-    shadowColor: ink.ink,
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
   },
   pressed: { transform: [{ scale: 0.985 }] },
   stripe: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, borderRightWidth: 2, borderRightColor: ink.ink },
@@ -132,6 +129,7 @@ const styles = StyleSheet.create({
   sealEmoji: { fontSize: 19 },
   text: { flex: 1 },
   label: { fontFamily: fonts.bodyBold, fontSize: 12, color: ink.inkSoft, letterSpacing: 0.5 },
+  credit: { fontFamily: fonts.body, fontSize: 11, color: ink.muted, letterSpacing: 0 },
   body: { fontFamily: fonts.body, fontSize: type.body - 1, color: ink.ink, marginTop: 1 },
   bodyProc: { fontFamily: fonts.displayItalic, fontSize: type.body, color: ink.ink, marginTop: 1 },
 });

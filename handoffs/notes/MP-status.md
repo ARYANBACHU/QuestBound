@@ -1,5 +1,53 @@
 # MP status (Fellowship & Friends · feat/friends)
 
+## Round 2 — done (all MP items + NAMING, SIMPLIFY, MAPS LINKS)
+- **NAMING**: every "Muse" in MP copy → "Sage"; Sage messages show "Sage  ✦ powered by Muse" (chat + toast).
+  Sheets/modals: outer radius `ui.cardRadius` + `overflow:'hidden'`. `textOn()` uses theme `ON_CRAYON` (AA).
+- **M1 chat keyboard**: `components/friends/useKeyboardLift.ts` measures the chat view in window coords vs the keyboard
+  top → bottom padding (no KeyboardAvoidingView offset guessing; tab bar/safe area/edge-to-edge all handled). Jumps to
+  newest on keyboard open + on my send; tap the list or the ⌄ button to hide the keyboard; interactive dismiss on iOS.
+- **M2**: Sage avatar + name + credit on wizard messages.
+- **M3**: points via `pointsFor`/`leaderboard` (see adapters below); reactions use the real `message_reactions` table
+  only (local-only fallback removed, resync on reconnect, revert on error); profiles + fellowships realtime (row
+  catch-up on reconnect).
+- **M4**: Friends tab works with no storyline. New `UpNext` strip: blank book → "Waiting for <founder> to summon the
+  story… or summon it yourself" (→ Missions tab, AB's gate), "Sage is writing", next mission for me (Go + Open in
+  Maps), "Sage is weighing your proof", book finished → Storybook. Null-safe mission arrays everywhere.
+- **P9**: new Sage messages in chat do a one-shot ~600 ms talk bob (`SageTalk.tsx`, reduced-motion aware) + `playSfx('ping')`;
+  fresh proclamations stamp + `playSfx('seal')`. "Fresh" = not in the id baseline taken when the chat opened/loaded —
+  never replays on reopen, re-render or scroll-back.
+- **P10 / SIMPLIFY**: chat is the hero. Header = fellowship name + crests ("2 here now ›" → roster) + Invite game button.
+  Mood gradient background (`SCREEN_GRADIENTS[moodFor(activePage.template_id)]`). Segment control removed; roster opens
+  from the crests (ranked by points, ties share a rank/crown, details in MemberSheet). Proclamation cards: parchment
+  panel, crayon left edge, gold crest seal, Fraunces italic, accent CTA (no label/dashes/rotation). Sage in every
+  empty/loading/error state (Friends, chat, join, QR denied, invite). `GameButton.tsx` (chunky, press-depth).
+- **MAPS LINKS**: every place tap → `openInMaps(place)` (proclamation cards for mission_complete, Up next, MemberSheet
+  regions). `place.website` only as a separate small "Website" link on proclamation cards.
+
+## Local adapters to swap when teammates land (one-line changes)
+- `components/friends/sage.tsx` → `export { default as Sage } from '@/components/wizard/Sage'` and
+  `export { playSfx } from '@/components/shell/sfx'` once AB's files reach main (check the export style: default vs named).
+  Placeholder Sage = 🧙 in a round badge sized by `SAGE_SIZES`; playSfx = no-op.
+- `components/friends/points.ts` → `export { pointsFor, leaderboard } from '@/lib/game'` once EV's E4 lands
+  (REQUESTS.md entry). If EV's leaderboard row shape differs, adapt `MembersView` (uses user_id/points/missions).
+
+## Components for AB/AD (props) — all in `components/friends/`
+- Unchanged contracts: `Crest`, `CrestRow`, `InviteSheet`/`InviteCard`, `QrScanner`/`parseInviteCode`, `ProclamationToast`, `color.ts`.
+- New: `GameButton` `{ label, onPress?, tone?: GameButtonTone ('primary'), size?: 'md'|'sm', disabled?, loading?, style? }`.
+- New: `UpNext` + `nextMissionFor(myId, activePage, missions)`.
+- `ProclamationCard` gained optional `mission?` (shows place) and `onPlayed?`. `ChatView` gained optional `missionsById?`.
+- Removed: `SegmentControl` (nobody else imported it).
+
+## Known bugs / notes
+- Web preview only: the fellowship name truncates (adjustsFontSizeToFit is native-only) and the multiline composer is tall.
+- AB's tabs layout lifts the FAB by a fixed 92 px on Friends; with the composer now on the keyboard, AB's A10
+  (hide FAB while keyboard is open) covers the rest.
+- Supabase dashboard: enable Anonymous sign-ins (Authentication → Providers).
+
+---
+
+# Round 1 status (kept for reference)
+
 ## Done
 - Task 1: `lib/session.ts` real branch — anonymous sign-in, profile load/upsert, optimistic `updateProfile`.
   Shared module-level store + `useSyncExternalStore` → **no provider needed** in `app/_layout.tsx`.

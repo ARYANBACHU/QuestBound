@@ -1,11 +1,10 @@
-// Owner: MP. The fellowship group chat: texts, proclamations (scroll cards), system lines, Muse, day separators.
-import { useMemo, useRef, useState } from 'react';
+// Owner: MP. The fellowship group chat: texts, proclamations (scroll cards), system lines, Sage, day separators.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -13,14 +12,18 @@ import {
   View,
 } from 'react-native';
 import { haptic } from './haptics';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
-import type { FellowshipMember } from '@/shared/types';
+import { SAGE_CREDIT, SAGE_SIZES, fonts, ink, radius, realm, sageColors, shadow, space, type, ui } from '@/shared/theme';
+import type { FellowshipMember, Mission } from '@/shared/types';
 import type { ChatMessage, ChatState } from '@/lib/chat';
 import { heroName, profileOf } from '@/lib/fellowship';
 import Crest from './Crest';
 import ProclamationCard from './ProclamationCard';
 import { crayonHex, textOn } from './color';
 import { ReactionChips, ReactionPicker } from './Reactions';
+import { useKeyboardLift, type ViewRef } from './useKeyboardLift';
+import { Sage, playSfx } from './sage';
+import SageTalk from './SageTalk';
+import GameButton from './GameButton';
 
 type Row =
   | { key: string; type: 'day'; label: string }
@@ -75,14 +78,47 @@ export interface ChatViewProps {
   onShowFellowship?: () => void;
   /** Tap a friend's crest → their profile sheet. */
   onOpenMember?: (userId: string) => void;
+  /** Missions of the current book by id — proclamations show the mission's place (Open in Maps). */
+  missionsById?: Record<string, Mission>;
 }
 
-export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember }: ChatViewProps) {
+export default function ChatView({ chat, members, myId, onShowFellowship, onOpenMember, missionsById }: ChatViewProps) {
   const rows = useMemo(() => buildRows(chat.messages), [chat.messages]);
-  // Proclamations that arrive after the chat opened get the seal-stamp animation.
-  const openedAt = useRef(new Date().toISOString()).current;
+  const rootRef = useRef<ViewRef>(null);
+  const listRef = useRef<FlatList<Row>>(null);
+  const keyboard = useKeyboardLift(rootRef);
+  const scrollToNewest = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  // Keyboard opens → jump to the newest message so you see what you're replying to.
+  useEffect(() => {
+    if (keyboard.visible) scrollToNewest();
+  }, [keyboard.visible]);
+  // My own message lands → follow it down.
+  const newest = chat.messages[chat.messages.length - 1];
+  useEffect(() => {
+    if (newest && newest.user_id === myId) scrollToNewest();
+  }, [newest?.id, newest?.user_id, myId]);
+  // Messages already here when the chat opened (or finished loading) are the baseline; anything after is "fresh":
+  // proclamations stamp their seal, Sage talks + pings — once per message, never on reopen or scroll-back.
+  const [baseline, setBaseline] = useState<Set<string> | null>(null);
+  const settled = !(chat.loading && chat.messages.length === 0);
+  useEffect(() => {
+    if (!baseline && settled) setBaseline(new Set(chat.messages.map((m) => m.id)));
+  }, [baseline, settled, chat.messages]);
+  const isFresh = (id: string) => !!baseline && !baseline.has(id) && !id.startsWith('temp-');
+  const played = useRef(new Set<string>());
+  const pinged = useRef(new Set<string>());
+  useEffect(() => {
+    if (!baseline) return;
+    const fresh = chat.messages.filter(
+      (m) => (m.kind === 'wizard' || m.kind === 'proclamation') && !baseline.has(m.id) && !pinged.current.has(m.id),
+    );
+    if (!fresh.length) return;
+    fresh.forEach((m) => pinged.current.add(m.id));
+    // One sound per batch: Sage's soft chime wins over the seal stamp.
+    playSfx(fresh.some((m) => m.kind === 'wizard') ? 'ping' : 'seal');
+  }, [baseline, chat.messages]);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
-  const extraData = useMemo(() => ({ pickerFor, reactions: chat.reactions }), [pickerFor, chat.reactions]);
+  const extraData = useMemo(() => ({ pickerFor, reactions: chat.reactions, baseline }), [pickerFor, chat.reactions, baseline]);
   const openPicker = (id: string) => {
     if (id.startsWith('temp-')) return;
     haptic.select();
@@ -116,9 +152,7 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
     if (item.type === 'day') {
       return (
         <View style={styles.dayWrap}>
-          <View style={styles.dayLine} />
           <Text style={styles.day}>{item.label}</Text>
-          <View style={styles.dayLine} />
         </View>
       );
     }
@@ -129,7 +163,9 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
           <ProclamationCard
             message={m}
             members={members}
-            fresh={m.created_at > openedAt}
+            mission={m.payload?.mission_id ? missionsById?.[m.payload.mission_id] : undefined}
+            fresh={isFresh(m.id) && !played.current.has(m.id)}
+            onPlayed={() => played.current.add(m.id)}
             onShowFellowship={onShowFellowship}
             onLongPress={() => openPicker(m.id)}
           />
@@ -137,7 +173,16 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
       case 'system':
         return <Text style={styles.system}>{m.body}</Text>;
       case 'wizard':
-        return <WizardBubble m={m} first={first} last={last} onLongPress={() => openPicker(m.id)} />;
+        return (
+          <WizardBubble
+            m={m}
+            first={first}
+            last={last}
+            talk={isFresh(m.id) && !played.current.has(m.id)}
+            onPlayed={() => played.current.add(m.id)}
+            onLongPress={() => openPicker(m.id)}
+          />
+        );
       default:
         return m.user_id && m.user_id === myId ? (
           <MyBubble m={m} chat={chat} members={members} last={last} onLongPress={() => openPicker(m.id)} />
@@ -150,8 +195,8 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
   const typing = chat.typingUserIds.map((id) => profileOf(members, id)).filter(Boolean);
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.flex}>
+    <View ref={rootRef} onLayout={keyboard.remeasure} style={[styles.flex, { paddingBottom: keyboard.lift }]}>
+      <Pressable style={styles.flex} onPress={Keyboard.dismiss} accessible={false}>
         {chat.loading && chat.messages.length === 0 ? (
           <View style={styles.center}>
             <ActivityIndicator color={ink.ink} />
@@ -159,12 +204,13 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
           </View>
         ) : chat.messages.length === 0 ? (
           <View style={styles.center}>
-            <Text style={styles.emptyEmoji}>🧙</Text>
+            <Sage expression="idle" size="md" />
             <Text style={styles.empty}>The fellowship is quiet. Say hello, or pick a mission to start the story.</Text>
             {chat.error ? <Text style={styles.error}>{chat.error}</Text> : null}
           </View>
         ) : (
           <FlatList
+            ref={listRef}
             inverted
             data={rows}
             keyExtractor={(r) => r.key}
@@ -177,18 +223,18 @@ export default function ChatView({ chat, members, myId, onShowFellowship, onOpen
             ListFooterComponent={chat.error ? <Text style={styles.error}>{chat.error}</Text> : undefined}
           />
         )}
-      </View>
+      </Pressable>
       {typing.length ? (
         <Text style={styles.typing} numberOfLines={1}>
           {typing.length === 1 ? `${heroName(typing[0])} is writing…` : `${typing.length} heroes are writing…`}
         </Text>
       ) : null}
-      <Composer chat={chat} />
-    </KeyboardAvoidingView>
+      <Composer chat={chat} keyboardOpen={keyboard.visible} onSent={scrollToNewest} />
+    </View>
   );
 }
 
-function Composer({ chat }: { chat: ChatState }) {
+function Composer({ chat, keyboardOpen, onSent }: { chat: ChatState; keyboardOpen: boolean; onSent: () => void }) {
   const [text, setText] = useState('');
   const canSend = text.trim().length > 0;
   const submit = () => {
@@ -196,10 +242,16 @@ function Composer({ chat }: { chat: ChatState }) {
     const body = text;
     setText('');
     void chat.send(body);
+    onSent();
     haptic.tap();
   };
   return (
     <View style={styles.composer}>
+      {keyboardOpen ? (
+        <Pressable onPress={Keyboard.dismiss} hitSlop={8} style={({ pressed }) => [styles.hideKb, pressed && styles.pressed]} accessibilityLabel="Hide keyboard">
+          <Text style={styles.hideKbText}>⌄</Text>
+        </Pressable>
+      ) : null}
       <TextInput
         value={text}
         onChangeText={(t) => {
@@ -215,14 +267,7 @@ function Composer({ chat }: { chat: ChatState }) {
         returnKeyType="send"
         onSubmitEditing={submit}
       />
-      <Pressable
-        onPress={submit}
-        disabled={!canSend}
-        style={({ pressed }) => [styles.sendBtn, !canSend && styles.sendDisabled, pressed && styles.pressed]}
-        accessibilityLabel="Send"
-      >
-        <Text style={styles.sendText}>Send</Text>
-      </Pressable>
+      <GameButton label="Send" size="sm" onPress={submit} disabled={!canSend} />
     </View>
   );
 }
@@ -235,7 +280,7 @@ function MyBubble({ m, chat, members, last, onLongPress }: { m: ChatMessage; cha
   const onPress = failed
     ? () => {
         haptic.warning();
-        Alert.alert('Message not sent', 'Muse could not deliver it. Try again?', [
+        Alert.alert('Message not sent', 'Sage could not deliver it. Try again?', [
           { text: 'Delete', style: 'destructive', onPress: () => chat.discard(m.id) },
           { text: 'Retry', onPress: () => void chat.retry(m.id) },
         ]);
@@ -295,23 +340,49 @@ function TheirBubble({
   );
 }
 
-function WizardBubble({ m, first, last, onLongPress }: { m: ChatMessage; first: boolean; last: boolean; onLongPress: () => void }) {
+function WizardBubble({
+  m,
+  first,
+  last,
+  talk,
+  onPlayed,
+  onLongPress,
+}: {
+  m: ChatMessage;
+  first: boolean;
+  last: boolean;
+  talk: boolean;
+  onPlayed: () => void;
+  onLongPress: () => void;
+}) {
+  const bubble = (
+    <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.bubble, styles.wizard]}>
+      <Text style={[styles.text, styles.wizardText]}>{m.body}</Text>
+    </Pressable>
+  );
   return (
     <View style={[styles.rowTheirs, last && styles.runEnd]}>
-      <View style={styles.avatarCol}>
+      <View style={styles.sageCol}>
         {first ? (
-          <View style={styles.wizardAvatar}>
-            <Text style={styles.wizardEmoji} allowFontScaling={false}>
-              🧙
-            </Text>
-          </View>
+          <SageTalk talk={talk} onPlayed={onPlayed}>
+            <Sage expression="happy" size="sm" />
+          </SageTalk>
         ) : null}
       </View>
       <View style={styles.theirsCol}>
-        {first ? <Text style={styles.name}>Muse</Text> : null}
-        <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.bubble, styles.wizard]}>
-          <Text style={[styles.text, styles.wizardText]}>{m.body}</Text>
-        </Pressable>
+        {first ? (
+          <Text style={styles.name}>
+            Sage<Text style={styles.credit}>{`  ${SAGE_CREDIT}`}</Text>
+          </Text>
+        ) : null}
+        {first ? (
+          bubble
+        ) : (
+          // No avatar on follow-up lines: the bubble itself does the little talk.
+          <SageTalk talk={talk} onPlayed={onPlayed}>
+            {bubble}
+          </SageTalk>
+        )}
       </View>
     </View>
   );
@@ -321,14 +392,23 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.xxl, gap: space.sm },
   muted: { fontFamily: fonts.body, color: ink.muted, fontSize: type.small },
-  emptyEmoji: { fontSize: 48 },
   empty: { fontFamily: fonts.displayItalic, fontSize: type.heading - 2, lineHeight: 26, color: ink.inkSoft, textAlign: 'center' },
   error: { fontFamily: fonts.body, fontSize: type.small, color: ink.danger, textAlign: 'center', padding: space.md },
   list: { paddingVertical: space.md },
-  dayWrap: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.xl, marginVertical: space.md, gap: space.sm },
-  dayLine: { flex: 1, height: 1.5, backgroundColor: ink.muted, opacity: 0.4 },
-  day: { fontFamily: fonts.bodyBold, fontSize: 12, color: ink.muted, letterSpacing: 1, textTransform: 'uppercase' },
-  system: { fontFamily: fonts.body, fontSize: type.small, color: ink.muted, textAlign: 'center', marginVertical: space.sm, paddingHorizontal: space.xl },
+  dayWrap: { alignItems: 'center', marginVertical: space.md },
+  day: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    color: ink.inkSoft,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    backgroundColor: ink.page,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    paddingHorizontal: space.md,
+    paddingVertical: 3,
+  },
+  system: { fontFamily: fonts.body, fontSize: type.small, color: ink.inkSoft, textAlign: 'center', marginVertical: space.sm, paddingHorizontal: space.xl },
   rowMine: { alignItems: 'flex-end', paddingHorizontal: space.lg, marginTop: 3 },
   rowTheirs: { flexDirection: 'row', paddingHorizontal: space.md, marginTop: 3 },
   runEnd: { marginBottom: space.sm },
@@ -336,12 +416,12 @@ const styles = StyleSheet.create({
   theirsCol: { flex: 1, alignItems: 'flex-start' },
   name: { fontFamily: fonts.bodyBold, fontSize: 12, color: ink.inkSoft, marginBottom: 2, marginLeft: 4 },
   bubble: { maxWidth: '82%', paddingHorizontal: space.md, paddingVertical: 9, borderRadius: radius.lg },
-  mine: { borderBottomRightRadius: 6, borderWidth: 2, borderColor: ink.ink },
+  mine: { borderBottomRightRadius: 6, borderWidth: ui.borderWidth, borderColor: ink.ink },
   sending: { opacity: 0.6 },
-  theirs: { backgroundColor: ink.page, borderWidth: 2, borderColor: ink.ink, borderBottomLeftRadius: 6 },
-  wizard: { backgroundColor: ink.lavenderMist, borderWidth: 2, borderColor: ink.inkSoft, borderBottomLeftRadius: 6 },
-  wizardAvatar: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: ink.lavenderMist, borderWidth: 2, borderColor: ink.inkSoft, alignItems: 'center', justifyContent: 'center' },
-  wizardEmoji: { fontSize: 17 },
+  theirs: { backgroundColor: ink.page, borderWidth: ui.borderWidth, borderColor: ink.ink, borderBottomLeftRadius: 6 },
+  wizard: { backgroundColor: realm.royalMist, borderWidth: ui.borderWidth, borderColor: sageColors.robe, borderBottomLeftRadius: 6 },
+  sageCol: { width: SAGE_SIZES.sm, marginRight: space.sm, justifyContent: 'flex-start', paddingTop: 14 },
+  credit: { fontFamily: fonts.body, fontSize: 11, color: ink.muted },
   wizardText: { fontFamily: fonts.displayItalic },
   text: { fontFamily: fonts.body, fontSize: type.body, lineHeight: 21, color: ink.ink },
   meta: { fontFamily: fonts.body, fontSize: 11, color: ink.muted, marginTop: 2 },
@@ -353,18 +433,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: space.sm,
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderTopWidth: 2,
-    borderTopColor: ink.ink,
+    paddingTop: space.sm,
+    paddingBottom: space.sm - 2,
     backgroundColor: ink.paper,
+    ...shadow.sm,
   },
   input: {
     flex: 1,
-    minHeight: 44,
+    minHeight: ui.buttonHeightSm + ui.buttonDepth,
     maxHeight: 120,
-    borderWidth: 2,
+    borderWidth: ui.borderWidth,
     borderColor: ink.ink,
-    borderRadius: radius.lg,
+    borderRadius: ui.buttonRadius,
     paddingHorizontal: space.md,
     paddingTop: 11,
     paddingBottom: 11,
@@ -373,8 +453,7 @@ const styles = StyleSheet.create({
     color: ink.ink,
     backgroundColor: ink.page,
   },
-  sendBtn: { height: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, backgroundColor: ink.ink, alignItems: 'center', justifyContent: 'center' },
-  sendDisabled: { opacity: 0.35 },
-  sendText: { fontFamily: fonts.bodyBold, fontSize: type.body, color: ink.page },
+  hideKb: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
+  hideKbText: { fontFamily: fonts.bodyBold, fontSize: 26, lineHeight: 30, color: ink.inkSoft, marginTop: -8 },
   pressed: { opacity: 0.75 },
 });
