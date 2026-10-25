@@ -1,6 +1,6 @@
 // Owner: MP. A player's crest: emoji inside a paper circle with a thick crayon ring. Exported for AB + AD.
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { CRAYONS, CRESTS, ink, type CrayonColor, type CrestId } from '@/shared/theme';
+import { CRAYONS, CRESTS, ink, panel, type CrayonColor, type CrestId } from '@/shared/theme';
 import { crayonHex } from './color';
 
 export interface CrestProps {
@@ -35,7 +35,7 @@ export default function Crest({ crest, color, size = 40, ring = true, online, fi
             borderRadius: size / 2,
             borderWidth: ringW,
             borderColor: ring ? hex : ink.ink,
-            backgroundColor: filled ? hex : ink.page,
+            backgroundColor: filled ? hex : panel.parchment,
           },
         ]}
       >

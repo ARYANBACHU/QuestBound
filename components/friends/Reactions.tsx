@@ -1,7 +1,7 @@
 // Owner: MP. Reaction chips under a chat item + the long-press picker.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { fonts, ink, radius, space } from '@/shared/theme';
+import { fonts, ink, panel, radius, space } from '@/shared/theme';
 import { REACTIONS, type ReactionEmoji, type Reactions } from '@/lib/chat';
 import { haptic } from './haptics';
 
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 2,
     borderColor: ink.muted,
-    backgroundColor: ink.page,
+    backgroundColor: panel.parchment,
   },
   chipMine: { borderColor: ink.ink, backgroundColor: ink.lavenderMist },
   chipEmoji: { fontSize: 14 },
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 2.5,
     borderColor: ink.ink,
-    backgroundColor: ink.page,
+    backgroundColor: panel.parchment,
   },
   pick: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   pickPressed: { backgroundColor: ink.lavenderMist, transform: [{ scale: 1.15 }] },

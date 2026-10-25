@@ -33,7 +33,8 @@ export default function FriendsScreen() {
   const { storyline, pages, activePage, loading: storyLoading } = useStoryline(fellowship?.id ?? null);
   const { missions } = useMissions(storyline?.id ?? null);
   const missionsById = useMemo(() => Object.fromEntries(missions.map((m) => [m.id, m])), [missions]);
-  const gradient = SCREEN_GRADIENTS[moodFor(activePage?.template_id ?? pages[0]?.template_id).id];
+  const mood = moodFor(activePage?.template_id ?? pages[0]?.template_id);
+  const gradient = SCREEN_GRADIENTS[mood.id];
 
   if (loading && !fellowship) {
     return (
@@ -97,6 +98,7 @@ export default function FriendsScreen() {
               members={members}
               myId={userId}
               missionsById={missionsById}
+              surface={mood.tint}
               onShowFellowship={() => setView('fellowship')}
               onOpenMember={setOpenMemberId}
             />
@@ -144,7 +146,7 @@ export default function FriendsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: ink.paper },
+  screen: { flex: 1, backgroundColor: ink.paper }, // fallback under the mood gradient
   center: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.xxl, gap: space.sm },
   body: { flex: 1 },
   muted: { fontFamily: fonts.body, fontSize: type.small, color: ink.inkSoft },
