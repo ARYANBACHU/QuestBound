@@ -119,6 +119,9 @@ export const candy_village: PageArt = {
     // gumdrop: sugar sparkles + a sweet face
     'M760 1160 l10 6 M850 1150 l-8 8 M720 1220 l10 0 M890 1215 l-10 2',
     circle(782, 1280, 5), circle(828, 1280, 5), 'M792 1296 Q805 1306 818 1296',
+    // cookie stepping stones on the path (with chocolate chips)
+    circle(500, 1130, 26), circle(486, 1210, 30), circle(512, 1296, 34),
+    'M492 1124 h0.1 M508 1138 h0.1 M476 1204 h0.1 M496 1218 h0.1 M500 1288 h0.1 M524 1304 h0.1',
     // sprinkles on the hills + sparkles in the sky
     'M95 640 l18 -10 M240 600 l20 6 M865 600 l-16 14 M110 860 l20 8 M880 820 l-18 10',
     star4(470, 110, 20), star4(905, 420, 14), star4(250, 290, 14), star4(560, 175, 12),
