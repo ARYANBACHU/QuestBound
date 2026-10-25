@@ -1,17 +1,17 @@
 // Owner: EV. POST { mission_id, reason?, difficulty? } -> { mission, source: 'llm' | 'fallback' }
 // difficulty is RELATIVE to the old mission: easy = easier, normal = similar, hard = harder (default easy: most
-// rerolls are "this is too much today"). Points follow it: size base × multiplier (_shared/points.ts).
-// Sage swaps one OPEN mission for a fresh one on the same region (same size rules). Used by AB's wizard.
+// rerolls are "this is too much today"). Points follow it: crew base × multiplier (_shared/points.ts).
+// Sage swaps one OPEN mission for a fresh one on the same region (same size rules, same crew). Used by AB's wizard.
 // Budget < 12 s; falls back to a handcrafted alternate if the LLM is slow, down or returns junk.
 import { preflight, json, fail } from '../_shared/cors.ts';
 import { admin, callerId, proclaim } from '../_shared/db.ts';
 import { chatJSON, HAS_LLM, withTimeout } from '../_shared/llm.ts';
 import { CHAPTER_SCHEMA, memberLines, placeLines, rerollTask, storylineSystem } from '../_shared/prompts.ts';
-import { alternateMission, PlacePicker, repairMission, requiredMembers } from '../_shared/book.ts';
+import { allowedTypes, alternateMission, PlacePicker, repairMission } from '../_shared/book.ts';
 import { analyzeInterests } from '../_shared/interests.ts';
-import { asDifficulty, missionPoints } from '../_shared/points.ts';
+import { asDifficulty, crewOf, missionPoints } from '../_shared/points.ts';
 import {
-  memberCtx, type MemberCtx, type Mission, type Page, type Place, PROOF_FOR_TYPE, type Profile, SIZE_RULES, TEMPLATE_REGIONS,
+  memberCtx, type MemberCtx, type Mission, type Page, type Place, PROOF_FOR_TYPE, type Profile, TEMPLATE_REGIONS,
 } from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
@@ -42,6 +42,8 @@ Deno.serve(async (req) => {
   }
 
   const size = TEMPLATE_REGIONS[page.template_id].find((r) => r.id === mission.region_id)?.size ?? 'small';
+  // G1: a reroll keeps the region's crew (a trio stays a trio, a duet small stays a duet).
+  const crew = mission.type === 'gathering' ? mission.required_members : Math.max(1, mission.required_members);
   const places: Place[] = Array.isArray(storyline.generation_context?.places) ? storyline.generation_context.places : [];
   const chapterIndex = page.chapter_number - 1;
   const interests = analyzeInterests(members);
@@ -55,7 +57,7 @@ Deno.serve(async (req) => {
           role: 'user',
           content: `FELLOWSHIP:\n${memberLines(members, interests.unique)}\n\nREAL PLACES:\n${placeLines(places)}\n\n` +
             rerollTask({
-              templateId: page.template_id, regionId: mission.region_id, size, allowedTypes: SIZE_RULES[size].types,
+              templateId: page.template_id, regionId: mission.region_id, size, allowedTypes: allowedTypes(size, crew), crew,
               old: mission, chapterTitle: page.title, bookTitle: storyline.title, reason, difficulty,
             }),
         },
@@ -64,20 +66,20 @@ Deno.serve(async (req) => {
     );
     // Accept {missions:[...]} too, models love wrapping.
     const m = raw && Array.isArray((raw as { missions?: unknown[] }).missions) ? (raw as { missions: unknown[] }).missions[0] : raw;
-    draft = m ? repairMission({ ...(m as object), region_id: mission.region_id }, page.template_id, mission.region_id, chapterIndex, { places, members, difficulty }) : null;
+    draft = m ? repairMission({ ...(m as object), region_id: mission.region_id }, page.template_id, mission.region_id, chapterIndex, { places, members, difficulty, crew: mission.type === 'gathering' ? undefined : crew }) : null;
     if (draft && draft.title.toLowerCase() === mission.title.toLowerCase()) draft = null;
     if (draft) source = 'llm';
   }
   if (!draft) {
     const picker = new PlacePicker(places);
-    draft = alternateMission(page.template_id, mission.region_id, chapterIndex, mission.title, picker.pick('gathering'), Date.now(), difficulty);
+    draft = alternateMission(page.template_id, mission.region_id, chapterIndex, mission.title, picker.pick('gathering'), Date.now(), difficulty, crew);
   }
 
   const { data: updated, error } = await admin.from('missions').update({
     title: draft.title, description: draft.description, story_hook: draft.story_hook, type: draft.type,
-    proof_type: PROOF_FOR_TYPE[draft.type], required_members: requiredMembers(size, members.length),
+    proof_type: PROOF_FOR_TYPE[draft.type], required_members: draft.crew,
     assignee_ids: draft.type === 'gathering' ? [] : draft.assignee_ids.length ? draft.assignee_ids : mission.assignee_ids,
-    place: draft.place, trial_question: draft.trial_question, verification_hint: draft.verification_hint, points: missionPoints(size, difficulty),
+    place: draft.place, trial_question: draft.trial_question, verification_hint: draft.verification_hint, points: missionPoints(crewOf({ type: draft.type, required_members: draft.crew }), difficulty),
   }).eq('id', mission.id).eq('status', 'open').select('*').maybeSingle<Mission>();
   if (error || !updated) return fail('Sage tried, but the ink smudged. Try again in a moment.', 409);
   if (draft.type === 'trial' && draft.trial_answer) {

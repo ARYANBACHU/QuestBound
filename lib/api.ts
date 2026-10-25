@@ -14,12 +14,15 @@ import { supabase } from './supabase';
 import { addBook, addCompletion, addMemory, addMessage, advanceIfPageDone, emitMock, mock, patchMission, restoreDemoBook } from './mockStore';
 import { ME, MOCK_RECAP } from '@/fixtures/demo';
 import { utMockBook } from '@/fixtures/ut-campus';
-import { asDifficulty, missionPoints } from '@/supabase/functions/_shared/points';
+import { asDifficulty, crewOf, missionPoints } from '@/supabase/functions/_shared/points';
 import { checkGeo, type GeoResult } from '@/supabase/functions/_shared/geo';
-import { TEMPLATES } from '@/shared/templates';
+import { crewFor, FALLBACK, FALLBACK_CHAPTER_TEXT } from '@/supabase/functions/_shared/fallbacks';
+import { pickChapterTemplates } from '@/supabase/functions/_shared/pick';
+import * as PageArtModule from '@/assets/pages';
+import { isTemplateId, TEMPLATE_IDS, TEMPLATES, type TemplateId } from '@/shared/templates';
 import type {
-  BookRecap, Difficulty, GenerateStorylineRequest, GenerateStorylineResponse, Mission, Page, Storyline, SubmitProofRequest,
-  SubmitProofResponse, Verdict, WizardChatRequest, WizardChatResponse,
+  BookRecap, Difficulty, GenerateStorylineRequest, GenerateStorylineResponse, Mission, MissionType, Page, ProofType, Storyline,
+  SubmitProofRequest, SubmitProofResponse, Verdict, WizardChatRequest, WizardChatResponse,
 } from '@/shared/types';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -74,7 +77,29 @@ export async function generateStoryline(req: GenerateStorylineRequest): Promise<
     }
     return { storyline_id: mock.storyline.id, reused: true };
   }
-  return invoke('generate-storyline', req);
+  // G2: tell the engine which pages this build can draw, so it never picks a template that would show placeholder art.
+  return invoke('generate-storyline', { ...req, art_ready: drawnTemplates() });
+}
+
+// Start of the large placeholder region in assets/pages/placeholder.ts (an undrawn template).
+const PLACEHOLDER_MARK = 'M80 1300 L80 1010 C230 880';
+let drawnCache: TemplateId[] | null = null;
+
+/**
+ * Templates with real art in this build (not the placeholder frame). Uses AD's `DRAWN_TEMPLATES` export from
+ * assets/pages when it exists (see REQUESTS.md), otherwise detects the placeholder's path.
+ */
+export function drawnTemplates(): TemplateId[] {
+  if (drawnCache) return drawnCache;
+  const declared = (PageArtModule as unknown as Record<string, unknown>).DRAWN_TEMPLATES;
+  if (Array.isArray(declared)) return (drawnCache = declared.filter(isTemplateId));
+  const art = PageArtModule.PAGE_ART as Partial<Record<TemplateId, { regions: Record<string, { d: string }> }>>;
+  drawnCache = TEMPLATE_IDS.filter((id) => {
+    const large = TEMPLATES[id].regions.find((r) => r.size === 'large');
+    const d = large ? art[id]?.regions[large.id]?.d : undefined;
+    return !!d && !d.startsWith(PLACEHOLDER_MARK);
+  });
+  return drawnCache;
 }
 
 export async function submitProof(req: SubmitProofRequest): Promise<SubmitProofResponse> {
@@ -100,10 +125,11 @@ export async function rerollMission(missionId: string, reason?: string, difficul
     if (!m) throw new Error('That mission has vanished from the book. Pull to refresh.');
     if (m.status !== 'open') throw new Error(m.status === 'complete' ? 'That region is already colored!' : 'That chapter is still sealed.');
     const alt = MOCK_REROLLS[m.type] ?? MOCK_REROLLS.relic;
-    const page = mock.pages.find((p) => p.id === m.page_id);
-    const size = TEMPLATES[page?.template_id ?? 'castle_gate'].regions.find((r) => r.id === m.region_id)?.size ?? 'small';
     const d = asDifficulty(difficulty, 'easy');
-    const next = patchMission(m.id, { ...alt, title: m.title === alt.title ? `${alt.title} II` : alt.title, place: null, trial_question: null, points: missionPoints(size, d) })!;
+    // G1: a reroll keeps the region's crew; a trio can't become a gift.
+    const kept = m.type === 'gathering' ? alt : alt.type === 'gift' && m.required_members >= 3 ? MOCK_REROLLS.duet : alt;
+    const next = patchMission(m.id, { ...kept, title: m.title === kept.title ? `${kept.title} II` : kept.title, place: null, trial_question: null,
+      points: missionPoints(crewOf({ type: kept.type, required_members: m.required_members }), d) })!;
     const how = d === 'hard' ? 'a braver' : d === 'normal' ? 'a different' : 'a gentler';
     addMessage({ fellowship_id: m.fellowship_id, user_id: null, kind: 'wizard', body: `${mock.profiles.find((p) => p.id === ME)?.display_name ?? 'Someone'} asked Sage for ${how} quest. With a flick of the quill, "${m.title}" became "${next.title}".`, payload: null });
     emitMock();
@@ -246,7 +272,7 @@ function mockUTBook(difficulty: Difficulty): string {
     const recap = { ...MOCK_RECAP, summary: `"${prev.title}" was set aside with ${done} of ${total} regions colored. Sage tucked a bookmark in it, just in case.`, abandoned: true };
     mock.books = mock.books.map((b) => (b.id === prev.id ? { ...b, status: 'complete', recap } : b));
   }
-  const { storyline, pages, missions, answers } = utMockBook(mock.fellowship.id, (prev?.book_number ?? 0) + 1, difficulty);
+  const { storyline, pages, missions, answers } = utMockBook(mock.fellowship.id, (prev?.book_number ?? 0) + 1, difficulty, mock.members.length);
   Object.assign(mockAnswers, answers);
   addBook(storyline, pages, missions);
   addMessage({ fellowship_id: mock.fellowship.id, user_id: null, kind: 'proclamation',
@@ -266,26 +292,49 @@ function mockFirstBook(): string {
   return book.id;
 }
 
+const PROOF_FOR_TYPE: Record<MissionType, ProofType> = {
+  gathering: 'group_photo', duet: 'photo', relic: 'photo', bard: 'text', trial: 'answer', gift: 'confirm',
+};
+const MOCK_TITLES = ['The Clockwork Owl of Austin', 'The Sleeping Song of Austin', 'The Paper Moon of Austin', 'The Crayon Thief of Austin'];
+
 /**
- * Mock sequel / replacement: a fresh copy of the current book's pages/missions, all reset, as Book N+1.
+ * Mock sequel / replacement: a fresh Book N+1 on templates picked like the server (G2: mood fit from everyone's
+ * interests, art-ready only, avoiding the previous book's pages), with the handcrafted missions and G1 crews.
  * `abandonCurrent` shelves the current book unfinished (recap.abandoned), like the server's replace_active.
  */
 function mockSequel(difficulty: Difficulty = 'normal', abandonCurrent = false): string {
   const prev = mock.storyline!;
   const n = prev.book_number + 1;
   const sid = `s-${n}-${Date.now().toString(36)}`;
+  const memberCount = mock.members.length;
+  const counts: Record<string, number> = {};
+  for (const p of mock.profiles) for (const i of new Set(p.interests ?? [])) counts[i] = (counts[i] ?? 0) + 1;
+  const prevPages = mock.pages.filter((p) => p.storyline_id === prev.id);
+  const templates = pickChapterTemplates({
+    count: memberCount >= 4 ? 4 : 3, interestCounts: counts, allowed: drawnTemplates(),
+    previous: prevPages.map((p) => p.template_id), seed: n * 7919 + Date.now() % 997,
+  }) as TemplateId[];
   const book: Storyline = { ...prev, id: sid, book_number: n, status: 'active', recap: null, difficulty, created_at: new Date().toISOString(),
-    title: 'The Clockwork Owl of Austin',
-    synopsis: 'A clockwork owl is stealing the songs of Austin, one by one. The fellowship that once lit the lanterns must win the music back.' };
-  const prevPages = mock.pages.filter((p) => p.storyline_id === prev.id).sort((a, b) => a.chapter_number - b.chapter_number);
-  const pages: Page[] = prevPages.map((p, i) => ({ ...p, id: `${sid}-p${i + 1}`, storyline_id: sid, status: i === 0 ? 'active' : 'locked', illustration_url: null, completed_at: null }));
-  const pageId = new Map(prevPages.map((p, i) => [p.id, pages[i].id]));
-  const missions: Mission[] = mock.missions.filter((m) => m.storyline_id === prev.id).map((m) => {
-    const pid = pageId.get(m.page_id)!;
-    const tpl = prevPages.find((p) => p.id === m.page_id)?.template_id ?? 'castle_gate';
-    const size = TEMPLATES[tpl].regions.find((r) => r.id === m.region_id)?.size ?? 'small';
-    return { ...m, id: `${sid}-${m.id}`, page_id: pid, storyline_id: sid, status: pid === pages[0].id ? 'open' : 'locked', completed_by: [], completed_at: null, story_line: null, points: missionPoints(size, difficulty) };
-  });
+    title: MOCK_TITLES[n % MOCK_TITLES.length],
+    synopsis: 'Something new is stirring in Austin, and it has been waiting for exactly this fellowship. The old friends must band together once more.' };
+  const pages: Page[] = templates.map((t, i) => ({
+    id: `${sid}-p${i + 1}`, storyline_id: sid, chapter_number: i + 1, title: FALLBACK_CHAPTER_TEXT[t]?.title ?? TEMPLATES[t].title,
+    narrative: FALLBACK_CHAPTER_TEXT[t]?.narrative ?? '', template_id: t, status: i === 0 ? 'active' : 'locked', illustration_url: null, completed_at: null,
+  }));
+  const now = new Date().toISOString();
+  const missions: Mission[] = pages.flatMap((pg, i) => TEMPLATES[pg.template_id].regions.map((r) => {
+    const spec = FALLBACK[pg.template_id][r.id];
+    const crew = crewFor(r.size, spec.crew, memberCount, spec.type);
+    const id = `${pg.id}-${r.id}`;
+    if (spec.trial) mockAnswers[id] = spec.trial.a;
+    return {
+      id, page_id: pg.id, storyline_id: sid, fellowship_id: mock.fellowship.id, region_id: r.id, title: spec.title,
+      description: spec.desc(null, crew), story_hook: spec.hook, type: spec.type, proof_type: PROOF_FOR_TYPE[spec.type],
+      required_members: crew, assignee_ids: [], place: null, trial_question: spec.trial?.q ?? null, verification_hint: spec.hint,
+      points: missionPoints(crewOf({ type: spec.type, required_members: crew }), difficulty),
+      status: i === 0 ? 'open' : 'locked', completed_by: [], completed_at: null, story_line: null, created_at: now,
+    } satisfies Mission;
+  }));
   if (prev.status !== 'complete') {
     const done = mock.missions.filter((m) => m.storyline_id === prev.id && m.status === 'complete').length;
     const total = mock.missions.filter((m) => m.storyline_id === prev.id).length;

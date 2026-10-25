@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
     case 'photo':
     case 'group_photo':
       if (!proof_url) return nope('The Magic Mirror needs a photo. It is a mirror, after all! Snap one and try again.', 'no_photo');
-      verdict = await verifyPhoto(mission, proof_url, mission.proof_type === 'group_photo' ? need : undefined, left);
+      verdict = await verifyPhoto(mission, proof_url, need >= 2 ? need : undefined, left); // duets/trios: expect the crew
       break;
     default: // text, voice
       if (!proof_text) return nope('The page is blank! Even Sage needs a few words to work with. Try again.', 'no_text');

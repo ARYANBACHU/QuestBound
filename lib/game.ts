@@ -357,9 +357,11 @@ export function useCompletions(storylineId: string | null): { completions: Compl
 // re-add points by hand. Each participant in a complete mission's completed_by earns mission.points.
 //   pointsFor(userId, missions) -> number
 //   leaderboard(members, missions) -> { member, user_id, points, missions, rank }[] (desc, ties share a rank)
+//   crewOf(mission) -> 'solo' | 'duet' | 'trio' | 'fellowship'; CREW_LABEL[crew] -> "Trio" (G1: label missions by crew,
+//   NOT by type — a 3-person mission still has type 'duet'). Points: solo 10 / duet 20 / trio 30 / fellowship 40 × difficulty.
 export {
-  asDifficulty, DIFFICULTY_MULTIPLIER, leaderboard, missionPoints, missionsCompletedBy, pointsFor, SIZE_POINTS,
-  type LeaderboardEntry,
+  asDifficulty, CREW_LABEL, CREW_POINTS, crewOf, DIFFICULTY_MULTIPLIER, leaderboard, missionPoints, missionsCompletedBy,
+  pointsFor, pointsForMission, SIZE_POINTS, type Crew, type LeaderboardEntry,
 } from '@/supabase/functions/_shared/points';
 
 // ---------------------------------------------------------------- extras (new exports, additive)

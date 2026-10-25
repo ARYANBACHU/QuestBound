@@ -14,6 +14,7 @@ import { asDifficulty, type PointsDifficulty } from '../_shared/points.ts';
 import { archiveBook } from '../_shared/progress.ts';
 import { buildUTBook, verifyUTPlaces } from '../_shared/ut.ts';
 import { analyzeInterests, INTEREST_INFO } from '../_shared/interests.ts';
+import { pickChapterTemplates } from '../_shared/pick.ts';
 import {
   CHAPTER_SCHEMA, chapterTask, OUTLINE_SCHEMA, type Outline, outlineTask, type SequelCtx, sequelAddendum, type StoryCtx,
   storylineSystem, storylineUser,
@@ -23,10 +24,16 @@ import {
   preferredPlaces, repairChapter, writeBookRows,
 } from '../_shared/book.ts';
 import {
-  type BookRecap, memberCtx, type MemberCtx, type MissionType, type Place, type Profile, type TemplateId,
+  type BookRecap, CLASSIC_TEMPLATE_IDS, memberCtx, type MemberCtx, type MissionType, type Place, type Profile,
+  TEMPLATE_IDS, type TemplateId,
 } from '../_shared/types.ts';
 
 const BUDGET_MS = 27_000;
+// G2: templates the app can draw (real art, not the placeholder frame). The app sends its own list as `art_ready`
+// (lib/api.ts reads assets/pages); older builds don't, so the default is this secret (comma-separated ids) or the
+// 4 classics. Set ART_READY_TEMPLATES once AD/MP's art is merged and shipped to every phone.
+const ART_READY_DEFAULT: TemplateId[] = (Deno.env.get('ART_READY_TEMPLATES') ?? '').split(',').map((t) => t.trim())
+  .filter((t): t is TemplateId => (TEMPLATE_IDS as string[]).includes(t));
 const DEFAULT_LOCATION = { lat: 30.2849, lng: -97.7341, label: 'Austin, TX' };
 const TYPE_LABEL: Record<MissionType, string> = {
   gathering: 'Gatherings', duet: 'Duets', relic: 'Relic hunts', bard: 'Bard verses', trial: 'Riddles', gift: 'Gifts',
@@ -103,10 +110,15 @@ Deno.serve(async (req) => {
   // 3. interest analysis (pure code)
   const interests = analyzeInterests(members);
 
-  // 5. chapters
-  const chapters: TemplateId[] = mode === 'sequel' ? sequelChapters(bookNumber) : [
-    'castle_gate', 'enchanted_forest', 'dragon_peak', ...(members.length >= 4 ? ['royal_feast' as const] : []),
-  ];
+  // 5. chapters (G2): 3 chapters (4 for fellowships of 4+), picked from every template that has real art, by mood
+  // fit with the fellowship's interests; no repeats in the book; the previous book's pages are avoided.
+  const artReady = artReadyFrom(body.art_ready);
+  const pastTemplates = await previousTemplates((books ?? []).map((b) => b.id));
+  const chapters = pickChapterTemplates({
+    count: mode === 'sequel' ? 3 : members.length >= 4 ? 4 : 3,
+    interestCounts: interests.counts, allowed: artReady, previous: pastTemplates.previous, older: pastTemplates.older,
+    seed: hashSeed(`${fellowship_id}:${bookNumber}:${books?.length ?? 0}`),
+  }) as TemplateId[];
 
   // Sequel context (DB only, fast)
   const priorBook = (books ?? []).find((b) => b.status === 'complete') ?? active ?? null;
@@ -205,7 +217,7 @@ Deno.serve(async (req) => {
         repaired += r.repaired;
         chapterSources.push(r.repaired >= 4 ? 'fallback' : 'llm');
       } else {
-        missions = fallbackChapterMissions(c.template_id, i, picker, prefer[i], difficulty);
+        missions = fallbackChapterMissions(c.template_id, i, picker, prefer[i], difficulty, members.length);
         chapterSources.push('fallback');
       }
       ensureCoverage(missions, members, interests.unique);
@@ -221,6 +233,7 @@ Deno.serve(async (req) => {
       mode, demo, difficulty, replace_active: replaceActive, book_number: bookNumber,
       interests: { counts: interests.counts, shared: interests.shared, unique: interests.unique, themes: interests.themes },
       places, serp, prior_recap: sequel?.recap ?? null, adaptation,
+      templates: { picked: chapters, art_ready: artReady, avoided: pastTemplates.previous },
       source: { outline: outlineSource, chapters: chapterSources, repaired, llm_available: HAS_LLM },
       timings_ms: { ...timings, total: Date.now() - t0 },
     };
@@ -288,11 +301,22 @@ function hashSeed(s: string): number {
   return h;
 }
 
-function sequelChapters(bookNumber: number): TemplateId[] {
-  const pool: TemplateId[] = ['castle_gate', 'enchanted_forest', 'dragon_peak'];
-  const k = bookNumber % pool.length;
-  const rotated = [...pool.slice(k), ...pool.slice(0, k)];
-  return [rotated[0], rotated[1], 'royal_feast'];
+/** G2: the art-ready list the app sent (validated), or the server default; the classics always qualify. */
+function artReadyFrom(raw: unknown): TemplateId[] {
+  const sent = Array.isArray(raw) ? raw.filter((t): t is TemplateId => typeof t === 'string' && (TEMPLATE_IDS as string[]).includes(t)) : [];
+  return [...new Set([...(sent.length ? sent : ART_READY_DEFAULT), ...CLASSIC_TEMPLATE_IDS])];
+}
+
+/** Templates of the fellowship's previous book (avoid) and of every older book (mildly avoid). `ids` newest first. */
+async function previousTemplates(ids: string[]): Promise<{ previous: TemplateId[]; older: TemplateId[] }> {
+  if (!ids.length) return { previous: [], older: [] };
+  const { data } = await admin.from('pages').select('storyline_id, template_id').in('storyline_id', ids.slice(0, 6));
+  const rows = (data ?? []) as { storyline_id: string; template_id: TemplateId }[];
+  const prevId = ids.find((id) => rows.some((r) => r.storyline_id === id));
+  return {
+    previous: rows.filter((r) => r.storyline_id === prevId).map((r) => r.template_id),
+    older: rows.filter((r) => r.storyline_id !== prevId).map((r) => r.template_id),
+  };
 }
 
 /** Ask for JSON; on parse failure retry once with the error appended (if time allows). Null on failure. */

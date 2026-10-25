@@ -2,7 +2,7 @@
 // Uses the SAME module the edge functions and the app use (supabase/functions/_shared/points.ts).
 import assert from 'node:assert/strict';
 import {
-  DIFFICULTY_MULTIPLIER, leaderboard, missionPoints, pointsFor, SIZE_POINTS, totalAwarded,
+  CREW_POINTS, crewOf, DIFFICULTY_MULTIPLIER, leaderboard, missionPoints, pointsFor, SIZE_POINTS, totalAwarded,
 } from '../supabase/functions/_shared/points.ts';
 import { MEMBERS, MISSIONS, PAGES } from './demo.ts';
 
@@ -23,10 +23,22 @@ test('size base × difficulty multiplier', () => {
   assert.equal(missionPoints('large', 'nonsense'), 40, 'unknown difficulty = normal');
 });
 
-test('fixture missions are priced by the rule', () => {
-  const sizeOf = { castle: 'large', great_tree: 'large', dragon: 'large', drawbridge: 'medium', banners: 'medium',
-    mushroom_ring: 'medium', river: 'medium', mountain: 'medium', treasure: 'medium' };
-  for (const m of MISSIONS) assert.equal(m.points, missionPoints(sizeOf[m.region_id] ?? 'small'), m.id);
+test('G1: crew base solo 10 / duet 20 / trio 30 / fellowship 40 × difficulty', () => {
+  assert.deepEqual(CREW_POINTS, { solo: 10, duet: 20, trio: 30, fellowship: 40 });
+  const table = ['solo', 'duet', 'trio', 'fellowship'].map((c) => ['easy', 'normal', 'hard'].map((d) => missionPoints(c, d)));
+  assert.deepEqual(table, [[8, 10, 15], [15, 20, 30], [23, 30, 45], [30, 40, 60]]);
+  assert.equal(crewOf({ type: 'gathering', required_members: 2 }), 'fellowship');
+  assert.equal(crewOf({ type: 'duet', required_members: 3 }), 'trio');
+  assert.equal(crewOf({ type: 'relic', required_members: 2 }), 'duet');
+  assert.equal(crewOf({ type: 'bard', required_members: 1 }), 'solo');
+});
+
+test('fixture missions are priced by their crew, and no page has more than 2 solo missions', () => {
+  for (const m of MISSIONS) assert.equal(m.points, missionPoints(crewOf(m)), m.id);
+  for (const p of PAGES) {
+    const solos = MISSIONS.filter((m) => m.page_id === p.id && crewOf(m) === 'solo').length;
+    assert.ok(solos <= 2, `${p.id} has ${solos} solo missions`);
+  }
 });
 
 test('only complete missions pay, every credited hero gets the full points', () => {
@@ -49,7 +61,7 @@ test('a whole book: member totals add up to what the missions paid out', () => {
   const played = MISSIONS.map((m, i) => ({
     ...m,
     status: 'complete',
-    completed_by: m.type === 'gathering' ? ids : m.required_members >= 2 ? [ids[i % 4], ids[(i + 1) % 4]] : [ids[i % 4]],
+    completed_by: m.type === 'gathering' ? ids : Array.from({ length: m.required_members }, (_, k) => ids[(i + k) % 4]),
   }));
   const board = leaderboard(MEMBERS, played);
   const sum = board.reduce((s, r) => s + r.points, 0);
@@ -58,8 +70,8 @@ test('a whole book: member totals add up to what the missions paid out', () => {
   for (let k = 1; k < board.length; k++) assert.ok(board[k - 1].points >= board[k].points, 'sorted desc');
   assert.equal(board.length, MEMBERS.length);
   assert.equal(PAGES.length * 6, MISSIONS.length, 'every page has 6 missions');
-  // Grand total of the fixture book at normal difficulty: 3 pages × (40 + 2×20 + 3×10) = 330 mission points.
-  assert.equal(played.reduce((s, m) => s + m.points, 0), 330);
+  // Grand total of the fixture book at normal difficulty: 3 pages × (40 + 30 + 20 + 20 + 2×10) = 390 mission points.
+  assert.equal(played.reduce((s, m) => s + m.points, 0), 390);
 });
 
 test('leaderboard ranks: ties share a rank, zero-point members included, works with profiles (id)', () => {

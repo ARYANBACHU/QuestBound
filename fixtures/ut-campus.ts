@@ -5,7 +5,8 @@
  * mock-mode version of the book. Owner: EV.
  */
 import { UT_BOOK, UT_CENTER, UT_PLACES, type UTPlace } from '@/supabase/functions/_shared/ut-campus';
-import { missionPoints } from '@/supabase/functions/_shared/points';
+import { crewOf, missionPoints } from '@/supabase/functions/_shared/points';
+import { crewFor, crewWord } from '@/supabase/functions/_shared/fallbacks';
 import { TEMPLATES } from '@/shared/templates';
 import type { Difficulty, Mission, MissionType, Page, Place, ProofType, Storyline } from '@/shared/types';
 
@@ -29,7 +30,7 @@ export function utPlace(key: string): Place | null {
 }
 
 /** Mock mode: the whole UT book as rows (chapter I open, the rest locked). Trial answers stay out of the rows. */
-export function utMockBook(fellowshipId: string, bookNumber: number, difficulty: Difficulty = 'normal'): {
+export function utMockBook(fellowshipId: string, bookNumber: number, difficulty: Difficulty = 'normal', memberCount = 4): {
   storyline: Storyline; pages: Page[]; missions: Mission[]; answers: Record<string, string>;
 } {
   const now = new Date().toISOString();
@@ -49,11 +50,12 @@ export function utMockBook(fellowshipId: string, bookNumber: number, difficulty:
       const size = TEMPLATES[c.template_id].regions.find((r) => r.id === m.region_id)?.size ?? 'small';
       const id = `${pid}-${m.region_id}`;
       if (m.trial_answer) answers[id] = m.trial_answer;
+      const crew = crewFor(size, m.crew, memberCount, m.type); // G1, same as the server
       missions.push({
         id, page_id: pid, storyline_id: sid, fellowship_id: fellowshipId, region_id: m.region_id, title: m.title,
-        description: m.description, story_hook: m.story_hook, type: m.type, proof_type: PROOF_FOR_TYPE[m.type],
-        required_members: size === 'large' ? 4 : size === 'medium' ? 2 : 1, assignee_ids: [], place: m.place ? utPlace(m.place) : null,
-        trial_question: m.trial_question ?? null, verification_hint: m.verification_hint, points: missionPoints(size, difficulty),
+        description: m.description.replace('{Crew}', crewWord(crew)), story_hook: m.story_hook, type: m.type, proof_type: PROOF_FOR_TYPE[m.type],
+        required_members: crew, assignee_ids: [], place: m.place ? utPlace(m.place) : null,
+        trial_question: m.trial_question ?? null, verification_hint: m.verification_hint, points: missionPoints(crewOf({ type: m.type, required_members: crew }), difficulty),
         status: i === 0 ? 'open' : 'locked', completed_by: [], completed_at: null, story_line: null, created_at: now,
       });
     }
