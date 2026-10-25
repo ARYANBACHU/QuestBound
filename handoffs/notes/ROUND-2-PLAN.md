@@ -74,3 +74,56 @@ M4 Joining before a storyline exists never crashes; Friends tab works with no st
 
 DISTRIBUTION (merge agent, after round 2 merge): see the separate distribution prompt.
 === END PLAN ===
+
+=== UI UPGRADE ===
+Goal: ramp the UI from "clean prototype" to "this looks like a shipped game" while keeping quality and
+consistency. Study the patterns (not assets) of: Duolingo (mascot everywhere, celebratory moments, bold
+chunky buttons with press-depth), Finch and Pokémon GO (a character you bond with, map/place energy), Monument
+Valley / Alto (cohesive painterly palettes), and storybook-fantasy films like Shrek and Disney/Pixar fairy
+tales for VIBE ONLY — whimsical, cheeky humor, lush storybook swamps/castles/forests. Do NOT use or draw any
+existing characters, names, logos or artwork. Everything must be original.
+
+Visual system (merge agent adds tokens to shared/theme.ts now):
+- Richer palette: deep enchanted greens, swamp teals, royal purples, warm gold, lantern orange, on top of the
+  coloring-book ink style; chapter-mood gradients for screen backgrounds.
+- Chunky "game" buttons: rounded 16+, 3–4 px darker bottom edge that compresses on press, bold Nunito.
+- Cards as parchment/storybook panels: soft paper texture, ink border, slight drop shadow, consistent radius
+  (and overflow hidden — no jagged corners).
+- Decorative layer: original SVG flourishes (stars, fireflies, vines, castle/forest silhouettes) to fill empty
+  space — subtle, never behind text.
+- Celebrations: confetti of crayon shavings + gold sparkles on mission complete/page turn/book complete.
+
+SAGE (the wizard) must be far more visible — our mascot:
+- AB creates components/wizard/Sage.tsx: an ORIGINAL wizard character drawn in react-native-svg (round,
+  friendly, big hat with stars, beard, staff with a glowing tip), in our ink + crayon style, with expressions
+  via prop: idle | happy | thinking | surprised | proud | sleepy, and sizes sm/md/lg. Subtle idle animation
+  (blink, hat-star twinkle, gentle bob) — respects reduced motion.
+- Sage appears: onboarding every step (lg, beside the speech bubble), all empty states, loading/ritual
+  screens ("thinking"), mission pass ("proud") / fail ("surprised"), page turn and book complete
+  ("happy" + celebration), wizard FAB (sm face), wizard sheet header, chat messages from Sage, coach marks.
+  Always with "✦ powered by Muse" on the sheet header.
+- Others (AD, MP, EV fixtures) import Sage from components/wizard/Sage.tsx; until it exists, a placeholder
+  with the same props.
+
+Quality bar: one consistent radius/shadow/spacing scale, AA contrast, motion only in response to events
+(except Sage's subtle idle), test on iPhone SE + Pro Max, no layout jank, 60fps animations.
+
+Per owner: AB = Sage component + all shell/onboarding/missions/settings/wizard; AD = coloring/storybook
+backgrounds, frame, celebrations; MP = chat bubbles/cards/header in the new style, Sage in chat; EV = make
+proclamation/flavor text slightly more cheeky and whimsical (still kind) and rename the narrator to Sage.
+=== END ===
+
+=== THEME TOKENS ON MAIN (shared/theme.ts, all additive — existing names unchanged) ===
+Color moods: MOODS[castle|forest|dragon|feast] { gradient, tint, tintStrong, deep, onDeep }, moodFor(templateId),
+  MOOD_FOR_TEMPLATE, SCREEN_GRADIENTS[mood] (3-stop screen background).
+Controls: accent.*, chips[tone] { bg, fg, border }, DIFFICULTY_TONE, ON_CRAYON[color] (AA label on a crayon).
+Game look: realm.* palette, ui { buttonRadius 18, cardRadius, buttonDepth 4 → buttonDepthPressed 1, borderWidth,
+  buttonHeight, pressScale }, gameButton[tone] { face, edge, label }, panel { parchment, border, radius },
+  shadow.sm|md|lg, decor.*, celebration { confetti, sparkle, counts, durationMs }, motion.*.
+Overlays: scrim.soft|base|strong|heavy|black|paperFade|paper|glareClear|glare — no hard-coded rgba().
+Sage: SageExpression, SAGE_EXPRESSIONS, SageSize, SAGE_SIZES (sm 44 / md 88 / lg 160), sageColors, SAGE_CREDIT.
+Placeholder until AB lands Sage.tsx: `({ expression, size }: { expression?: SageExpression; size?: SageSize })`.
+Types: Difficulty, RerollMissionRequest, GPS fields on SubmitProofRequest + Verdict.distance_m,
+  Profile.music_enabled, Storyline.difficulty?. EV: mirror the new fields in supabase/functions/_shared/types.ts.
+DB: 0003_round2.sql is already applied to the live project.
+=== END TOKENS ===

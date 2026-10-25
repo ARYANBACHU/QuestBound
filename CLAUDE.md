@@ -43,7 +43,7 @@ their own phones at the table via Expo Go.
 | Chapter / Page | one coloring page |
 | Mission | one task, tied to one region of a page |
 | Proclamation | automatic chat message announcing progress ("Hear ye! …") |
-| Muse / the Wizard | the AI guide and narrator (always "Muse") |
+| Sage / the Wizard | the in-app guide and narrator (always "Sage"); shown with "✦ powered by Muse" — Muse is Meta's model, the AI credit only |
 | Crest | a player's avatar (emoji for now) |
 | Crayon / color | a player's color; it paints the regions they complete |
 | Magic Mirror | photo verification moment |
@@ -125,16 +125,41 @@ happens ("Submit proof", "Turn the page"). Errors explain what to do next.
 - Edge functions: Deno, import shared helpers from `supabase/functions/_shared/*`. Deno can't import `/shared`
   — use the mirror in `_shared/types.ts`.
 
-## 6. Design direction (everyone follows this)
+## 6. Design direction (everyone follows this — updated for Round 2 "UI upgrade")
 
-A fairy-tale **coloring book**, not a generic card app.
-- Background `ink.paper` (cool white). Text and outlines `ink.ink` (deep indigo ink). Thick ink strokes.
-- The ONLY saturated colors are the 8 **crayons** (`CRAYONS`) — they mean "a player did this". Gold (`ink.gold`)
-  = royal seal / completion. Don't decorate with crayon colors for no reason.
-- Type: **Fraunces** (display: book titles, chapter titles, big moments; italic for narrated story lines) +
-  **Nunito** (everything else). Sizes from `type` in theme.
-- The signature moment is a region **filling with crayon color**. Keep everything else calm so that moment lands.
-- Motion: respond to user actions (fill, page turn, seal stamp). No decorative looping animations.
+A fairy-tale **coloring book** that looks like a **shipped storybook game**, not a generic card app or a prototype.
+Patterns to study (never their assets): Duolingo (mascot everywhere, celebrations, chunky press-depth buttons),
+Finch / Pokémon GO (a character you bond with, place energy), Monument Valley / Alto (cohesive painterly palettes),
+storybook-fantasy films for **vibe only** (whimsical, cheeky, lush swamps/castles/forests). Never use or draw any
+existing characters, names, logos or artwork — everything is original.
+
+- **Ink style stays.** Text and outlines `ink.ink` (deep indigo ink), thick ink strokes, base background `ink.paper`.
+- **Color, with meaning.** Screen backgrounds use the chapter mood (`moodFor(template_id)`, `SCREEN_GRADIENTS`,
+  `MOODS[*].tint`). Chrome uses the `realm` palette (enchanted green, swamp teal, royal purple, warm gold, lantern
+  orange). Controls use `accent` / `chips` / `gameButton`. **Crayons (`CRAYONS`) still mean "a player did this"** —
+  use them for player fills, crests, confetti, not decoration. Gold (`ink.gold`) = royal seal / completion.
+- **Chunky game buttons:** `ui.buttonRadius` (18), a `ui.buttonDepth` (4 px) darker bottom edge from
+  `gameButton[tone].edge` that compresses to `buttonDepthPressed` on press, bold Nunito label.
+- **Parchment panels:** cards/sheets use `panel` (parchment fill, ink border, `shadow.sm|md`), one radius
+  (`ui.cardRadius`). Pop-ups/sheets/modals: the outer container and every edge-touching child share the same
+  borderRadius with `overflow: 'hidden'` — no jagged corners.
+- **Decorative layer:** original SVG flourishes (stars, fireflies, vines, castle/forest silhouettes, `decor` tokens)
+  fill empty space — subtle, never behind text.
+- **Celebrations:** crayon-shaving confetti + gold sparkles (`celebration`) on mission complete, page turn, book
+  complete. The signature moment is still a region **filling with crayon color** — celebrations frame it.
+- **Sage is our mascot.** The in-app wizard is **Sage** (`components/wizard/Sage.tsx`, owner AB; original SVG
+  character, expressions idle | happy | thinking | surprised | proud | sleepy, sizes sm/md/lg). Sage appears in
+  onboarding, empty states, loading/rituals ("thinking"), mission pass ("proud") / fail ("surprised"), page turn and
+  book complete ("happy"), the FAB, the wizard sheet header, chat, and coach marks. Under Sage's name always show
+  `SAGE_CREDIT` ("✦ powered by Muse"). "Muse" is only the AI credit, never the character.
+- **Type:** **Fraunces** (display: book titles, chapter titles, big moments; italic for narrated story lines) +
+  **Nunito** (everything else; bold for buttons). Sizes from `type` in theme.
+- **No hard-coded colors or rgba()** outside theme/art files — overlays use `scrim.*`.
+- **Motion:** respond to events (fill, page turn, seal stamp, press, celebrations) using `motion` timings. The only
+  looping animation is Sage's subtle idle (blink, hat-star twinkle, gentle bob), and it stops under reduced motion.
+  60fps, no layout jank.
+- **Quality bar:** one radius/shadow/spacing scale (`ui`, `shadow`, `space`), WCAG AA contrast (pairings are noted in
+  theme.ts), test on iPhone SE and Pro Max.
 - Haptics on: mission complete (success), page turn (heavy), errors (warning).
 
 ## 7. Definition of done for Round 1 (the base product)
