@@ -1,5 +1,5 @@
 // Owner: MP. Tiny color helpers for crayon-filled UI (bubbles, swatches).
-import { CRAYONS, ink, type CrayonColor } from '@/shared/theme';
+import { CRAYONS, ON_CRAYON, ink, type CrayonColor } from '@/shared/theme';
 
 export function crayonHex(color: CrayonColor | string | null | undefined): string {
   return (color && CRAYONS[color as CrayonColor]) || ink.muted;
@@ -17,6 +17,8 @@ function luminance(hex: string): number {
 
 /** White text on dark crayons, ink text on light ones (marigold, etc). */
 export function textOn(color: CrayonColor | string | null | undefined): string {
+  const known = color ? ON_CRAYON[color as CrayonColor] : undefined;
+  if (known) return known; // AA pairings checked by the merge agent
   const bg = crayonHex(color);
   const contrastWhite = 1.05 / (luminance(bg) + 0.05);
   return contrastWhite >= 3 ? ink.page : ink.ink;

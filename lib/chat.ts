@@ -137,7 +137,7 @@ async function loadLatest(room: Room) {
     .order('created_at', { ascending: false })
     .limit(PAGE);
   if (error) {
-    setRoom(room, { loading: false, error: 'Muse could not fetch the chat. Pull to refresh or check your connection.' });
+    setRoom(room, { loading: false, error: 'Sage could not fetch the chat. Pull to refresh or check your connection.' });
     return;
   }
   setRoom(room, { loading: false, error: null });
@@ -383,7 +383,7 @@ async function sendSystemReal(fellowshipId: string, body: string) {
     .insert({ fellowship_id: fellowshipId, user_id: uid, kind: 'system', body, payload: null })
     .select('*')
     .single();
-  if (error) throw new Error(`Muse's raven got lost: ${error.message}. Try again.`);
+  if (error) throw new Error(`Sage's raven got lost: ${error.message}. Try again.`);
   merge(getRoom(fellowshipId), [data as Message]);
 }
 

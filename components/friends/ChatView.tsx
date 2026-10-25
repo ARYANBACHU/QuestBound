@@ -1,4 +1,4 @@
-// Owner: MP. The fellowship group chat: texts, proclamations (scroll cards), system lines, Muse, day separators.
+// Owner: MP. The fellowship group chat: texts, proclamations (scroll cards), system lines, Sage, day separators.
 import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -235,7 +235,7 @@ function MyBubble({ m, chat, members, last, onLongPress }: { m: ChatMessage; cha
   const onPress = failed
     ? () => {
         haptic.warning();
-        Alert.alert('Message not sent', 'Muse could not deliver it. Try again?', [
+        Alert.alert('Message not sent', 'Sage could not deliver it. Try again?', [
           { text: 'Delete', style: 'destructive', onPress: () => chat.discard(m.id) },
           { text: 'Retry', onPress: () => void chat.retry(m.id) },
         ]);
@@ -308,7 +308,7 @@ function WizardBubble({ m, first, last, onLongPress }: { m: ChatMessage; first: 
         ) : null}
       </View>
       <View style={styles.theirsCol}>
-        {first ? <Text style={styles.name}>Muse</Text> : null}
+        {first ? <Text style={styles.name}>Sage</Text> : null}
         <Pressable onLongPress={onLongPress} delayLongPress={300} style={[styles.bubble, styles.wizard]}>
           <Text style={[styles.text, styles.wizardText]}>{m.body}</Text>
         </Pressable>

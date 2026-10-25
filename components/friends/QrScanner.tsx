@@ -58,7 +58,7 @@ export default function QrScanner({ onCode, onCancel, onTypeCode, hint }: QrScan
     return (
       <View style={[styles.fill, styles.center, styles.paper, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <Text style={styles.bigEmoji}>🔮</Text>
-        <Text style={styles.title}>Muse needs your eyes</Text>
+        <Text style={styles.title}>Sage needs your eyes</Text>
         <Text style={styles.body}>
           Allow the camera to scan a friend's invite. Or just type the six letters they show you.
         </Text>

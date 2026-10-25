@@ -1,5 +1,5 @@
 // Owner: MP. A proclamation in the group chat: a parchment scroll card with a gold wax seal (actor's crest),
-// a stripe in the crayon that painted the region, and Muse's line in Fraunces italic. Tap → where it happened.
+// a stripe in the crayon that painted the region, and Sage's line in Fraunces italic. Tap → where it happened.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { haptic } from './haptics';

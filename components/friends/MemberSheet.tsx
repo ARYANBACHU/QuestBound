@@ -1,9 +1,9 @@
 // Owner: MP. A hero's page: crest, crayon, interests, the regions they've colored this book, and a "Send a raven"
-// nudge that posts a playful Muse line in the chat.
+// nudge that posts a playful Sage line in the chat.
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CRESTS, INTERESTS, fonts, ink, radius, space, type, type CrestId } from '@/shared/theme';
+import { CRESTS, INTERESTS, fonts, ink, radius, space, type, ui, type CrestId } from '@/shared/theme';
 import { regionDef } from '@/shared/templates';
 import type { FellowshipMember, Mission, Page, Profile } from '@/shared/types';
 import type { ChatState } from '@/lib/chat';
@@ -20,7 +20,7 @@ function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** The line Muse's raven carries. */
+/** The line Sage's raven carries. */
 export function nudgeLine(from: Profile | undefined, target: Profile, lastSeenIso: string | null, waiting: Mission | undefined): string {
   const crest = CRESTS[target.crest as CrestId]?.title ?? 'Wanderer';
   let seen: string;
@@ -31,7 +31,7 @@ export function nudgeLine(from: Profile | undefined, target: Profile, lastSeenIs
   }
   const tail = waiting ? ` ${waiting.title} still waits.` : ' The story is not the same without them.';
   const sender = from ? from.display_name : 'Someone';
-  return `🪶 ${sender} sent Muse's raven to ${heroName(target)}: “The ${crest} ${seen}…${tail}”`;
+  return `🪶 ${sender} sent Sage's raven to ${heroName(target)}: “The ${crest} ${seen}…${tail}”`;
 }
 
 export interface MemberSheetProps {
@@ -81,7 +81,7 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
       haptic.success();
     } catch (e) {
       haptic.warning();
-      setError(e instanceof Error ? e.message : "Muse's raven got lost. Try again.");
+      setError(e instanceof Error ? e.message : "Sage's raven got lost. Try again.");
     }
   };
 
@@ -155,7 +155,7 @@ export default function MemberSheet({ member, members, myId, online, chat, missi
                 <Text style={styles.nudgeText}>{sent || cooling ? 'The raven is on its way' : 'Send a raven 🪶'}</Text>
               </Pressable>
               <Text style={styles.hint}>
-                {sent || cooling ? 'Give them a little while to answer.' : 'Muse will post a playful nudge in the chat.'}
+                {sent || cooling ? 'Give them a little while to answer.' : 'Sage will post a playful nudge in the chat.'}
               </Text>
               {error ? <Text style={styles.error}>{error}</Text> : null}
             </View>
@@ -171,11 +171,12 @@ const styles = StyleSheet.create({
   sheet: {
     maxHeight: '85%',
     backgroundColor: ink.paper,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    borderTopLeftRadius: ui.cardRadius,
+    borderTopRightRadius: ui.cardRadius,
     borderWidth: 3,
     borderBottomWidth: 0,
     borderColor: ink.ink,
+    overflow: 'hidden',
     paddingTop: space.sm,
   },
   grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: ink.muted, marginBottom: space.md },

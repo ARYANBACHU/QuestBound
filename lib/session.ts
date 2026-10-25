@@ -104,10 +104,10 @@ async function ensureSignedInReal(): Promise<string> {
       let uid = existing.data.session?.user.id ?? null;
       if (!uid) {
         const { data, error } = await supabase.auth.signInAnonymously();
-        if (error) throw new Error(`Muse could not open the gate: ${error.message}. Check your connection and try again.`);
+        if (error) throw new Error(`Sage could not open the gate: ${error.message}. Check your connection and try again.`);
         uid = data.user?.id ?? null;
       }
-      if (!uid) throw new Error('Muse could not open the gate. Try again in a moment.');
+      if (!uid) throw new Error('Sage could not open the gate. Try again in a moment.');
       setSnap({ userId: uid });
       if (!snap.profile) {
         const profile = await loadProfile(uid);

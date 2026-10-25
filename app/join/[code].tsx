@@ -43,7 +43,7 @@ export default function JoinScreen() {
         router.replace(onboarded ? '/(tabs)/friends' : '/onboarding');
       } catch (e) {
         haptic.warning();
-        setError(e instanceof Error ? e.message : 'Muse could not open the gate. Try again.');
+        setError(e instanceof Error ? e.message : 'Sage could not open the gate. Try again.');
         setPhase('error');
       }
     },
@@ -62,7 +62,7 @@ export default function JoinScreen() {
         <View style={styles.scroll}>
           <Text style={styles.emoji}>📜</Text>
           <Text style={styles.title}>{name ? `Joining ${name}…` : 'Joining the fellowship…'}</Text>
-          <Text style={styles.body}>Muse is writing your name into the book.</Text>
+          <Text style={styles.body}>Sage is writing your name into the book.</Text>
           <ActivityIndicator color={ink.ink} style={{ marginTop: space.lg }} />
         </View>
       </View>

@@ -7,7 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 import { haptic } from './haptics';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fonts, ink, radius, space, type } from '@/shared/theme';
+import { fonts, ink, radius, space, type, ui } from '@/shared/theme';
 import type { Fellowship } from '@/shared/types';
 import { useFellowship } from '@/lib/fellowship';
 import { withAlpha } from './color';
@@ -32,7 +32,7 @@ export function InviteCard({ fellowship: given, qrSize = 200, style }: InviteCar
   if (!f) {
     return (
       <View style={[styles.card, style]}>
-        <Text style={styles.muse}>Found or join a fellowship first, and Muse will hand you its invite.</Text>
+        <Text style={styles.muse}>Found or join a fellowship first, and Sage will hand you its invite.</Text>
       </View>
     );
   }
@@ -106,11 +106,12 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: withAlpha(ink.ink, 0.45) },
   sheet: {
     backgroundColor: ink.lavenderMist,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    borderTopLeftRadius: ui.cardRadius,
+    borderTopRightRadius: ui.cardRadius,
     borderWidth: 3,
     borderBottomWidth: 0,
     borderColor: ink.ink,
+    overflow: 'hidden',
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
   },
@@ -120,7 +121,8 @@ const styles = StyleSheet.create({
     backgroundColor: ink.page,
     borderWidth: 3,
     borderColor: ink.ink,
-    borderRadius: radius.lg,
+    borderRadius: ui.cardRadius,
+    overflow: 'hidden',
     padding: space.lg,
     alignItems: 'center',
   },
