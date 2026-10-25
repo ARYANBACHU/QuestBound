@@ -14,7 +14,7 @@ export function missionGroup(m: Mission): MissionGroup {
 
 export const GROUP_TITLES: Record<MissionGroup, { title: string; sub: string }> = {
   whole: { title: 'Whole fellowship', sub: 'The big regions. Everyone shows up.' },
-  pairs: { title: 'Pairs', sub: 'Grab a friend — these need two heroes.' },
+  pairs: { title: 'Duets & trios', sub: 'Grab a friend or two — these need two or three heroes.' },
   solo: { title: 'Solo', sub: 'Small regions you can color on your own.' },
 };
 

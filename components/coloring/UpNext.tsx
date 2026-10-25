@@ -2,7 +2,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { ink, panel, shadow, space, ui, type Mood } from '@/shared/theme';
 import type { Mission } from '@/shared/types';
-import { MISSION_TYPE_LABEL, MissionTypeIcon } from './MissionTypeIcon';
+import { MissionTypeIcon } from './MissionTypeIcon';
+import { CREW_LABEL, crewOf } from '@/lib/game';
 import { Txt } from './ui';
 
 const ORDER: Record<Mission['status'], number> = { pending: 0, open: 1, locked: 2, complete: 3 };
@@ -24,7 +25,7 @@ export function UpNext({ mission, mood, onPress }: { mission: Mission; mood: Moo
         <MissionTypeIcon type={mission.type} size={26} color={mood.deep} />
       </View>
       <View style={{ flex: 1 }}>
-        <Txt v="smallBold" color={mood.deep}>{waiting ? 'Waiting on a friend' : `Up next · ${MISSION_TYPE_LABEL[mission.type]}`}</Txt>
+        <Txt v="smallBold" color={mood.deep}>{waiting ? 'Waiting on a friend' : `Up next · ${CREW_LABEL[crewOf(mission)]}`}</Txt>
         <Txt v="bodyBold" numberOfLines={1}>{mission.title}</Txt>
         {mission.place ? <Txt v="small" color={ink.inkSoft} numberOfLines={1}>📍 {mission.place.title}</Txt> : null}
       </View>

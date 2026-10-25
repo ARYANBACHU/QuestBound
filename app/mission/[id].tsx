@@ -19,7 +19,7 @@ import { ParticipantPicker } from '@/components/shell/ParticipantPicker';
 import { RerollSheet } from '@/components/shell/RerollSheet';
 import { playSfx } from '@/components/shell/sfx';
 import { T } from '@/components/shell/T';
-import { CrestRow, MissionTypeIcon, MISSION_TYPE_LABEL } from '@/components/shell/teammates';
+import { CrestRow, MissionTypeIcon } from '@/components/shell/teammates';
 import { formatDistance, hasCoords, useProximity, type Proximity } from '@/components/shell/useProximity';
 import { RewardPack, crayonHex } from '@/components/shell/RewardPack';
 import { WaxSeal } from '@/components/shell/WaxSeal';
@@ -27,7 +27,7 @@ import { SageBubble } from '@/components/wizard/SageBubble';
 import { submitProof, uploadProof } from '@/lib/api';
 import { useChat } from '@/lib/chat';
 import { useFellowship, profileOf } from '@/lib/fellowship';
-import { useMission, useStoryline } from '@/lib/game';
+import { CREW_LABEL, crewOf, useMission, useStoryline } from '@/lib/game';
 import { openInMaps } from '@/lib/maps';
 import { useSession } from '@/lib/session';
 import type { Mission, Page, Place, SubmitProofRequest, SubmitProofResponse } from '@/shared/types';
@@ -215,7 +215,7 @@ export default function MissionDetail() {
               <MissionTypeIcon type={mission.type} size={22} />
             </View>
             <T variant="smallBold" color={mood.deep} style={styles.fill} numberOfLines={1}>
-              {MISSION_TYPE_LABEL[mission.type]} · {regionLabel(page, mission)} · {mission.points} pts
+              {CREW_LABEL[crewOf(mission)]} · {regionLabel(page, mission)} · {mission.points} pts
             </T>
           </View>
           <T variant="title">{mission.title}</T>
@@ -545,7 +545,7 @@ function Footer({ children }: { children: React.ReactNode }) {
 function whoLabel(m: Mission, count: number) {
   if (m.type === 'gathering') return `👥 Whole fellowship — ${Math.max(m.required_members, 2)} of ${count} heroes`;
   if (m.type === 'gift') return '🎁 One gives, one receives';
-  if (m.required_members >= 2) return `🤝 Needs ${m.required_members} heroes`;
+  if (m.required_members >= 2) return `🤝 ${CREW_LABEL[crewOf(m)]} — needs ${m.required_members} heroes`;
   return '🧭 Solo — you can do this alone';
 }
 

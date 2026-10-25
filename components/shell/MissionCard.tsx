@@ -5,10 +5,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { openInMaps } from '@/lib/maps';
 import type { FellowshipMember, Mission, Page } from '@/shared/types';
 import { chips, ink, panel, radius, shadow, space, ui, type Mood } from '@/shared/theme';
-import { completerColor, needsLabel } from './missionUtils';
+import { completerColor } from './missionUtils';
 import { StatusPill } from './StatusPill';
 import { T } from './T';
-import { CrestRow, MissionTypeIcon, MISSION_TYPE_LABEL } from './teammates';
+import { CrestRow, MissionTypeIcon } from './teammates';
+import { CREW_LABEL, crewOf } from '@/lib/game';
 import { playSfx } from './sfx';
 
 export function MissionCard({ mission, members, mood, locked }: {
@@ -20,13 +21,13 @@ export function MissionCard({ mission, members, mood, locked }: {
 }) {
   const router = useRouter();
   const done = completerColor(mission, members);
-  const needs = needsLabel(mission);
+  const crew = CREW_LABEL[crewOf(mission)]; // G1: label by crew (required_members), not by type
   const crests = mission.status === 'complete' ? mission.completed_by : mission.assignee_ids;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${mission.title}, ${MISSION_TYPE_LABEL[mission.type]}, ${mission.status}`}
+      accessibilityLabel={`${mission.title}, ${crew}, ${mission.status}`}
       disabled={locked}
       onPress={() => {
         Haptics.selectionAsync().catch(() => {}); playSfx('open');
@@ -40,7 +41,7 @@ export function MissionCard({ mission, members, mood, locked }: {
       </View>
       <View style={styles.main}>
         <T variant="smallBold" color={mood?.deep ?? ink.inkSoft} numberOfLines={1}>
-          {MISSION_TYPE_LABEL[mission.type]} · {mission.points} pts{needs ? ` · ${needs}` : ''}
+          {crew} · {mission.points} pts
         </T>
         <T variant="bodyBold" numberOfLines={2} color={locked ? ink.muted : ink.ink}>{locked ? 'A sealed mission' : mission.title}</T>
         {!locked && mission.place ? (

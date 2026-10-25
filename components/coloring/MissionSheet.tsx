@@ -6,7 +6,8 @@ import { regionDef } from '@/shared/templates';
 import { accent, ink, moodFor, panel, radius, scrim, space, ui } from '@/shared/theme';
 import { openInMaps } from '@/lib/maps';
 import type { FellowshipMember, Mission, Page } from '@/shared/types';
-import { MISSION_TYPE_LABEL, MissionTypeIcon } from './MissionTypeIcon';
+import { MissionTypeIcon } from './MissionTypeIcon';
+import { CREW_LABEL, crewOf } from '@/lib/game';
 import { CrestRow } from './Crests';
 import { crayonHex, missionColors } from './pageUtils';
 import { InkButton, Txt } from './ui';
@@ -31,7 +32,7 @@ export function MissionSheet({ mission, page, members, onClose }: { mission: Mis
                 <MissionTypeIcon type={mission.type} size={24} color={mood.deep} />
               </View>
               <Txt v="smallBold" color={mood.deep} style={{ flex: 1 }} numberOfLines={1}>
-                {MISSION_TYPE_LABEL[mission.type]}{region ? ` · ${region.label}` : ''}
+                {CREW_LABEL[crewOf(mission)]}{region ? ` · ${region.label}` : ''}
               </Txt>
             </View>
           </View>

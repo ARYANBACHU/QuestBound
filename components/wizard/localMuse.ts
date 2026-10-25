@@ -61,7 +61,7 @@ export function localMuse(question: string, screen: WizardScreen, ctx: MuseConte
     return { reply: 'Open Friends and tap Invite — a friend scans the QR or types your 6-letter code. Bigger fellowship, bigger feasts.', actions: [{ type: 'navigate', target: 'friends' }] };
   }
   if (/type|explain mission|kinds?/.test(q)) {
-    return { reply: 'Gatherings need everyone. Duets need two. Gifts: one gives, the other confirms. Relics want a photo, Bards want a verse, Trials want an answer.', actions: [] };
+    return { reply: 'Fellowship missions need everyone. Duets need two, trios three. Gifts: one gives, the other confirms. Relics want a photo, Bards want a verse, Trials want an answer.', actions: [] };
   }
   if (/color a region|how do i color|turn|pages? turn/.test(q)) {
     return { reply: 'Finish a mission in real life, submit proof, and the Magic Mirror checks it. Pass, and the region fills with your crayon. Color all six and the page turns.', actions: [{ type: 'navigate', target: 'coloring' }] };
