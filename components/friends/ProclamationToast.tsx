@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
-import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
+import Animated, { Easing, FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SAGE_CREDIT, fonts, ink, panel, radius, shadow, space, type } from '@/shared/theme';
 import type { Message } from '@/shared/types';
@@ -18,6 +18,11 @@ import { Sage } from './sage';
 import { openProclamation } from './ProclamationCard';
 
 const SHOW_MS = 5000;
+
+// Calm, standard motion (V7): a short fade + slide from just above, no spring, no overshoot.
+// Bezier easings run on native and translate to CSS cubic-bezier on web. Reduced motion is respected by default.
+const ENTER = FadeInUp.duration(220).easing(Easing.bezier(0.2, 0, 0, 1));
+const EXIT = FadeOutUp.duration(160).easing(Easing.bezier(0.4, 0, 1, 1));
 
 export default function ProclamationToast() {
   const insets = useSafeAreaInsets();
@@ -76,8 +81,8 @@ export default function ProclamationToast() {
   return (
     <Animated.View
       key={current.id}
-      entering={SlideInUp.springify().damping(16)}
-      exiting={SlideOutUp.duration(180)}
+      entering={ENTER}
+      exiting={EXIT}
       style={[styles.wrap, { top: insets.top + space.sm }]}
       pointerEvents="box-none"
     >
